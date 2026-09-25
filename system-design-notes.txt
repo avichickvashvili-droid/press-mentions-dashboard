@@ -1,0 +1,53 @@
+[sport, car, hightech, 50, 20 , 10] -> google news -> data relevant -> classification
+
+cap relevnt in daily job
+
+
+daily job -> update -> check for duplicates -> remove from the db
+
+
+commands: 
+npm start
+data collection 
+classification
+react
+daily job
+
+
+throghput of data collection and ollama and DB:
+read stream(companies articles) and ollama write to db in chunks
+2 companies at once and instead 1000 GET 200 each second
+manage buffer ? chunks
+
+
+orchastrator of the jobs via rabbit in node?
+and node cron
+
+
+classification -> 
+    RESEARCH
+    check for update models maybe a new one, 
+    check if there is exsisiting benchmarks for similar usecases 
+    benchmarks should run on live data not mock data
+    make sure the benchmarks make sense given the data source we want
+    
+
+
+Data Collection:
+    1. need to solve issue where company names not yielding relevant results
+        1. fix by sorting the data to 12 sections, each section should have its own unique query/querys
+    2. use google news as source for data
+    
+buffer stream system:
+    1.  tell the Data Collection stop when reaching the limit.
+    2.  let the LLM catch up
+    3.  need orchastrator to manage both process
+    4.  QOL make a progress bar visible and by%
+    5.  Data Collection job should run one at a time to avoid OOM
+    
+need to do:
+    1. plan the Daily job
+
+Database: 
+    1. write in chunks
+    

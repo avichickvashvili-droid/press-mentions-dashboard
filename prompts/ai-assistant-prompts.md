@@ -1047,3 +1047,14 @@ also add to the README research area for the LLM when we get there
 ```
 good let commit into devlop
 ```
+
+---
+
+## Prompt 60 — Rename avi.txt, add .gitignore, push
+
+```
+change avi txt to profession name maybe a solo system design solution 
+and you can push, 
+make sure you add gitignore i dont see it 
+with relevent to avoid adding .env and etc
+```

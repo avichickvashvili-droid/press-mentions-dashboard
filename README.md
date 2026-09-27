@@ -47,7 +47,7 @@ Collection (1), classification (3) and the API (5) are separate services, kept a
 | Runtime | Node.js 24 | Required by the brief |
 | Database | SQLite via built-in `node:sqlite` | We need relations between tables, unique rules to block duplicates, and transactions so chunk writes are all-or-nothing. It's a single file with no server and no install |
 | News source | Google News RSS search feed | The only free, structured access to Google's news results |
-| LLM | Ollama (local), model chosen by research ([see below](#llm-research-model-choice-and-validation)) | Required by the brief: a local model for all text understanding |
+| LLM | Ollama (local), model **`qwen3:4b`**, chosen by research ([see below](#llm-research-model-choice-and-validation)) | Required by the brief: a local model for all text understanding |
 | Orchestration | 3 independent services (api, collector, classifier) + our own small supervisor; node-cron starts the daily run | The database already is the queue, so a queue library would add a server (Redis) for nothing. Separate processes mean one crash doesn't affect the others |
 | API | Express | Fastest to build in a time-limited task. *For a production API, Fastify would be the better choice* (built-in validation and logging) |
 | Frontend | React + Vite | List → click → detail view; fast dev server |
@@ -256,7 +256,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
 > - We needed a small local AI model that reads a news headline and answers: "Is this about our company? If yes, is it good, neutral or bad news?"
 > - No published benchmark tests this exact task, so we built our own test: 598 real Google News headlines, run through 4 models that fit on our 8 GB graphics card.
 > - **All testing used REAL DATA.** Every search, every headline and every score here comes from live Google News results fetched on 27 Sep 2026, the same feed the system uses. No mock, synthetic or made-up examples were used anywhere in this research.
-> - **Recommended model: `qwen3:4b`.** It scores 97.7% on both relevance precision and recall, gets sentiment right 82.2% of the time, and would process the first 90 days of news in about 1.8 hours.
+> - **Chosen model: `qwen3:4b`.** It scores 97.7% on both relevance precision and recall, gets sentiment right 82.2% of the time, and would process the first 90 days of news in about 1.8 hours.
 > - Visual summary: [`research/model-test/results-page.html`](research/model-test/results-page.html). All numbers: [`research/model-test/summary.md`](research/model-test/summary.md).
 
 ### Words used in this section
@@ -431,7 +431,7 @@ But that rule only looks at precision and speed. llama3.2:3b:
 
 qwen3:4b is slower (3.06 vs 5.54 articles/s), but it is better on every quality measure: 97.7% precision, 97.7% recall and 82.2% sentiment accuracy. The extra backfill time (about 1.8 h instead of about 1 h) happens once, and daily runs take minutes either way. So we choose by **precision, recall and sentiment together**, not by precision alone.
 
-*Status: the final pick is still pending the project owner's confirmation.*
+*Status: **confirmed.** The project owner chose qwen3:4b on 27 Sep 2026.*
 
 ### 7. Limits and next steps
 

@@ -114,19 +114,27 @@ async function main(args) {
   logFile.setFolder(runFolderName(runId));
   const progress = createProgress({ logFile });
 
-  let db;
+  // The exit handlers and the runner's message channel come FIRST, before the database is opened,
+  // so a stop message or the runner going away is never missed (review G10). `db` is not set yet
+  // at that moment, so closing it must work without it.
+  let db = null;
+  const closeDb = () => {
+    try { db?.close(); } catch { /* already closed */ }
+  };
+  installExitHandlers({ progress, closeDb });
+  // The runner's stop message (or the runner going away) runs our SIGTERM handler above.
+  if (!connectToSupervisor() && typeof process.send === 'function') {
+    // Started with a message channel, but it is already closed: the runner is gone. Nobody could
+    // stop this process or hear it, so it stops at once instead of working alone.
+    progress.info(`Group ${groupNumber}: the group runner is already gone; stopping.`);
+    return EXIT_CODES.STOPPED_BY_REQUEST;
+  }
   try {
     db = openDatabase();
   } catch (error) {
     progress.error(`Group ${groupNumber}: cannot open the database: ${error.message}`);
     return EXIT_CODES.CRASHED;
   }
-  const closeDb = () => {
-    try { db.close(); } catch { /* already closed */ }
-  };
-  installExitHandlers({ progress, closeDb });
-  // The runner's stop message (or the runner going away) runs our SIGTERM handler above.
-  connectToSupervisor();
 
   const group = db.prepare('SELECT status FROM JobRunGroup WHERE run_id = ? AND group_number = ?').get(runId, groupNumber);
   if (!group) {

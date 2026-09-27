@@ -3,14 +3,15 @@
 // (JobRunGroup, JobRunCompany, JobRun) in the same transaction as the insert, while Mention,
 // Company and BufferQueue stay; a resume, a take-over or a --groups re-open deletes nothing; the
 // old log folders go, a stale folder with the new run's name is emptied, and a folder that can't
-// be removed is only reported. Offline; temporary databases and folders only.
+// be removed is only reported; only run-<number> and no-run folders are ever removed (G1, D95).
+// Offline; temporary databases and folders only.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { acquireRun, reopenRunForGroups } from '../src/collector/jobLock.js';
-import { deleteOldRuns, describeCleanup, removeOldLogFolders } from '../src/shared/runCleanup.js';
+import { deleteOldRuns, describeCleanup, isLogRunFolder, removeOldLogFolders } from '../src/shared/runCleanup.js';
 import { TEST_NOW, makeTempDb, makeTempDir } from './helpers.js';
 
 const PID = 1;
@@ -101,7 +102,28 @@ test('D94: old log folders are removed (with no-run/), a stale folder with the n
   assert.deepEqual(result.removed.sort(), ['no-run', 'run-1']);
   assert.deepEqual(result.failed, []);
   assert.deepEqual(fs.readdirSync(logsDir), ['notes.txt'], 'run-2 was stale: emptied (removed; the new run writes it again)');
-  assert.deepEqual(removeOldLogFolders({ keepFolder: 'run-1', logsDir: path.join(logsDir, 'missing') }), { removed: [], failed: [] });
+  assert.deepEqual(removeOldLogFolders({ keepFolder: 'run-1', logsDir: path.join(logsDir, 'missing') }), { removed: [], failed: [], unknown: [] });
+});
+
+test('G1 (D95): only run-<number> and no-run folders are removed; every other folder and file in the logs folder survives', (t) => {
+  const logsDir = makeTempDir(t);
+  // What a wrong LOGS_DIR (e.g. the project folder) could hold, next to real run folders.
+  const others = ['src', '.git', 'node_modules', 'db', 'data', 'run-', 'run-1a', 'Run-3', 'my-run-2', 'no-run-old'];
+  for (const folder of [...others, 'run-1', 'run-22', 'no-run']) {
+    fs.mkdirSync(path.join(logsDir, folder));
+    fs.writeFileSync(path.join(logsDir, folder, 'keep.txt'), 'x');
+  }
+  fs.writeFileSync(path.join(logsDir, 'package.json'), '{}');
+  const result = removeOldLogFolders({ keepFolder: 'run-23', logsDir });
+  assert.deepEqual(result.removed.sort(), ['no-run', 'run-1', 'run-22']);
+  assert.deepEqual(result.unknown.sort(), [...others].sort(), 'the other folders are reported, not removed');
+  assert.deepEqual(fs.readdirSync(logsDir).sort(), [...others, 'package.json'].sort());
+  for (const folder of others) assert.ok(fs.existsSync(path.join(logsDir, folder, 'keep.txt')), `${folder} is untouched`);
+});
+
+test('G1: isLogRunFolder accepts only run-<number> and no-run', () => {
+  for (const name of ['run-1', 'run-250', 'no-run']) assert.equal(isLogRunFolder(name), true, name);
+  for (const name of ['run-', 'run-x', 'run-1 ', 'src', '.git', 'RUN-1', 'no-run2', '..']) assert.equal(isLogRunFolder(name), false, name);
 });
 
 test('D94: a folder that cannot be removed is only reported; the others are still removed', (t) => {

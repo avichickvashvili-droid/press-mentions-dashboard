@@ -9,9 +9,12 @@
 // What is removed:
 //   - the database rows of every other run: JobRunGroup, JobRunCompany, then JobRun (the child
 //     tables first, because they point to JobRun);
-//   - every folder in the logs folder except the new run's: old run-<id> folders and no-run/.
-//     A folder with the new run's name that is already there (left by an earlier database whose
-//     run numbers started at 1 too) is emptied, so the new run's files start clean.
+//   - in the logs folder, ONLY folders named run-<number> (e.g. run-4) and no-run/ (D95, review
+//     G1): the old run folders, and a folder with the new run's name that is already there (left
+//     by an earlier database whose run numbers started at 1 too), so the new run's files start
+//     clean. Anything else in the logs folder (other folders, loose files) is NEVER touched, even
+//     if LOGS_DIR in .env points at a folder that holds other things: such folders are only
+//     listed back, so the caller can warn once.
 // What is kept: Mention, Company and BufferQueue are never touched (the collected articles and
 // mentions stay). At that moment every other run is 'done' (acquireRun refuses a new run while
 // one is 'collected' or held by a live collector, and takes over a dead 'running' one instead of
@@ -31,11 +34,17 @@ export function deleteOldRuns(db, keepRunId) {
   return Number(db.prepare('DELETE FROM JobRun WHERE id <> ?').run(keepRunId).changes);
 }
 
-// Removes every folder in `logsDir` except `keepFolder`, and empties `keepFolder` itself if it is
-// already there (a stale folder with the new run's name). Loose files in `logsDir` are left alone.
-// Never throws. Returns { removed: [folder names], failed: [{ name, error }] }.
+// True for a folder name the clean-up may remove: "run-<number>" or the no-run folder (D95, G1).
+export function isLogRunFolder(name, { noRunFolder = config.LOG_NO_RUN_FOLDER } = {}) {
+  return /^run-\d+$/.test(name) || name === noRunFolder;
+}
+
+// Removes every run folder (run-<number>, no-run/) in `logsDir` except `keepFolder`, and empties
+// `keepFolder` itself if it is already there (a stale folder with the new run's name). Any other
+// folder and every loose file in `logsDir` is left alone and only reported in `unknown` (G1).
+// Never throws. Returns { removed: [folder names], failed: [{ name, error }], unknown: [names] }.
 export function removeOldLogFolders({ keepFolder, logsDir = config.LOGS_DIR, fileSystem = fs }) {
-  const result = { removed: [], failed: [] };
+  const result = { removed: [], failed: [], unknown: [] };
   let entries;
   try {
     entries = fileSystem.readdirSync(logsDir, { withFileTypes: true });
@@ -45,6 +54,10 @@ export function removeOldLogFolders({ keepFolder, logsDir = config.LOGS_DIR, fil
   }
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    if (!isLogRunFolder(entry.name)) {
+      result.unknown.push(entry.name); // not ours: never removed
+      continue;
+    }
     try {
       fileSystem.rmSync(path.join(logsDir, entry.name), { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
       if (entry.name !== keepFolder) result.removed.push(entry.name);

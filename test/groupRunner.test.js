@@ -22,7 +22,7 @@ const SETTINGS = {
   ...config,
   GROUP_RESTART_WAITS_MS: [1, 2, 3, 4, 5],
   STOP_SIGNAL_GRACE_MS: 5,
-  STOP_TIMEOUT_MS: 50,
+  GROUP_STOP_TIMEOUT_MS: 50,
   GROUP_STUCK_AFTER_MS: 60 * 60 * 1000, // tests that check "stuck" set their own value
 };
 
@@ -276,7 +276,7 @@ test('stop: the group process is asked to stop; its 143 is a stop, not a crash; 
   assert.equal(group2.status, 'pending');
 });
 
-test('stop: a group process that ignores the stop request is force-killed after STOP_TIMEOUT_MS', async (t) => {
+test('stop: a group process that ignores the stop request is force-killed after GROUP_STOP_TIMEOUT_MS', async (t) => {
   const { db, runId } = setUpRun(t, { count: 2, groupSize: 2 });
   let killed = false;
   const launcher = makeLauncher(({ onKill }) => { onKill(() => { killed = true; }); });
@@ -297,6 +297,36 @@ test('stop during a restart wait: the same group is not started again', async (t
   await new Promise((resolve) => setTimeout(resolve, 30));
   await runner.stop();
   assert.equal(await running, 'stopped');
+  assert.deepEqual(launcher.starts, [1]);
+});
+
+test('G7: stop() right after run(), before the first group process starts: no group process is ever started', async (t) => {
+  const { db, runId } = setUpRun(t, { count: 2, groupSize: 2 });
+  const launcher = makeLauncher(({ exit }) => exit(0));
+  const { runner } = makeRunner(db, runId, launcher);
+  const running = runner.run(); // it is now waiting for its "group started" write
+  await runner.stop();
+  assert.equal(await running, 'stopped');
+  await new Promise((resolve) => setTimeout(resolve, 50)); // time for a wrongly started process
+  assert.deepEqual(launcher.starts, [], 'nothing was started after the stop');
+});
+
+test('G7: stop() after a crash was recorded but before the restart wait began: no wait, no restart', async (t) => {
+  const { db, runId } = setUpRun(t, { count: 2, groupSize: 2 });
+  let stopped = null;
+  const launcher = makeLauncher(({ exit }) => exit(1));
+  // The "crashed → restarting" system-log line is sent after the crash write and just before the
+  // restart wait: the stop comes exactly then.
+  const runner = createGroupRunner({
+    db, runId, pid: RUNNER_PID, startGroup: launcher.startGroup, clock: makeRecordingClock(),
+    settings: { ...SETTINGS, GROUP_RESTART_WAITS_MS: [60 * 60 * 1000] },
+    log: () => {}, warn: () => {}, sleep: async () => {},
+    event: (text) => { if (/crashed/.test(text)) stopped = runner.stop(); },
+  });
+  const started = Date.now();
+  assert.equal(await runner.run(), 'stopped');
+  await stopped;
+  assert.ok(Date.now() - started < 5000, 'the one-hour restart wait was not waited');
   assert.deepEqual(launcher.starts, [1]);
 });
 

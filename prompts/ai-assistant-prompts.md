@@ -2455,3 +2455,27 @@ give me a tldr what we did since last commit
 good prapre a commit note
 and than send an agent to do a code review only on the cahnges made since last commit
 ```
+
+---
+
+## Prompt 205 — What does "G" mean?
+
+```
+what G mean even
+```
+
+---
+
+## Prompt 206 — Send an agent to fix the G1–G13 review findings
+
+```
+ok send an agent to do the changes
+```
+
+---
+
+## Prompt 207 — Commit the review fixes so far
+
+```
+prapre a commit
+```

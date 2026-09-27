@@ -175,7 +175,40 @@ test('--groups: refused (exit 3) with no run, while the latest run is collected,
   assert.deepEqual([run.status, run.owner_pid], ['running', process.pid], 'nothing changed');
 });
 
-test('D91: the collector dies during --groups 2; the restarted collector with --groups 2 resets group 2 again and finishes the run', async (t) => {
+// Starts the collector with every Google search hanging, waits until a company is 'fetching',
+// then kills the collector (the runner) HARD, as a crash would (no emergency heartbeat). Waits
+// until its group process has stopped too. Returns the group number that was running.
+async function crashCollectorWhileFetching(db, env, args = []) {
+  const child = spawn(process.execPath, ['--import', OFFLINE_COLLECT, RUN_COLLECT, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'], env: { ...env, TEST_FETCH_MODE: 'hang' },
+  });
+  let output = '';
+  child.stdout.on('data', (piece) => { output += piece; });
+  child.stderr.on('data', (piece) => { output += piece; });
+  const exited = new Promise((resolve) => child.on('exit', resolve));
+  try {
+    const deadline = Date.now() + 20000;
+    const fetching = () => {
+      try { return db.prepare("SELECT group_number FROM JobRunCompany WHERE status = 'fetching'").get(); } catch { return undefined; }
+    };
+    let row;
+    while (!(row = fetching())) {
+      if (Date.now() > deadline) assert.fail(`no company started fetching:
+${output}`);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const groupPid = Number(output.match(new RegExp(`Group ${row.group_number}: process (\\d+) started`))[1]);
+    child.kill('SIGKILL');
+    await exited;
+    for (let waited = 0; isProcessAlive(groupPid) && waited < 5000; waited += 50) await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(isProcessAlive(groupPid), false, 'the group process stopped when its runner died');
+    return row.group_number;
+  } finally {
+    if (child.exitCode === null) child.kill('SIGKILL');
+  }
+}
+
+test('D95 (revises D91): the collector dies during --groups 2; the restart with --groups 2 RESUMES group 2, nothing is reset', async (t) => {
   const { db, env, fetches, dir } = setUp(t);
   assert.equal(runCollector(env).status, 0);
   db.prepare("UPDATE JobRun SET status = 'done'").run();
@@ -183,45 +216,47 @@ test('D91: the collector dies during --groups 2; the restarted collector with --
   const queueBefore = db.prepare('SELECT COUNT(*) AS n FROM BufferQueue').get().n;
   fs.rmSync(path.join(dir, 'fetch.log'));
 
-  // First try: the collector hangs on Gamma (group 2) and is killed hard (no emergency heartbeat).
-  const first = spawn(process.execPath, ['--import', OFFLINE_COLLECT, RUN_COLLECT, '--groups', '2'], {
-    stdio: ['ignore', 'pipe', 'pipe', 'ipc'], env: { ...env, TEST_FETCH_MODE: 'hang' },
-  });
-  t.after(() => { if (first.exitCode === null) first.kill('SIGKILL'); });
-  let output = '';
-  first.stdout.on('data', (piece) => { output += piece; });
-  first.stderr.on('data', (piece) => { output += piece; });
-  const exited = new Promise((resolve) => first.on('exit', resolve));
-  const deadline = Date.now() + 20000;
-  const fetching = () => {
-    try { return db.prepare("SELECT 1 FROM JobRunCompany WHERE status = 'fetching'").get(); } catch { return false; }
-  };
-  while (!fetching()) {
-    if (Date.now() > deadline) assert.fail(`group 2 never started fetching:\n${output}`);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  const groupPid = Number(output.match(/Group 2: process (\d+) started/)[1]);
-  first.kill('SIGKILL');
-  await exited;
-  for (let waited = 0; isProcessAlive(groupPid) && waited < 5000; waited += 50) await new Promise((resolve) => setTimeout(resolve, 50));
-  assert.equal(isProcessAlive(groupPid), false, 'the group process stopped when its runner died');
-  const crashed = db.prepare('SELECT status, owner_pid FROM JobRun').get();
-  assert.equal(crashed.status, 'running');
-  db.prepare("UPDATE JobRunGroup SET crashes_in_a_row = 2, last_error = 'exit 1: boom' WHERE group_number = 2").run();
+  // First try: the reopen resets group 2 (the run was done); the collector hangs on Gamma and dies.
+  assert.equal(await crashCollectorWhileFetching(db, env, ['--groups', '2']), 2);
+  assert.equal(db.prepare('SELECT status FROM JobRun').get().status, 'running');
+  // As if Gamma had been finished before the crash (the hanging search never lets it finish).
+  db.prepare("UPDATE JobRunCompany SET status = 'finished' WHERE company_id = (SELECT id FROM Company WHERE name = 'Gamma')").run();
 
   // The restart (as the orchestrator does it: the same command line, --groups 2).
   const result = runCollector(env, ['--groups', '2']);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /its collector had stopped, so those groups start again from the beginning/);
+  assert.match(result.stdout, /Resuming run 1 .*its collector had stopped\. --groups 2 given: nothing is reset; unfinished group\(s\) 2 continue\./);
+  assert.doesNotMatch(result.stdout, /Re-running group/);
+  assert.deepEqual(fetches().map(([, name]) => name), ['Gamma', 'Delta'], 'the hanging Gamma, then only Delta: Gamma was not fetched again');
   const run = db.prepare('SELECT status, owner_pid FROM JobRun').get();
   assert.deepEqual([run.status, run.owner_pid], ['collected', null]);
-  const group2 = db.prepare('SELECT status, crashes_in_a_row, last_error FROM JobRunGroup WHERE group_number = 2').get();
-  assert.deepEqual([group2.status, group2.crashes_in_a_row, group2.last_error], ['complete', 0, null], 'reset, then finished');
-  const statuses = db.prepare("SELECT status FROM JobRunCompany WHERE group_number = 2").all().map((row) => row.status);
-  assert.deepEqual(statuses, ['finished', 'finished']);
-  assert.deepEqual(fetches().map(([, name]) => name), ['Gamma', 'Gamma', 'Delta'], 'group 2 again from its start; no other group');
+  assert.equal(db.prepare('SELECT status FROM JobRunGroup WHERE group_number = 2').get().status, 'complete');
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM BufferQueue').get().n, queueBefore, 'articles collected before stay; duplicates skipped');
   assert.deepEqual({ ...db.prepare('SELECT * FROM JobRunGroup WHERE group_number = 1').get() }, group1Before, 'group 1 untouched');
+});
+
+test('D95: --groups 1 taking over a normal run whose collector died: every unfinished group continues, and the start line says so', async (t) => {
+  const { db, env, dbPath } = setUp(t);
+  assert.equal(await crashCollectorWhileFetching(db, env), 1); // a normal run dies in group 1
+  const result = runCollector(env, ['--groups', '1']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /--groups 1 given: nothing is reset; unfinished group\(s\) 1–3 continue \(also the ones not chosen\)\./);
+  assert.deepEqual(groups(db), [[1, 'complete', 0], [2, 'complete', 0], [3, 'complete', 0]]);
+  const startLine = logLines(dbPath, 'run-1', 'collector.log').find((line) => /Resuming run 1/.test(line));
+  assert.ok(startLine, 'collector.log has the start line too');
+});
+
+test('G12: a crash of the RUNNER itself is not counted against its group (D90): no crash recorded, the group just continues', async (t) => {
+  const { db, env } = setUp(t);
+  assert.equal(await crashCollectorWhileFetching(db, env), 1);
+  const before = db.prepare('SELECT status, crashes_in_a_row, last_error FROM JobRunGroup WHERE group_number = 1').get();
+  assert.deepEqual([before.status, before.crashes_in_a_row, before.last_error], ['in_progress', 0, null]);
+  const result = runCollector(env); // the orchestrator's restart
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Resuming run 1/);
+  const after = db.prepare('SELECT status, crashes_in_a_row, last_error FROM JobRunGroup WHERE group_number = 1').get();
+  assert.deepEqual([after.status, after.crashes_in_a_row, after.last_error], ['complete', 0, null], 'no crash was recorded for group 1');
+  assert.doesNotMatch(result.stdout + result.stderr, /crashed/);
 });
 
 test('--groups 2 on a done run: only group 2 is fetched again, same 90 days, duplicates dropped, other groups untouched', (t) => {

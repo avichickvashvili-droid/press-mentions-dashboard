@@ -95,7 +95,7 @@ The classifier writes the results to **`data/`** after each group, once that gro
 
 The database itself is `db/press-mentions.sqlite` (never committed to git).
 
-**Log files.** Everything important is also written to **`logs/run-<id>/`** (one folder per run, never committed to git), so nothing is lost when the window closes: `orchestrator.log` (the story of the whole run), `collector.log`, one `group-N.log` per group, and `classifier.log`. The terminal output is the same as without them. See [Tracking progress](#tracking-progress).
+**Log files.** Everything important is also written to **`db/logs/run-<id>/`** (next to the database; one folder per run, never committed to git), so nothing is lost when the window closes: `orchestrator.log` (the story of the whole run), `collector.log`, one `group-N.log` per group, and `classifier.log`. The terminal output is the same as without them. See [Tracking progress](#tracking-progress).
 
 **Stopping and resuming.** Press **Ctrl+C** to stop. Each service saves where it was first. Run `npm start` again and it continues with the same group, from its first unfinished company, with no duplicates. The same happens after a crash or a power cut.
 
@@ -106,8 +106,8 @@ The database itself is `db/press-mentions.sqlite` (never committed to git).
 npm start -- --groups 2,5
 ```
 - Allowed when the last run is **`done`** (collected and classified). While a collector is really working on it, or while it is being classified, it is refused: `A run is still in progress (collector or classifier). Try again when it's done.`
-- If the collector of a re-run dies, the orchestrator restarts it with the same `--groups`. The run is still `running` but no live collector holds it any more (the same lock rules as any resume: the owner process is gone, or no heartbeat for 15 minutes), so the chosen groups are **reset and collected again from their start**, and the run then goes on as usual. Articles collected before are kept; repeats are skipped.
-- It also works to **force-restart groups of a run whose collector has died** (any `running` run, not only a re-run): the chosen groups are reset and collected again from their start, and the run's other unfinished groups continue as on a normal resume.
+- If the collector of a re-run dies, the orchestrator restarts it with the same `--groups`. The run is still `running` but no live collector holds it any more (the same lock rules as any resume: the owner process is gone, or no heartbeat for 15 minutes), so the run is taken over and **simply resumed**: nothing is reset, and companies already finished are not searched again (D95). The chosen groups were reset only once, when the `done` run was reopened.
+- On any `running` run whose collector has died (not only a re-run), `--groups` does the same: the run resumes like a plain `npm start`, and **all** its unfinished groups continue, chosen or not. The start line says so, e.g. `--groups 1 given: nothing is reset; unfinished group(s) 1–3 continue (also the ones not chosen)`.
 - Only the chosen groups are searched again, with the **same 90 days** as the original run. Articles already stored are skipped; new ones go through the classifier as usual, and `data/` is written again. The other groups are not touched.
 - A wrong value (`--groups abc`, `--groups 0`, a group the run doesn't have) is refused with a clear message, and nothing is started.
 - Also works with the collector alone: `npm run collect -- --groups 2,5`.
@@ -158,8 +158,8 @@ RUNNING NOW
 
 FAILED COMPANIES
   Company  Group  Error
-  -------  -----  ---------------------------------------
-  Harvey       2  Google answered 400 Bad Request 3 times
+  -------  -----  ------------------------------------------------------------------------
+  Harvey       2  Google rejected the search (HTTP 400 Bad Request), 3 tries 1 min apart
 
 FAILED GROUPS
   None.
@@ -182,7 +182,7 @@ If no run has started yet, it prints `No database yet — start a run with npm s
 
 The database uses WAL mode, so reading it while a run is going is safe: a reader never blocks the collector or the classifier. Always open it **read-only** while a run is going, so nothing can be changed by accident.
 
-**Log files:** each run has its own folder, **`logs/run-<id>/`** (e.g. `logs/run-1/`), in the project folder. It is never committed to git. Every line starts with the date and time (`2026-09-27 14:03:11.482 …`). The files are short on purpose: no progress-line repeats, only what happened.
+**Log files:** each run has its own folder, **`db/logs/run-<id>/`** (e.g. `db/logs/run-1/`): the logs folder sits **next to the database** (`<folder of DB_PATH>/logs`), so a test database set with `DB_PATH` gets its own logs and never touches the real run's logs. It is never committed to git. Every line starts with the date and time (`2026-09-27 14:03:11.482 …`). The files are short on purpose: no progress-line repeats, only what happened.
 
 | File | Written by | What is in it |
 |---|---|---|
@@ -191,13 +191,13 @@ The database uses WAL mode, so reading it while a run is going is safe: a reader
 | `group-1.log`, `group-2.log`, … | each group's process | **One line per finished company** (`Company 5/26 Harvey: finished · 3 windows · 42 new, 7 duplicates · 1 min 12 s`), **every Google error and retry** with its HTTP code and company, failed companies, the group summary |
 | `classifier.log` | the classifier | Start, Ollama ready or not, AI answers that were invalid, each group's `data/` export, the end of the run, and the speed line once every 10 minutes |
 
-The classifier is always on, so its lines go to the latest run's folder (after run 1 is done they stay in `run-1` until run 2 starts). Lines written before any run exists go to `logs/no-run/`. A `--groups` re-run adds to the same run's folder. The files also exist when a service runs alone (`npm run collect`, `npm run classifier`), except `orchestrator.log`, which only `npm start` writes. The folder can be changed with `LOGS_DIR` in `.env`.
+The classifier is always on, so its lines go to the latest run's folder (after run 1 is done they stay in `run-1` until run 2 starts). Lines written before any run exists go to `db/logs/no-run/`. A `--groups` re-run adds to the same run's folder. The files also exist when a service runs alone (`npm run collect`, `npm run classifier`), except `orchestrator.log`, which only `npm start` writes. The folder can be changed with `LOGS_DIR` in `.env` (relative to the project folder).
 
-**Old logs are removed when a new run starts.** Creating a new run deletes every older folder in `logs/` (including `no-run/`), and the older runs' rows in the database (`JobRun`, `JobRunCompany`, `JobRunGroup`). The articles, the mentions and the company list are kept. The new run's line `New run 2: removed 1 old run and its logs` appears in `collector.log` and `orchestrator.log`. Resuming a run or a `--groups` re-run removes nothing: its lines are added to the same folder. A folder that can't be removed (e.g. a file open in another program) gives one warning and is removed at the next new run. **Copy a run's folder elsewhere first if you want to keep it.**
+**Old logs are removed when a new run starts.** Creating a new run deletes the older runs' rows in the database (`JobRun`, `JobRunCompany`, `JobRunGroup`) and every older `run-<id>` folder in the logs folder (and `no-run/`). **Nothing else** in the logs folder is ever deleted: any other folder is left alone, with one warning. The articles, the mentions and the company list are kept. The new run's line `New run 2: removed 1 old run and its logs` appears in `collector.log` and `orchestrator.log`. Resuming a run or a `--groups` re-run removes nothing: its lines are added to the same folder. A folder that can't be removed (e.g. a file open in another program) gives one warning and is removed at the next new run. **Copy a run's folder elsewhere first if you want to keep it.**
 
 To follow a file live, open a second PowerShell window in the project folder:
 ```
-Get-Content logs\run-1\orchestrator.log -Wait -Tail 20
+Get-Content db\logs\run-1\orchestrator.log -Wait -Tail 20
 ```
 If a log file can't be written (e.g. the disk is full), the program shows one warning and keeps working.
 
@@ -409,7 +409,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - the current company and how many are left
   - queue size and LLM rate
   - any retry state (e.g. "Google unreachable, retrying in 60 s · LLM still working: 1,240 in queue")
-- **Log files** (`logs/run-<id>/`): the same events are kept after the window is closed, one file per process and per group, each line with the date and time, and `orchestrator.log` tells the whole run in a few lines. This is where Google's errors are studied after a real run.
+- **Log files** (`db/logs/run-<id>/`): the same events are kept after the window is closed, one file per process and per group, each line with the date and time, and `orchestrator.log` tells the whole run in a few lines. This is where Google's errors are studied after a real run.
 
 ### 14. Keeping "N days ago" correct
 - **Problem:** a stored "3 days ago" is wrong tomorrow.

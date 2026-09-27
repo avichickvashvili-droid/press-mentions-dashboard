@@ -146,7 +146,10 @@ test('parseFeed throws BrokenFeedError (not a permanent error) for broken XML', 
   assert.throws(() => parseFeed(readFixture('broken.xml')), (error) => error instanceof BrokenFeedError && !(error instanceof PermanentFetchError));
 });
 
-test('D85: three 400s, 1 minute apart -> PermanentFetchError with the reason; every try is reported', async () => {
+// The first 2 tries are reported through onRetry (each is followed by a 1-minute wait); the 3rd
+// is not a retry: it becomes the PermanentFetchError, which companyLoop reports as the company's
+// error (see runGroup.test.js / runCollect.test.js).
+test('D85: three 400s, 1 minute apart -> PermanentFetchError with the reason; the 2 retries (not the last try) go to onRetry', async () => {
   const { client, fetchImpl, retries } = clientWithAnswers([{ status: 400 }]);
   await assert.rejects(client.search('q', { companyName: 'Acme Bio' }),
     (error) => error instanceof PermanentFetchError && error.message === 'Google rejected the search (HTTP 400), 3 tries 1 min apart');

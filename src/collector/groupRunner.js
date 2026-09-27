@@ -29,8 +29,9 @@
 // restarts the runner, it simply starts the 'in_progress' group again.
 //
 // Stopping (Ctrl+C, SIGTERM or the orchestrator's stop message): the group process is asked to
-// stop, given STOP_TIMEOUT_MS (10 s), and force-killed only if it is still running (D70). The
-// caller then writes the runner's emergency heartbeat.
+// stop, given GROUP_STOP_TIMEOUT_MS (6 s), and force-killed only if it is still running (D70). The
+// caller then writes the runner's emergency heartbeat, all inside the orchestrator's own 10 s
+// stop limit (STOP_TIMEOUT_MS; review G6).
 //
 // System log (orchestrator.log, D93): the runner calls `event(text)` for the story of the run,
 // e.g. "Starting group 1 of 10 (companies 1–26)", "Group 2 done (26/26 finished) → starting
@@ -237,7 +238,7 @@ export function buildEndLog(db, runId) {
 //   run()  -> runs groups until none is left and resolves 'done', or resolves 'stopped' after
 //             stop(); throws LostOwnershipError (another process owns the run) or
 //             GroupRefusedError (a group process refused although we own the run).
-//   stop() -> asks the current group process to stop (force-kill after STOP_TIMEOUT_MS) and
+//   stop() -> asks the current group process to stop (force-kill after GROUP_STOP_TIMEOUT_MS) and
 //             resolves once it has ended; no new group starts after it.
 export function createGroupRunner({
   db,
@@ -255,8 +256,10 @@ export function createGroupRunner({
   let current = null;       // { handle, ended: Promise } of the running group process
   let wakeUp = null;        // ends a restart wait early when stop() is called
 
-  // Waits `ms` (the restart wait), or less if stop() is called meanwhile.
+  // Waits `ms` (the restart wait), or less if stop() is called meanwhile. Returns at once if
+  // stop() was already called (review G7).
   function waitUnlessStopped(ms) {
+    if (stopping) return Promise.resolve();
     return new Promise((resolve) => {
       const timer = clock.setTimeout(() => { wakeUp = null; resolve(); }, ms);
       wakeUp = () => { clock.clearTimeout(timer); wakeUp = null; resolve(); };
@@ -354,6 +357,12 @@ export function createGroupRunner({
       const { groupNumber } = next;
 
       await markGroupStarted(db, runId, groupNumber, writeOptions);
+      // stop() may have been called while we waited for that write: then no group process is
+      // started at all, because nobody would ever ask it to stop (review G7).
+      if (stopping) {
+        flushEnded();
+        return 'stopped';
+      }
       log(`${describeGroupProgress(db, runId, groupNumber)} · starting its process.`);
       if (groupNumber !== lastStartedGroup) {
         const place = groupPositions(db, runId).get(groupNumber) ?? { first: 0, last: 0 };
@@ -393,11 +402,12 @@ export function createGroupRunner({
       warn(`Group ${groupNumber}'s process crashed (${end.reason}); ${crashesInARow} crash(es) in a row` +
         `${progressMade ? ' (it made progress first)' : ''}. Starting it again in ${formatWait(waitMs)}; it continues from its unfinished companies.`);
       await waitUnlessStopped(waitMs);
+      // (a stop during the wait, or during the crash write before it, is seen at the top of the loop)
     }
   }
 
   // Stops the runner: no new group starts, the current group process is asked to stop and, if it
-  // is still running after STOP_TIMEOUT_MS, force-killed. Resolves once it has ended.
+  // is still running after GROUP_STOP_TIMEOUT_MS, force-killed. Resolves once it has ended.
   async function stop() {
     stopping = true;
     if (wakeUp) wakeUp();
@@ -407,11 +417,11 @@ export function createGroupRunner({
     let timer = null;
     const timedOut = await Promise.race([
       running.ended.then(() => false),
-      new Promise((resolve) => { timer = clock.setTimeout(() => resolve(true), settings.STOP_TIMEOUT_MS); }),
+      new Promise((resolve) => { timer = clock.setTimeout(() => resolve(true), settings.GROUP_STOP_TIMEOUT_MS); }),
     ]);
     clock.clearTimeout(timer);
     if (timedOut) {
-      warn(`The group process is still running after ${formatWait(settings.STOP_TIMEOUT_MS)}; it is force-killed.`);
+      warn(`The group process is still running after ${formatWait(settings.GROUP_STOP_TIMEOUT_MS)}; it is force-killed.`);
       running.handle.forceKill();
       await running.ended;
     }

@@ -141,9 +141,9 @@ What to do: see section 4.
 
 ### C. Where are the logs
 
-Everything that shows in the `npm start` window is also saved in files, so nothing is lost when the window closes. They are in the project folder:
+Everything that shows in the `npm start` window is also saved in files, so nothing is lost when the window closes. They are **next to the database**, in the `db` folder of the project:
 ```
-logs\run-1\          ← one folder per run (run-1, run-2, …)
+db\logs\run-1\       ← one folder per run (run-1, run-2, …)
   orchestrator.log   ← the story of the whole run: START HERE
   collector.log      ← the collector: groups started / complete / crashed / failed, the end log
   group-1.log        ← group 1: one line per finished company, every Google error and retry
@@ -154,17 +154,18 @@ logs\run-1\          ← one folder per run (run-1, run-2, …)
 - The files are short on purpose: what happened, not the moving progress line.
 - `orchestrator.log` tells the run in a few lines: services started or restarted, each group done or failed, `Queue full …` / `Queue has room again …`, one line when Google problems start and one when Google answers again, failed companies, Ollama not ready / back, `data/` written, `Run 1 done`.
 - **Google errors to analyze after a run:** `group-N.log` (search for `Google error`), and the start / end lines in `orchestrator.log`.
-- Lines from before any run existed are in `logs\no-run\`. A `--groups` re-run adds to the same run's folder. The `logs` folder is never committed to git.
-- **A new run deletes the old logs**: every older folder in `logs\` (and `no-run\`), plus the older runs' records in the database. Articles and mentions are kept. Resuming or `--groups` deletes nothing. **To keep an old run's logs, copy its folder somewhere else before starting a new run.**
+- Lines from before any run existed are in `db\logs\no-run\`. A `--groups` re-run adds to the same run's folder. The logs are never committed to git.
+- A test database (set with `DB_PATH` in `.env`) gets its own `logs` folder next to it, so it never touches the real run's logs. `LOGS_DIR` in `.env` can put the logs somewhere else.
+- **A new run deletes the old logs**: every older `run-N` folder (and `no-run`) in `db\logs\`, plus the older runs' records in the database. Nothing else in that folder is ever deleted. Articles and mentions are kept. Resuming or `--groups` deletes nothing. **To keep an old run's logs, copy its folder somewhere else before starting a new run.**
 
 **Open a file:** double-click it (Notepad), or in PowerShell:
 ```
-Get-Content logs\run-1\orchestrator.log
+Get-Content db\logs\run-1\orchestrator.log
 ```
 **Follow it live** while the run is going (a second PowerShell window; stop with Ctrl+C, this does not stop the run):
 ```
-Get-Content logs\run-1\orchestrator.log -Wait -Tail 20
-Get-Content logs\run-1\group-3.log -Wait -Tail 20
+Get-Content db\logs\run-1\orchestrator.log -Wait -Tail 20
+Get-Content db\logs\run-1\group-3.log -Wait -Tail 20
 ```
 
 ---
@@ -179,7 +180,7 @@ npm start -- --groups 2,5
 ```
 - Searches only those groups again, same 90 days. Articles already stored are skipped.
 - Use it when the run is **`done`** (check with `npm run progress`).
-- It also works to **force-restart groups of a run whose collector has died** (the run still says `running`, but no collector is working on it). The chosen groups start again from their beginning. The run's other unfinished groups carry on as usual.
+- On a run whose collector has died (the run still says `running`, but no collector is working on it), `--groups` does **not** start groups over: the run simply continues where it stopped, with all its unfinished groups, like a plain `npm start`. The start line says so.
 - Find the group number in `FAILED COMPANIES` / `FAILED GROUPS` of `npm run progress`, or queries 2.4 and 3.3.
 
 | What you see | What it means | What to do |
@@ -196,7 +197,7 @@ npm start -- --groups 2,5
 | `Ollama unavailable, retry in 30 s` or `Ollama is not reachable …` | Ollama isn't running. Nothing is lost: articles wait in the queue | Start the Ollama app. The classifier picks up by itself |
 | `… is the model pulled? Run: ollama pull qwen3:4b` | The model isn't downloaded | Run `ollama pull qwen3:4b`. The classifier picks up by itself |
 | AI `failed` count in `RUN`, or articles in query 4.2 | The AI couldn't give a valid answer for those articles after 3 tries. They are set aside and don't block the run | Nothing to do for a few. If there are many, check Ollama is running and the model is `qwen3:4b` |
-| The collector crashed during a `--groups` re-run | It is restarted by itself, and the chosen groups are reset and searched again | Nothing. Only if the orchestrator **gave up** on the collector: Ctrl+C, then run the **same** command again, e.g. `npm start -- --groups 2,5`. It resets and retries those groups |
+| The collector crashed during a `--groups` re-run | It is restarted by itself and continues where it stopped (companies already finished are not searched again) | Nothing. Only if the orchestrator **gave up** on the collector: Ctrl+C, then run the **same** command again, e.g. `npm start -- --groups 2,5`. It continues where it stopped |
 
 ---
 

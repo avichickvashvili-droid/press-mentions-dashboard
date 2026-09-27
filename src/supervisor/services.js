@@ -16,7 +16,9 @@
 //
 // `npm start -- --groups 2,5` (D87): servicesFor({ groups: [2, 5] }) gives the same list, but the
 // collector gets `--groups 2,5` and is started even though the collection is complete (the only
-// change to D67). Every restart of the collector gets the same words.
+// change to D67). Every restart of the collector gets the same words; such a restart takes the
+// run over and simply resumes it: the chosen groups are reset only once, when the 'done' run is
+// first reopened (D95, revises D91).
 
 import { checkCollectionNeeded } from './collectionCheck.js';
 

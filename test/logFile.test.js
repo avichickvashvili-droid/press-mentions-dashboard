@@ -1,4 +1,5 @@
-// logFile.test.js — tests for the log file writer (src/shared/logFile.js, D92).
+// logFile.test.js — tests for the log file writer (src/shared/logFile.js, D92), and where the logs
+// folder is (next to the database by default, G5 / D95).
 //
 // Each test writes into a temporary logs folder (deleted after the test) with a fixed clock.
 // No real logs folder is touched.
@@ -7,6 +8,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { makeTempDir } from './helpers.js';
 import { createLogFile, formatLogTime, runFolderName } from '../src/shared/logFile.js';
 
@@ -121,4 +124,31 @@ test('a broken terminal and a broken clock do not throw either', (t) => {
   const brokenFs = { mkdirSync: () => { throw new Error('no access'); }, appendFileSync: () => {} };
   const log = createLogFile('x.log', { logsDir, now: () => { throw new Error('clock'); }, warnOut: brokenTerminal, fileSystem: brokenFs });
   assert.doesNotThrow(() => { log.write('held'); log.setFolder('run-1'); log.write('line'); });
+});
+
+// ---------- Where the logs folder is (G5, D95) ----------
+
+// Starts a tiny Node program that loads src/config.js with the given DB_PATH / LOGS_DIR and prints
+// LOGS_DIR. Only the settings are read: no database or file is opened.
+function logsDirWith(env) {
+  const configUrl = new URL('../src/config.js', import.meta.url).href;
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.DB_PATH;
+  delete cleanEnv.LOGS_DIR;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `import { config } from '${configUrl}'; console.log(JSON.stringify([config.DB_PATH, config.LOGS_DIR]));`], {
+    encoding: 'utf8', env: { ...cleanEnv, ...env },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+test('G5: the logs folder is next to the database by default, and LOGS_DIR still overrides it', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const [realDb, realLogs] = logsDirWith({});
+  assert.equal(realDb, path.join(root, 'db', 'press-mentions.sqlite'));
+  assert.equal(realLogs, path.join(root, 'db', 'logs'), 'the real database -> db/logs (db/logs/run-1/)');
+  const [, testLogs] = logsDirWith({ DB_PATH: 'tmp/try/test.sqlite' });
+  assert.equal(testLogs, path.join(root, 'tmp', 'try', 'logs'), 'a test database gets its own logs folder');
+  const [, chosen] = logsDirWith({ DB_PATH: 'tmp/try/test.sqlite', LOGS_DIR: 'somewhere/logs' });
+  assert.equal(chosen, path.join(root, 'somewhere', 'logs'));
 });

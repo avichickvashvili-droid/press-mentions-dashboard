@@ -1,4 +1,5 @@
-// logFile.js — writes one process's log file: logs/run-<id>/<name>.log (D92).
+// logFile.js — writes one process's log file: <logs folder>/run-<id>/<name>.log (D92). The logs
+// folder is config.LOGS_DIR: by default next to the database (db/logs/run-1/, D95).
 //
 // Where it sits: each process (orchestrator, collector runner, group process, classifier) creates
 // one log file with createLogFile() and writes its lines to it, next to what it already prints on

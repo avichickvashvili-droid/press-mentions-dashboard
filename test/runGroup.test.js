@@ -226,6 +226,18 @@ test('group program: sends "still alive" messages to the runner: fetching before
   assert.ok(messages.every((message) => message.type === 'alive' && message.state === 'fetching'));
 });
 
+test('G10: a group process whose runner goes away while it is starting stops (143) and collects nothing', async (t) => {
+  const { db, dbPath, runId } = setUpProgramRun(t);
+  // Every search hangs, so the only way out is noticing that the runner is gone.
+  const { child, exited } = startGroupProgram(dbPath, [runId, 1, process.pid], { TEST_FETCH_MODE: 'hang' });
+  t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
+  child.disconnect(); // the runner goes away before the group process has even loaded
+  const { code, output } = await exited;
+  assert.equal(code, 143, output);
+  assert.deepEqual(articlesPerCompany(db), {});
+  assert.notEqual(statuses(db, runId).alpha, 'finished');
+});
+
 test('group program: exits 1 on wrong arguments or a group that does not exist', (t) => {
   const { dbPath, runId } = setUpProgramRun(t);
   for (const args of [[], [runId, 1], [runId, 'abc', process.pid], [runId, 0, process.pid]]) {

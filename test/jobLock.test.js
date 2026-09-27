@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../src/config.js';
 import {
-  CollectedRunPendingError, LockHeldError, acquireRun, reopenRunForGroups, startHeartbeat, writeHeartbeat,
+  CollectedRunPendingError, LockHeldError, acquireRun, installEmergencyHandlers, reopenRunForGroups, startHeartbeat, writeHeartbeat,
 } from '../src/collector/jobLock.js';
 import { findLiveRun, isProcessAlive, writeEmergencyHeartbeat } from '../src/shared/runLock.js';
 import { TEST_NOW, makeTempDb } from './helpers.js';
@@ -173,6 +173,29 @@ test('emergency heartbeat: writes crashed_at + last_error, releases owner_pid, r
   assert.equal(acquireRun(db, ['a'], { now: TEST_NOW, pid: 2, isAlive: alwaysAlive }).tookOver, true);
 });
 
+test('G7: a Ctrl+C and a stop message together: beforeStop runs once, the FIRST stop decides the exit code', async (t) => {
+  const { db } = makeTempDb(t);
+  addCompanies(db);
+  const { runId } = acquireRun(db, ['a'], { now: TEST_NOW, pid: 1 });
+  let beforeStopCalls = 0;
+  let release;
+  const exits = [];
+  const handlers = installEmergencyHandlers(db, runId, {
+    pid: 1,
+    log: () => {},
+    exit: (code) => exits.push(code),
+    beforeStop: () => { beforeStopCalls += 1; return new Promise((resolve) => { release = resolve; }); },
+  });
+  t.after(() => handlers.uninstall());
+  process.emit('SIGINT', 'SIGINT');   // Ctrl+C first: its beforeStop is still running ...
+  process.emit('SIGTERM', 'SIGTERM'); // ... when the orchestrator's stop message arrives
+  release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(beforeStopCalls, 1);
+  assert.deepEqual(exits, [130], 'the Ctrl+C code, not 143');
+  assert.match(jobRun(db, runId).last_error, /Ctrl\+C/);
+});
+
 for (const mode of ['throw', 'reject']) {
   test(`emergency heartbeat in a real process: ${mode === 'throw' ? 'uncaught error' : 'unhandled rejection'}`, (t) => {
     const { db, dbPath } = makeTempDb(t);
@@ -186,22 +209,24 @@ for (const mode of ['throw', 'reject']) {
   });
 }
 
-test('D91: --groups on a running run: refused while its collector is live; taken over (chosen groups reset) when the owner is dead or the heartbeat is stale', (t) => {
+test('D91/D95: --groups on a running run: refused while its collector is live; taken over and RESUMED (nothing reset) when the owner is dead or the heartbeat is stale', (t) => {
   const { db } = makeTempDb(t);
   addCompanies(db);
   const runId = runOwnedByOther(db, { ageMs: 60000 });
+  db.prepare("UPDATE JobRunCompany SET status = 'finished' WHERE company_id = 'b'").run();
   db.prepare("UPDATE JobRunCompany SET status = 'fetching' WHERE company_id = 'a'").run();
   db.prepare("UPDATE JobRunGroup SET status = 'in_progress', crashes_in_a_row = 3, last_error = 'x' WHERE run_id = ?").run(runId);
   assert.throws(() => reopenRunForGroups(db, [1], { now: TEST_NOW, pid: 1, isAlive: alwaysAlive }), /A run is still in progress/);
   assert.equal(jobRun(db, runId).owner_pid, OTHER_PID, 'nothing changed');
 
   const stale = TEST_NOW + config.STALE_AFTER_MS + 1000;
-  const reopened = reopenRunForGroups(db, [1], { now: stale, pid: 1, isAlive: alwaysAlive });
-  assert.deepEqual([reopened.runId, reopened.tookOver], [runId, true]);
+  const resumed = reopenRunForGroups(db, [1], { now: stale, pid: 1, isAlive: alwaysAlive });
+  assert.deepEqual([resumed.runId, resumed.tookOver, resumed.reopened], [runId, true, false]);
   assert.equal(jobRun(db, runId).owner_pid, 1);
   const group = db.prepare('SELECT status, crashes_in_a_row, last_error FROM JobRunGroup WHERE run_id = ?').get(runId);
-  assert.deepEqual([group.status, group.crashes_in_a_row, group.last_error], ['pending', 0, null]);
-  assert.ok(db.prepare('SELECT status FROM JobRunCompany WHERE run_id = ?').all(runId).every((row) => row.status === 'not_started'));
+  assert.deepEqual([group.status, group.crashes_in_a_row, group.last_error], ['in_progress', 3, 'x'], 'the group is not reset (D95)');
+  const statuses = Object.fromEntries(db.prepare('SELECT company_id, status FROM JobRunCompany WHERE run_id = ?').all(runId).map((row) => [row.company_id, row.status]));
+  assert.deepEqual(statuses, { a: 'not_started', b: 'finished', c: 'not_started' }, 'the finished company stays finished; only the fetching one is redone');
 
   db.prepare('UPDATE JobRun SET owner_pid = ? WHERE id = ?').run(OTHER_PID, runId);
   assert.equal(reopenRunForGroups(db, [1], { now: TEST_NOW, pid: 2, isAlive: () => false }).tookOver, true, 'a dead owner: taken over at once');

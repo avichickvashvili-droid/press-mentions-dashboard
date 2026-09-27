@@ -28,8 +28,8 @@
 // D55) and only the chosen groups are set back to 'pending' with their companies 'not_started'
 // (reopenRunForGroups). When the latest run is 'running' but its lock is free by the usual rules
 // (owner gone, released, or heartbeat stale; e.g. the collector of a --groups re-run crashed and
-// the orchestrator restarts it), the run is taken over and the chosen groups are reset again the
-// same way (D91). Refused while a live collector holds the run, or while it is 'collected'.
+// the orchestrator restarts it), the run is taken over and simply resumed: nothing is reset
+// (D95, revises D91). Refused while a live collector holds the run, or while it is 'collected'.
 // The collector never sets a run to 'failed'.
 // A NEW run removes the old runs (D93, D94): in the same transaction as the insert, every other
 // run's JobRunGroup, JobRunCompany and JobRun rows are deleted (src/shared/runCleanup.js).
@@ -150,19 +150,24 @@ export function acquireRun(db, companyIdsInOrder, {
   });
 }
 
-// Reopens the latest run to collect the chosen groups again (`--groups`, D87, D91), in ONE transaction:
+// Reopens the latest run to collect the chosen groups again (`--groups`, D87, D91, D95), in ONE
+// transaction:
 //   - the latest run must be 'done', or 'running' with a free lock (isRunLive false: the owner
 //     is gone, released or silent for 15 min; a take-over, D91); otherwise GroupsRequestError
-//     (nothing is changed). On a take-over, the run's 'fetching' companies go back to
-//     'not_started', as in any take-over;
+//     (nothing is changed);
 //   - every chosen group must exist in that run; otherwise GroupsRequestError;
 //   - the run becomes 'running', owned by `pid`, with a fresh heartbeat; finished_at is cleared
 //     (it is set again when the run is 'collected'); started_at is NOT changed, so the 90-day
 //     window stays the same (D55); the classifier counters keep adding up (D90);
-//   - each chosen group: 'pending', crashes_in_a_row 0, exported_at / started_at / finished_at /
-//     last_error cleared; its companies go back to 'not_started' with no error.
-// Groups that were not chosen are not touched.
-// Returns { runId, startedAt, groupCount, tookOver } (tookOver = the run was 'running' and taken over).
+//   - ONLY when the run was 'done' (the first reopen): each chosen group becomes 'pending',
+//     crashes_in_a_row 0, exported_at / started_at / finished_at / last_error cleared, and its
+//     companies go back to 'not_started' with no error. Groups that were not chosen are not touched;
+//   - on a take-over of a 'running' run (e.g. the orchestrator restarts a --groups collector that
+//     crashed) NOTHING is reset (D95, revises D91): the run simply resumes like any take-over (its
+//     'fetching' companies go back to 'not_started'), and every unfinished group ('pending' or
+//     'in_progress') continues, chosen or not. So a crash never makes finished work start over.
+// Returns { runId, startedAt, groupCount, tookOver, reopened } (tookOver = the run was 'running'
+// and taken over; reopened = the run was 'done' and the chosen groups were reset).
 export function reopenRunForGroups(db, groupNumbers, { pid = process.pid, now = Date.now(), isAlive = isProcessAlive } = {}) {
   return inTransaction(db, () => {
     const latest = db.prepare('SELECT * FROM JobRun ORDER BY id DESC LIMIT 1').get();
@@ -177,7 +182,12 @@ export function reopenRunForGroups(db, groupNumbers, { pid = process.pid, now = 
     const nowText = new Date(now).toISOString();
     db.prepare("UPDATE JobRun SET status = 'running', owner_pid = ?, last_heartbeat = ?, finished_at = NULL WHERE id = ?")
       .run(pid, nowText, latest.id);
-    if (tookOver) db.prepare("UPDATE JobRunCompany SET status = 'not_started' WHERE run_id = ? AND status = 'fetching'").run(latest.id);
+    if (tookOver) {
+      // A restart after a crash (D95, revises D91): resume like any take-over, reset nothing. The
+      // chosen groups were already set back to 'pending' when the 'done' run was reopened.
+      db.prepare("UPDATE JobRunCompany SET status = 'not_started' WHERE run_id = ? AND status = 'fetching'").run(latest.id);
+      return { runId: latest.id, startedAt: latest.started_at, groupCount: existing.size, tookOver, reopened: false };
+    }
     const resetGroup = db.prepare(`UPDATE JobRunGroup SET status = 'pending', crashes_in_a_row = 0, exported_at = NULL,
                                    started_at = NULL, finished_at = NULL, last_error = NULL
                                    WHERE run_id = ? AND group_number = ?`);
@@ -186,7 +196,7 @@ export function reopenRunForGroups(db, groupNumbers, { pid = process.pid, now = 
       resetGroup.run(latest.id, number);
       resetCompanies.run(latest.id, number);
     }
-    return { runId: latest.id, startedAt: latest.started_at, groupCount: existing.size, tookOver };
+    return { runId: latest.id, startedAt: latest.started_at, groupCount: existing.size, tookOver, reopened: true };
   });
 }
 
@@ -243,10 +253,14 @@ export function installEmergencyHandlers(db, runId, {
   pid = process.pid, log = console.error, exit = (code) => process.exit(code), beforeStop = null,
 } = {}) {
   let alreadyHandled = false;
+  let stopStarted = false; // a stop is already on its way (its beforeStop may still be running)
 
-  // On Ctrl+C / SIGTERM: runs beforeStop (if any), then the normal stop below.
+  // On Ctrl+C / SIGTERM: runs beforeStop (if any), then the normal stop below. Only the FIRST stop
+  // counts: a Ctrl+C and the orchestrator's stop message often arrive together, and the second
+  // must not run beforeStop again or change the exit code (review G7).
   async function stopAfterCleanUp(reason, exitCode) {
-    if (alreadyHandled) return;
+    if (alreadyHandled || stopStarted) return;
+    stopStarted = true;
     if (beforeStop) {
       try {
         await beforeStop();

@@ -55,27 +55,36 @@ export function markRunDone(db, runId, { pid = process.pid, now = new Date().toI
   });
 }
 
-// The first group that is ready for its after-group export (D86), or undefined: its run is
-// 'running', the group ended ('complete' or 'failed'), it has no exported_at, and none of its
-// companies has an article left to classify (pending, failed with attempts left, or claimed).
-// Returns { runId, groupNumber }. Read-only.
-export function findGroupToExport(db, { maxAttempts = config.MAX_ATTEMPTS } = {}) {
-  const row = db.prepare(`
-    SELECT g.run_id, g.group_number FROM JobRunGroup g JOIN JobRun r ON r.id = g.run_id
+// Every group that is ready for its after-group export (D86), in order: its run is 'running', the
+// group ended ('complete' or 'failed'), it has no exported_at, and none of its companies has an
+// article left to classify (pending, failed with attempts left, or claimed).
+// Returns [{ runId, groupNumber, finishedAt }]. Read-only.
+export function findGroupsToExport(db, { maxAttempts = config.MAX_ATTEMPTS } = {}) {
+  return db.prepare(`
+    SELECT g.run_id, g.group_number, g.finished_at FROM JobRunGroup g JOIN JobRun r ON r.id = g.run_id
     WHERE r.status = 'running' AND g.status IN ('complete', 'failed') AND g.exported_at IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM BufferQueue b JOIN JobRunCompany c ON c.company_id = b.company_id
         WHERE c.run_id = g.run_id AND c.group_number = g.group_number
           AND (b.status = 'pending' OR (b.status = 'failed' AND b.attempts < ?) OR b.claimed_at IS NOT NULL))
-    ORDER BY g.run_id, g.group_number LIMIT 1`).get(maxAttempts);
-  return row ? { runId: row.run_id, groupNumber: row.group_number } : undefined;
+    ORDER BY g.run_id, g.group_number`).all(maxAttempts)
+    .map((row) => ({ runId: row.run_id, groupNumber: row.group_number, finishedAt: row.finished_at }));
+}
+
+// The first group that is ready for its after-group export (see findGroupsToExport), or undefined.
+export function findGroupToExport(db, options = {}) {
+  return findGroupsToExport(db, options)[0];
 }
 
 // The after-group export (D86) of one group: moves the group's leftover relevant rows to
 // Mention, writes data/ (the full snapshot so far), then sets the group's exported_at. Throws if
 // writing data/ fails (exported_at stays NULL, so it is tried again on a later pass).
-// Returns { moved, files }.
-export async function exportGroup(db, { runId, groupNumber }, {
+// exported_at is only set if the group is STILL the one that was found ready: still 'complete' or
+// 'failed' and, when `finishedAt` is given, with the same finished_at. Writing the files takes a
+// moment; if meanwhile a `--groups` re-run set the group back to 'pending' (or it already ended
+// again), the mark is not set, so the group is exported again after its re-run (review G8).
+// Returns { moved, files, marked } (marked = exported_at was set).
+export async function exportGroup(db, { runId, groupNumber, finishedAt }, {
   now = Date.now(), dataDir, companyListFile = config.COMPANY_LIST_FILE, writeOptions = {},
 } = {}) {
   const moveResult = moveAllRelevantRows(db, { group: { runId, groupNumber } });
@@ -85,9 +94,11 @@ export async function exportGroup(db, { runId, groupNumber }, {
     buildExport(db, { run, now, companyNames, exportingGroup: groupNumber }),
     { ...(dataDir ? { dataDir } : {}), ...writeOptions },
   );
-  inTransaction(db, () => db.prepare('UPDATE JobRunGroup SET exported_at = ? WHERE run_id = ? AND group_number = ? AND exported_at IS NULL')
-    .run(new Date(now).toISOString(), runId, groupNumber));
-  return { moved: moveResult.moved, files };
+  const marked = inTransaction(db, () => db.prepare(`UPDATE JobRunGroup SET exported_at = ?
+      WHERE run_id = ? AND group_number = ? AND exported_at IS NULL AND status IN ('complete', 'failed')
+        AND (? = 0 OR finished_at IS ?)`)
+    .run(new Date(now).toISOString(), runId, groupNumber, finishedAt === undefined ? 0 : 1, finishedAt ?? null).changes === 1);
+  return { moved: moveResult.moved, files, marked };
 }
 
 // Steps 2–4 for a run this process already holds. Throws if a step fails (the run stays 'collected').

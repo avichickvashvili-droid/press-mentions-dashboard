@@ -32,7 +32,8 @@ data/*.tmp
 # Test coverage
 coverage/
 
-# Logs
+# Logs (the default logs folder is db/logs/, next to the database; "logs/" matches it and any
+# other folder named logs)
 logs/
 *.log
 npm-debug.log*

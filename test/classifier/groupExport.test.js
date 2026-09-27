@@ -58,10 +58,10 @@ test('a group is ready for export only once it has ended and none of its article
   db.prepare("UPDATE BufferQueue SET status = 'relevant', sentiment = 'positive', claimed_at = 'x' WHERE id = ?").run(pendingId);
   assert.equal(findGroupToExport(db), undefined, 'a claimed article is still being worked on');
   db.prepare('UPDATE BufferQueue SET claimed_at = NULL WHERE id = ?').run(pendingId);
-  assert.deepEqual(findGroupToExport(db), { runId, groupNumber: 1 });
+  assert.deepEqual(findGroupToExport(db), { runId, groupNumber: 1, finishedAt: null });
 
   setGroup(db, runId, 1, 'failed');
-  assert.deepEqual(findGroupToExport(db), { runId, groupNumber: 1 }, 'a failed group is exported too');
+  assert.deepEqual(findGroupToExport(db), { runId, groupNumber: 1, finishedAt: null }, 'a failed group is exported too');
   db.prepare("UPDATE JobRun SET status = 'collected'").run();
   assert.equal(findGroupToExport(db), undefined, 'once the run is collected, the end-of-run export takes over');
 });
@@ -135,4 +135,60 @@ test('the end-of-run export covers every group: run.json groups.exported = total
   assert.equal(runFile.finishedAt, new Date(NOW).toISOString());
   const rows = db.prepare('SELECT group_number, exported_at FROM JobRunGroup ORDER BY group_number').all().map((row) => [row.group_number, row.exported_at]);
   assert.deepEqual(rows, [[1, '2026-09-27T08:00:00.000Z'], [2, new Date(NOW).toISOString()]], 'the earlier export time is kept');
+});
+
+test('G2: a failing after-group export never fails the pass: classifying goes on, ONE warning, the group is tried again only after 5 min', async (t) => {
+  const { db, runId, dataDir, companyListFile } = setup(t);
+  setGroup(db, runId, 1, 'complete'); // group 1 is ready to export at once
+  db.prepare("UPDATE JobRunCompany SET status = 'fetching' WHERE company_id = 'zeta'").run();
+  setGroup(db, runId, 2, 'in_progress'); // group 2 is still being collected: its articles keep coming
+  addQueueRows(db, Array.from({ length: 6 }, (_, index) => ({ companyId: 'zeta', guid: `z${index}`, title: `Zeta news ${index}` })));
+  let renames = 0;
+  const rename = () => { renames += 1; throw Object.assign(new Error('EPERM: run.json is open in another program'), { code: 'EPERM' }); };
+  let clock = NOW;
+  const logger = makeLogger();
+  const classifier = createClassifier({
+    db, client: makeFakeClient(() => ({ relevant: false })), sectionNames: SECTION_NAMES, pid: 4242, concurrency: 1, claimBatchSize: 2,
+    moveChunk: 1000, dataDir, companyListFile, exportWriteOptions: { rename, tries: 1 },
+    isAlive: () => true, sleep: async () => {}, now: () => clock, log: logger.log, warn: logger.warn,
+  });
+  for (let pass = 0; pass < 3; pass += 1) {
+    const result = await classifier.runOnePass();
+    assert.equal(result.kind, 'worked', `pass ${pass + 1} classified its batch`);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM BufferQueue').get().n, 0, 'all 6 articles classified (irrelevant ones deleted)');
+  assert.equal(renames, 1, 'the export was tried once, not on every pass');
+  const warnings = logger.lines.warn.filter((line) => /group 1: data\/ could not be written/.test(line));
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Classifying goes on/);
+  assert.equal(db.prepare('SELECT exported_at FROM JobRunGroup WHERE group_number = 1').get().exported_at, null);
+
+  clock += config.GROUP_EXPORT_RETRY_MS; // 5 minutes later: tried again (and fails again, quietly)
+  assert.equal((await classifier.runOnePass()).kind, 'idle');
+  assert.equal(renames, 2);
+  assert.equal(logger.lines.warn.filter((line) => /could not be written/.test(line)).length, 1, 'still one warning');
+});
+
+test('G8: a --groups re-run that resets the group while its data/ is being written: the group is NOT marked exported', async (t) => {
+  const { db, runId, dataDir, companyListFile } = setup(t);
+  setGroup(db, runId, 1, 'complete');
+  db.prepare("UPDATE JobRunGroup SET finished_at = '2026-09-27T09:00:00.000Z' WHERE group_number = 1").run();
+  const group = findGroupToExport(db);
+  assert.equal(group.finishedAt, '2026-09-27T09:00:00.000Z');
+  // While the files are renamed, the re-run resets group 1 (as reopenRunForGroups does).
+  const rename = (from, to) => {
+    db.prepare("UPDATE JobRunGroup SET status = 'pending', finished_at = NULL, exported_at = NULL WHERE group_number = 1").run();
+    fs.renameSync(from, to);
+  };
+  const result = await exportGroup(db, group, { now: NOW, dataDir, companyListFile, writeOptions: { rename } });
+  assert.equal(result.marked, false);
+  assert.equal(db.prepare('SELECT exported_at FROM JobRunGroup WHERE group_number = 1').get().exported_at, null);
+
+  // The re-run ends again (a new finished_at): the old export's mark must not count for it either.
+  setGroup(db, runId, 1, 'complete');
+  db.prepare("UPDATE JobRunGroup SET finished_at = '2026-09-27T09:45:00.000Z' WHERE group_number = 1").run();
+  const stale = await exportGroup(db, group, { now: NOW, dataDir, companyListFile });
+  assert.equal(stale.marked, false, 'finished_at changed since the group was found ready');
+  const fresh = await exportGroup(db, findGroupToExport(db), { now: NOW, dataDir, companyListFile });
+  assert.equal(fresh.marked, true);
 });

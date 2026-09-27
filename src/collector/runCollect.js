@@ -19,8 +19,10 @@
 //       if a live collector holds it, or it is 'collected', refuse (exit 3): "A run is still in
 //       progress ...";
 //   (b) seed;
-//   (c) reopen / take over that run (same 90 days) with only the chosen groups set back to
-//       'pending' (again, on a take-over), then run the groups as usual.
+//   (c) a 'done' run is reopened (same 90 days) with only the chosen groups set back to
+//       'pending'; a 'running' run with a free lock is taken over and simply resumed, with nothing
+//       reset (D95, revises D91): every unfinished group continues, and the start line says so.
+//       Then the groups run as usual.
 // Then: heartbeat every 5 min, run the groups, print the end log, mark the run 'collected'.
 // If the program crashes or is stopped, the emergency heartbeat releases the lock so the next
 // start resumes at once (D48a); on a stop, the running group process is stopped first (D70).
@@ -54,6 +56,7 @@
 //   130  | stopped by Ctrl+C (SIGINT)
 //   143  | stopped by SIGTERM or the orchestrator's stop message
 
+import { config } from '../config.js';
 import { openDatabase } from '../db/database.js';
 import { seedCompanies } from '../seed/seedLoader.js';
 import { EXIT_CODES } from '../shared/exitCodes.js';
@@ -97,12 +100,32 @@ function checkGroupsAllowed(db) {
 // The runner's log file (collector.log). Its folder is set once the run is known (see the top).
 const logFile = createLogFile('collector.log');
 
+// The groups of a run that are not finished yet ('pending' or 'in_progress'), by number. Read-only.
+function unfinishedGroups(db, runId) {
+  return db.prepare("SELECT group_number FROM JobRunGroup WHERE run_id = ? AND status IN ('pending', 'in_progress') ORDER BY group_number")
+    .all(runId).map((row) => row.group_number);
+}
+
+// What a take-over with --groups does, in words (D95): nothing is reset; every unfinished group
+// continues, also the ones not chosen; a chosen group that already ended is not run again.
+// E.g. "--groups 3 given: nothing is reset; unfinished groups 3, 5–10 continue (also the ones
+// not chosen); group(s) 4 already ended in this run and are not run again".
+function describeGroupsResume(db, runId, chosenGroups) {
+  const unfinished = unfinishedGroups(db, runId);
+  const others = unfinished.filter((number) => !chosenGroups.includes(number));
+  const ended = chosenGroups.filter((number) => !unfinished.includes(number));
+  return `--groups ${formatGroupNumbers(chosenGroups)} given: nothing is reset; unfinished group(s) ${formatGroupNumbers(unfinished)} continue` +
+    `${others.length ? ' (also the ones not chosen)' : ''}` +
+    `${ended.length ? `; group(s) ${formatGroupNumbers(ended)} already ended in this run and are not run again` : ''}`;
+}
+
 // The system-log line for the run this collector has just taken (D93).
 function describeRunStart(db, run, chosenGroups) {
   if (run.reopened) return `Run ${run.runId}: re-running group(s) ${formatGroupNumbers(chosenGroups)}`;
   if (run.tookOver) {
     const next = findNextGroup(db, run.runId);
-    return `Run ${run.runId} resumed${next ? ` at group ${next.groupNumber} of ${run.groupCount}` : ''}`;
+    return `Run ${run.runId} resumed${next ? ` at group ${next.groupNumber} of ${run.groupCount}` : ''}` +
+      `${chosenGroups ? ` (${describeGroupsResume(db, run.runId, chosenGroups)})` : ''}`;
   }
   const companies = db.prepare('SELECT COUNT(*) AS n FROM JobRunCompany WHERE run_id = ?').get(run.runId).n;
   const range = runRange(run.startedAt);
@@ -170,7 +193,7 @@ async function main() {
   let run;
   try {
     run = chosenGroups
-      ? { ...reopenRunForGroups(db, chosenGroups), reopened: true }
+      ? reopenRunForGroups(db, chosenGroups) // reopened (done run) or tookOver (crashed collector)
       : acquireRun(db, companiesInRunOrder(seed.companies));
   } catch (error) {
     if (error instanceof LockHeldError || error instanceof CollectedRunPendingError || error instanceof GroupsRequestError) {
@@ -188,6 +211,10 @@ async function main() {
       progress.warn(`Old log folder(s) could not be removed (${folders.failed.map(({ name, error }) => `${name}: ${error?.message ?? error}`).join('; ')}). ` +
         'The run goes on; they are removed when the next new run starts.');
     }
+    if (folders.unknown.length > 0) {
+      progress.warn(`The logs folder (${config.LOGS_DIR}) also holds folder(s) that are not run logs (${folders.unknown.join(', ')}). ` +
+        'They were left alone; only run-<number> and no-run folders are ever removed. Check LOGS_DIR in .env if this is not a logs-only folder.');
+    }
     cleanupText = describeCleanup(run.runId, run.removedRuns ?? 0, folders);
   }
   // From now on the log lines go to this run's folder; the orchestrator is told which run it is.
@@ -203,8 +230,10 @@ async function main() {
     // only a log line is lost
   }
   if (run.reopened) {
-    progress.info(`Re-running group(s) ${formatGroupNumbers(chosenGroups)} of run ${run.runId} (same 90 days, started ${run.startedAt})` +
-      `${run.tookOver ? '; its collector had stopped, so those groups start again from the beginning' : ''}.`);
+    progress.info(`Re-running group(s) ${formatGroupNumbers(chosenGroups)} of run ${run.runId} (same 90 days, started ${run.startedAt}).`);
+  } else if (run.tookOver && chosenGroups) {
+    progress.info(`Resuming run ${run.runId} (started ${run.startedAt}, ${run.groupCount} groups); its collector had stopped. ` +
+      `${describeGroupsResume(db, run.runId, chosenGroups)}.`);
   } else {
     progress.info(run.tookOver
       ? `Resuming run ${run.runId} (started ${run.startedAt}, ${run.groupCount} groups).`

@@ -30,6 +30,12 @@ function positiveIntegerFromEnv(name, defaultValue) {
 // The Ollama server must run with OLLAMA_NUM_PARALLEL set to the same number.
 const LLM_CONCURRENCY = positiveIntegerFromEnv('LLM_CONCURRENCY', 4);
 
+// The SQLite database file (see DB_PATH in the list). Worked out here because LOGS_DIR's default
+// is built from it too.
+const DB_PATH = process.env.DB_PATH
+  ? path.resolve(PROJECT_ROOT, process.env.DB_PATH)
+  : path.join(PROJECT_ROOT, 'db', 'press-mentions.sqlite');
+
 // How many days back the collection covers (a rolling 90 days, ending on the run's start day, D1).
 // Also the window of the data/ export.
 const COLLECTION_DAYS = 90;
@@ -46,9 +52,7 @@ export const config = {
 
   // The SQLite database file. Can be changed with the DB_PATH setting in .env.
   // The file (and its folder) is created on first use. It is never committed to git.
-  DB_PATH: process.env.DB_PATH
-    ? path.resolve(PROJECT_ROOT, process.env.DB_PATH)
-    : path.join(PROJECT_ROOT, 'db', 'press-mentions.sqlite'),
+  DB_PATH,
 
   // The company list, sorted into sections ("## N. Name" headers). Read by the seed loader, and
   // by the data/ export, which only includes the companies that are in this list (D79).
@@ -63,12 +67,16 @@ export const config = {
 
   // ---------- Log files (D92) ----------
 
-  // The folder for the log files. Inside it: one folder per run (logs/run-5/), with one file per
+  // The folder for the log files. Inside it: one folder per run (run-5/), with one file per
   // process: orchestrator.log, collector.log, classifier.log, group-1.log, group-2.log, ...
-  // Can be changed with the LOGS_DIR setting in .env. It is never committed to git.
+  // By default it sits NEXT TO THE DATABASE: <folder of DB_PATH>/logs (the real database
+  // db/press-mentions.sqlite -> db/logs/run-1/). So a throwaway test database (DB_PATH=...) gets
+  // its own logs and never touches the real run's logs (D95, review G5).
+  // Can be changed with the LOGS_DIR setting in .env (relative to the project folder). It is never
+  // committed to git.
   LOGS_DIR: process.env.LOGS_DIR
     ? path.resolve(PROJECT_ROOT, process.env.LOGS_DIR)
-    : path.join(PROJECT_ROOT, 'logs'),
+    : path.join(path.dirname(DB_PATH), 'logs'),
 
   // The folder (inside LOGS_DIR) for lines written while no run exists yet at all (a fresh
   // database), e.g. logs/no-run/classifier.log.
@@ -203,6 +211,13 @@ export const config = {
   // the runner "still fetching" this often: every 30 s (D90).
   GROUP_ALIVE_EVERY_MS: 30000,
 
+  // On a stop, the group runner asks its group process to stop and waits at most this long (6 s)
+  // before it force-kills it. It must be SHORTER than the orchestrator's STOP_TIMEOUT_MS (10 s,
+  // below), so the runner always has time to kill its group process and write its emergency
+  // heartbeat before the orchestrator force-kills the runner (review G6). On Windows a force-kill
+  // of the runner does not kill its group process, which would be left running on its own.
+  GROUP_STOP_TIMEOUT_MS: 6000,
+
   // ---------- Date windows ----------
 
   // How many days back the collection covers (see COLLECTION_DAYS above the list).
@@ -251,6 +266,12 @@ export const config = {
   // (e.g. the data/ files could not be written): 2 s, 5 s, 10 s, 30 s, 60 s, then every 60 s.
   // Kept apart from the Ollama waits so the two problems don't share one counter.
   PASS_ERROR_BACKOFF_MS: [2000, 5000, 10000, 30000, 60000],
+
+  // If the data/ export after a group fails (e.g. a data/ file stays locked by OneDrive or an
+  // antivirus), that group's export is tried again only after this long: 5 minutes. The failure
+  // is one warning, and the classifier keeps classifying meanwhile; the end of the run writes
+  // data/ anyway (review G2).
+  GROUP_EXPORT_RETRY_MS: 5 * 60 * 1000,
 
   // ---------- Answers and retries (D27, D59) ----------
 

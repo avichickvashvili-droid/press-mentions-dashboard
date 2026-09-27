@@ -13,7 +13,9 @@
 //   4. save the whole batch's answers in one transaction
 //   5. when ≥ MOVE_CHUNK relevant rows are waiting, move them to Mention
 //   6. while a run is still being collected: a group that has ended and whose articles are all
-//      classified gets its own data/ export (leftovers of that group → data/, D86)
+//      classified gets its own data/ export (leftovers of that group → data/, D86). If that
+//      export fails, the pass still counts as done: one warning, and that group is tried again
+//      only every GROUP_EXPORT_RETRY_MS (5 min; review G2)
 //   7. when nothing is waiting: if a run is 'collected' and the queue is drained,
 //      finish it (leftovers → data/ → 'done')
 // When a request to Ollama fails (D75), a quick version check decides what it means:
@@ -41,7 +43,7 @@ import { cleanForLog, describeDuration, formatCount } from '../shared/text.js';
 import { OllamaUnavailableError } from './ollamaClient.js';
 import { claimBatch, countQueue, giveBackClaims, isQueueDrained, releaseAbandonedClaims, saveBatchResults } from './queueStore.js';
 import { moveFullChunks } from './mover.js';
-import { exportGroup, findGroupToExport, finishHeldRun, takeOverRun } from './runFinisher.js';
+import { exportGroup, findGroupsToExport, finishHeldRun, takeOverRun } from './runFinisher.js';
 
 // Creates the classifier. Everything it talks to can be replaced in tests (fake Ollama,
 // temp database, instant sleep, a small company list, a failing rename). Returns functions to
@@ -92,6 +94,7 @@ export function createClassifier({
     lastFileStatusAt: null, // when the speed line was last written to the log file
     ollamaDownSince: null,  // when the current Ollama outage started (system log), or null
     ollamaAnnounced: false, // "Ollama ready" was sent once
+    groupExportRetryAt: new Map(), // "runId:groupNumber" -> when a failed after-group export may be tried again (G2)
   };
 
   // Ollama could not be used: the first time of an outage sends one system-log line.
@@ -195,11 +198,36 @@ export function createClassifier({
   }
 
   // Writes data/ after a group whose articles are all classified (D86), one group per call.
+  // A failed export must never fail the pass (review G2): otherwise every pass, also the ones that
+  // just classified a batch, would fail and wait up to 60 s. So a failure gives ONE warning for
+  // that group, and the group is tried again only after GROUP_EXPORT_RETRY_MS (5 min); other
+  // groups that are ready are not held up by it. The end-of-run export covers every group anyway.
+  // The exception is a database error that is not "busy" (D76): thrown on, as everywhere.
   // Returns true if a group was exported.
   async function tryExportGroup() {
-    const group = findGroupToExport(db);
+    const nowMs = now();
+    const keyOf = (group) => `${group.runId}:${group.groupNumber}`;
+    const group = findGroupsToExport(db).find((ready) => (state.groupExportRetryAt.get(keyOf(ready)) ?? 0) <= nowMs);
     if (!group) return false;
-    const result = await exportGroup(db, group, { now: now(), dataDir, companyListFile, writeOptions: exportWriteOptions });
+    let result;
+    try {
+      result = await exportGroup(db, group, { now: nowMs, dataDir, companyListFile, writeOptions: exportWriteOptions });
+    } catch (error) {
+      if (isDatabaseError(error) && !isDatabaseBusyError(error)) throw error; // D76: crash on purpose
+      const firstFailure = !state.groupExportRetryAt.has(keyOf(group));
+      state.groupExportRetryAt.set(keyOf(group), nowMs + config.GROUP_EXPORT_RETRY_MS);
+      if (firstFailure) {
+        warn(`Run ${group.runId}, group ${group.groupNumber}: data/ could not be written (${cleanForLog(error?.message ?? error)}). ` +
+          `Classifying goes on; this group's data/ is tried again every ${describeDuration(config.GROUP_EXPORT_RETRY_MS)}, and the end of the run writes data/ anyway.`);
+      }
+      return false;
+    }
+    state.groupExportRetryAt.delete(keyOf(group));
+    if (!result.marked) {
+      // The group was set back to 'pending' by a --groups re-run while data/ was written (G8).
+      log(`Run ${group.runId}, group ${group.groupNumber} is being collected again; its data/ is written again once it has ended.`);
+      return false;
+    }
     log(`Run ${group.runId}, group ${group.groupNumber}: all its articles are classified. ${formatCount(result.moved)} mentions moved, data/ written.`);
     sendEvent(`Run ${group.runId}, group ${group.groupNumber} classified, data/ written`);
     return true;

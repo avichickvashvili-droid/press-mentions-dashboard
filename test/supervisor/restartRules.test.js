@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   classifyExit, describeExit, formatWait, isStopCode, recordCrash, restartWait, tooManyCrashes,
 } from '../../src/supervisor/restartRules.js';
-import { supervisorConfig } from '../../src/supervisor/supervisorConfig.js';
+import { config } from '../../src/config.js';
 
 test('exit codes are sorted as agreed (D68)', () => {
   assert.equal(classifyExit({ code: 0, policy: 'once', stopAsked: false }), 'finished');
@@ -29,18 +29,18 @@ test('only 130 and 143 are stop codes', () => {
 });
 
 test('restart waits are 1, 2, 5, 10, 30, 60 s, then 60 s again (D69)', () => {
-  const steps = supervisorConfig.RESTART_BACKOFF_MS;
+  const steps = config.RESTART_BACKOFF_MS;
   const waits = [0, 1, 2, 3, 4, 5, 6, 20].map((index) => restartWait(index, steps));
   assert.deepEqual(waits, [1000, 2000, 5000, 10000, 30000, 60000, 60000, 60000]);
 });
 
 test('give up only on MORE than 5 crashes within 10 minutes (D69)', () => {
-  const window = supervisorConfig.CRASH_WINDOW_MS;
+  const window = config.CRASH_WINDOW_MS;
   let crashes = [];
   for (let i = 0; i < 5; i += 1) crashes = recordCrash(crashes, i * 1000, window);
-  assert.equal(tooManyCrashes(crashes, supervisorConfig.MAX_CRASHES), false, '5 crashes: keep trying');
+  assert.equal(tooManyCrashes(crashes, config.MAX_CRASHES), false, '5 crashes: keep trying');
   crashes = recordCrash(crashes, 6000, window);
-  assert.equal(tooManyCrashes(crashes, supervisorConfig.MAX_CRASHES), true, '6th crash: give up');
+  assert.equal(tooManyCrashes(crashes, config.MAX_CRASHES), true, '6th crash: give up');
 });
 
 test('crashes older than the window are forgotten', () => {

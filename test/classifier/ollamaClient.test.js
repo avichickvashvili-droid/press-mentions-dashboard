@@ -1,6 +1,7 @@
 // ollamaClient.test.js — the Ollama client (ollamaClient.js) against a fake `fetch`. Offline.
-// Checks the request settings (strict JSON, thinking off, temperature 0), the retry on an invalid
-// answer, and that every Ollama problem becomes OllamaUnavailableError (Q6).
+// Checks the request settings (strict JSON, thinking off, temperature 0, answer length capped,
+// D75), the retry on an invalid answer, that every Ollama problem becomes OllamaUnavailableError
+// (D59), and the quick "is Ollama reachable?" check (D75).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +25,7 @@ function fakeFetch(answers) {
   return fake;
 }
 
-test('sends strict JSON, thinking off and temperature 0, and reads a valid answer', async () => {
+test('sends strict JSON, thinking off, temperature 0 and the answer-length cap, and reads a valid answer', async () => {
   const fetchImpl = fakeFetch(['{"relevant": true, "sentiment": "positive"}']);
   const client = createOllamaClient({ url: 'http://ollama.test/', model: 'qwen3:4b', fetchImpl });
   const result = await client.classifyArticle(ARTICLE);
@@ -36,7 +37,17 @@ test('sends strict JSON, thinking off and temperature 0, and reads a valid answe
   assert.equal(body.stream, false);
   assert.deepEqual(body.format, ANSWER_SCHEMA);
   assert.equal(body.options.temperature, 0);
+  assert.equal(body.options.num_predict, 64);
   assert.match(body.messages[0].content, /^Company: Harvey$/m);
+});
+
+test('isReachable: true when /api/version answers, false (never throws) when Ollama is down', async () => {
+  const up = fakeFetch([{ status: 200, body: '{"version": "0.34.3"}' }]);
+  assert.equal(await createOllamaClient({ url: 'http://ollama.test', fetchImpl: up }).isReachable(), true);
+  assert.equal(up.calls[0].url, 'http://ollama.test/api/version');
+  const refused = Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+  assert.equal(await createOllamaClient({ fetchImpl: fakeFetch([refused]) }).isReachable(), false);
+  assert.equal(await createOllamaClient({ fetchImpl: fakeFetch([{ status: 500, body: 'boom' }]) }).isReachable(), false);
 });
 
 test('an invalid answer is asked again once; a valid second answer is used', async () => {

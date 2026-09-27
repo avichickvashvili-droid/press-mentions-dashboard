@@ -2,7 +2,7 @@
 //
 // Where it sits: started by `npm run collect` (runCollect.js) once it holds the lock.
 // Reads:  JobRunCompany (the run's checklist), Company (each company's query_param),
-//         JobRun (the run's start date, which fixes the 90 days).
+//         JobRun (the run's start date, which fixes the 90 days, and its owner).
 // Writes: JobRunCompany statuses, BufferQueue (through bufferWriter), and at the end
 //         JobRun.status = 'collected' + finished_at.
 //
@@ -13,15 +13,25 @@
 // then split in two halves, oldest half first, until windows are under 95 items or 1 day (D57).
 // When no company is left, the heartbeat is stopped and the run becomes 'collected' with
 // owner_pid = NULL (D52): the collector's work is over and the classifier takes the run from there.
-// Every database write is one transaction; a failed write is logged and retried (never a company failure).
+//
+// Ownership (D39, D71): every write on the run (a company's status, marking the run 'collected')
+// first checks, in the same transaction, that this process still owns the run. If another
+// process has taken the run over, nothing is written and LostOwnershipError is thrown: the
+// collector must stop (runCollect.js exits with 3). The move to 'fetching' is also only done
+// while the company is still 'not_started', so two collectors can never take the same company.
+//
+// Every database write is one transaction. A write that fails because the database is busy is
+// logged and retried; any other database error is thrown on (D76, src/shared/retry.js).
 
 import { config } from '../config.js';
 import { inTransaction, nowIso } from '../db/database.js';
+import { retryDbWrite, sleep as realSleep } from '../shared/retry.js';
+import { cleanForLog, formatCount } from '../shared/text.js';
 import { buildWindowQuery, runRange, shouldSplit, splitWindow, formatDay } from './dateWindows.js';
 import { sortItems } from './itemRules.js';
 import { countQueue, createDeadRowReporter, insertChunk, waitForQueueSpace } from './bufferWriter.js';
 import { PermanentFetchError } from './googleNews.js';
-import { retryDbWrite, sleep as realSleep } from './waiting.js';
+import { LostOwnershipError, ownsRun } from './jobLock.js';
 
 // A fresh set of counters for this session (shown in the final summary).
 export function createSessionStats() {
@@ -46,15 +56,26 @@ function countCompanies(db, runId) {
     FROM JobRunCompany WHERE run_id = ?`).get(runId);
 }
 
-// Sets one company's checklist status (and error text) in one transaction, retried if the DB is busy.
-async function setCompanyStatus(db, runId, companyId, status, error, { warn, wait }) {
-  await retryDbWrite(
+// Sets one company's checklist status (and error text) in one transaction, retried if the DB is
+// busy. The write only happens while this process still owns the run (checked in the same
+// transaction); otherwise LostOwnershipError is thrown. `onlyFrom` (optional) = the status the
+// company must still have, e.g. 'not_started' when taking it (a compare-and-set).
+// Returns true if the status was changed, false if the company no longer had `onlyFrom`.
+async function setCompanyStatus(db, runId, companyId, status, error, { pid, onlyFrom = null, warn, wait }) {
+  const outcome = await retryDbWrite(
     () => inTransaction(db, () => {
-      db.prepare('UPDATE JobRunCompany SET status = ?, error = ? WHERE run_id = ? AND company_id = ?')
-        .run(status, error, runId, companyId);
+      if (!ownsRun(db, runId, pid)) return 'lost';
+      const changes = onlyFrom === null
+        ? db.prepare('UPDATE JobRunCompany SET status = ?, error = ? WHERE run_id = ? AND company_id = ?')
+          .run(status, error, runId, companyId).changes
+        : db.prepare('UPDATE JobRunCompany SET status = ?, error = ? WHERE run_id = ? AND company_id = ? AND status = ?')
+          .run(status, error, runId, companyId, onlyFrom).changes;
+      return changes === 1 ? 'changed' : 'unchanged';
     }),
     { label: `mark ${companyId} as ${status}`, warn, wait },
   );
+  if (outcome === 'lost') throw new LostOwnershipError(runId);
+  return outcome === 'changed';
 }
 
 // Searches all date windows of one company and stores the results.
@@ -78,7 +99,8 @@ export async function collectCompany({
 
     const { good, bad, outside } = sortItems(rawItems, range);
     for (const { rawItem, reason } of bad) {
-      warn(`${company.name}: skipped an article with ${reason} (title: "${rawItem.title || '?'}", guid: "${rawItem.guid || '?'}").`);
+      // Title and guid come from the internet: cleaned and shortened for the log only.
+      warn(`${company.name}: skipped an article with ${reason} (title: "${cleanForLog(rawItem.title || '?')}", guid: "${cleanForLog(rawItem.guid || '?')}").`);
     }
     stats.badItems += bad.length;
     stats.outsideRange += outside;
@@ -91,7 +113,7 @@ export async function collectCompany({
         onWaiting: (queueCount) => progress.update({
           phase: 'waiting',
           ...(queueCount === null ? {} : { queueCount }),
-          note: `queue full, waiting until it is down to ${formatThousands(config.QUEUE_RESUME_AT)}`,
+          note: `queue full, waiting until it is down to ${formatCount(config.QUEUE_RESUME_AT)}`,
         }),
       });
       progress.update({ phase: 'fetching', note: null });
@@ -113,11 +135,6 @@ export async function collectCompany({
   }
 }
 
-// Formats a number with thousands separators for messages.
-function formatThousands(count) {
-  return Number(count).toLocaleString('en-US');
-}
-
 // Shows the current queue size on the progress line (skipped quietly if the DB can't be read now).
 function updateQueueCount(db, progress) {
   try {
@@ -128,23 +145,26 @@ function updateQueueCount(db, progress) {
 }
 
 // Marks the run as 'collected' with its finish time and owner_pid = NULL, which hands the run
-// over to the classifier (one transaction, retried if busy).
-async function markRunCollected(db, runId, { warn, wait }) {
-  await retryDbWrite(
-    () => inTransaction(db, () => {
-      db.prepare("UPDATE JobRun SET status = 'collected', finished_at = ?, owner_pid = NULL WHERE id = ? AND status = 'running'")
-        .run(nowIso(), runId);
-    }),
+// over to the classifier (one transaction, retried if busy). Only while this process still owns
+// the run; otherwise LostOwnershipError is thrown and the run is left to its new owner.
+async function markRunCollected(db, runId, { pid, warn, wait }) {
+  const changed = await retryDbWrite(
+    () => inTransaction(db, () => db
+      .prepare("UPDATE JobRun SET status = 'collected', finished_at = ?, owner_pid = NULL WHERE id = ? AND status = 'running' AND owner_pid = ?")
+      .run(nowIso(), runId, pid).changes === 1),
     { label: `mark run ${runId} as collected`, warn, wait },
   );
+  if (!changed) throw new LostOwnershipError(runId);
 }
 
 // Runs the whole company loop of one run until no 'not_started' company is left, then marks
 // the run 'collected'. Unexpected errors (bugs) are not caught here: they reach the top-level
 // handler, which writes the emergency heartbeat, so the run resumes on the next start.
+// Throws LostOwnershipError when another process has taken the run over (D71).
+// `pid` = the process id that owns the run (this process; tests pass the one they used).
 // `stopHeartbeat` is called just before the run is marked 'collected'.
 export async function runCompanyLoop({
-  db, runId, client, progress, stats = createSessionStats(), wait = realSleep, stopHeartbeat = () => {},
+  db, runId, client, progress, stats = createSessionStats(), wait = realSleep, stopHeartbeat = () => {}, pid = process.pid,
 }) {
   const warn = (text) => progress.warn(text);
   const reportDeadRows = createDeadRowReporter(warn); // one reporter for the whole loop: no repeated warnings
@@ -158,20 +178,21 @@ export async function runCompanyLoop({
 
     const { total, done } = countCompanies(db, runId);
     progress.update({ companyNumber: done + 1, companyTotal: total, companyName: company.name, phase: 'starting', window: null, note: null });
-    await setCompanyStatus(db, runId, company.id, 'fetching', null, { warn, wait });
+    const taken = await setCompanyStatus(db, runId, company.id, 'fetching', null, { pid, onlyFrom: 'not_started', warn, wait });
+    if (!taken) continue; // no longer 'not_started': look for the next company
 
     try {
       await collectCompany({ db, company, range, client, progress, stats, wait, reportDeadRows });
-      await setCompanyStatus(db, runId, company.id, 'finished', null, { warn, wait });
+      await setCompanyStatus(db, runId, company.id, 'finished', null, { pid, warn, wait });
     } catch (error) {
       if (!(error instanceof PermanentFetchError)) throw error;
       progress.error(`${company.name}: ${error.message}. Marked as failed; moving on.`);
-      await setCompanyStatus(db, runId, company.id, 'failed', error.message, { warn, wait });
+      await setCompanyStatus(db, runId, company.id, 'failed', error.message, { pid, warn, wait });
     }
   }
 
   stopHeartbeat();
-  await markRunCollected(db, runId, { warn, wait });
+  await markRunCollected(db, runId, { pid, warn, wait });
   return stats;
 }
 

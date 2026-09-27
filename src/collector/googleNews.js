@@ -6,18 +6,20 @@
 //        https://news.google.com/rss/search?q=<search>&hl=en-US&gl=US&ceid=US:en
 // Writes: nothing.
 //
-// Rules (D40, D42, D54):
+// Rules (D40, D42, D54, D77):
 //  - Pace: at most one request per second, plus a small random extra wait.
 //  - Temporary problems are retried with the SAME request until it works:
 //      no internet, timeout (30 s), HTTP 408, 429, 5xx, or an HTML page instead of RSS
 //      (usually a CAPTCHA) -> growing waits 5 s, 10 s, 30 s, 1 min, 2 min, 5 min, 10 min, 10 min...
-//      HTTP 403 (blocked) -> logged, fixed 5 s wait, retry.
+//      HTTP 403 (blocked) -> logged and retried: the first 3 403s in a row wait a fixed 5 s each;
+//      after that each further 403 uses the growing waits above (5 s, 10 s ... 10 min), so a
+//      real block is not hammered every 5 s. Any successful answer starts the 403 count again.
 //  - Permanent problems throw PermanentFetchError (the company is then marked failed):
 //      any other 4xx, or XML that cannot be read or has no <channel>.
 
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { config } from '../config.js';
-import { backoffDelay, describeWait, sleep as realSleep } from './waiting.js';
+import { backoffDelay, describeWait, sleep as realSleep } from '../shared/retry.js';
 
 // Thrown when retrying cannot help (e.g. HTTP 400, broken XML). The reason is for the run summary.
 export class PermanentFetchError extends Error {
@@ -93,7 +95,7 @@ export function parseFeed(xmlText) {
 
 // Decides what an HTTP answer means. Returns one of:
 //   { kind: 'ok' }                      -> read the feed
-//   { kind: 'forbidden', reason }      -> 403: fixed 5 s wait, retry
+//   { kind: 'forbidden', reason }      -> 403: fixed 5 s wait (first 3 in a row), then growing waits
 //   { kind: 'temporary', reason }      -> growing wait, retry
 //   { kind: 'permanent', reason }      -> give up on this company
 export function classifyHttpStatus(status, statusText = '') {
@@ -104,6 +106,14 @@ export function classifyHttpStatus(status, statusText = '') {
     return { kind: 'temporary', reason: `Google is busy or limiting us (${label})` };
   }
   return { kind: 'permanent', reason: `Google rejected the search (${label})` };
+}
+
+// The wait after a 403 (D77): the first FORBIDDEN_FIXED_RETRIES 403s in a row wait the fixed
+// FORBIDDEN_RETRY_MS; later ones use the growing waits, starting again from the first step.
+// `forbiddenCount` = how many 403s in a row so far, including this one (1 = the first).
+export function forbiddenWait(forbiddenCount) {
+  if (forbiddenCount <= config.FORBIDDEN_FIXED_RETRIES) return config.FORBIDDEN_RETRY_MS;
+  return backoffDelay(forbiddenCount - config.FORBIDDEN_FIXED_RETRIES - 1);
 }
 
 // Creates a Google News client. Everything it touches from the outside world (the network,
@@ -117,6 +127,7 @@ export function createGoogleNewsClient({
   onRetry = () => {},
 } = {}) {
   let lastRequestAt = null;
+  let forbiddenInARow = 0; // 403 answers since Google last answered normally (counted across searches)
 
   // Keeps the fixed pace: waits until at least 1 s (+ random 0-300 ms) has passed since the last request.
   async function waitForTurn() {
@@ -162,11 +173,20 @@ export function createGoogleNewsClient({
       await waitForTurn();
       const { outcome, body } = await requestOnce(url);
 
-      if (outcome.kind === 'ok') return parseFeed(body);
+      if (outcome.kind === 'ok') {
+        forbiddenInARow = 0; // Google answered normally: the next 403 starts from the fixed 5 s again
+        return parseFeed(body);
+      }
       if (outcome.kind === 'permanent') throw new PermanentFetchError(outcome.reason);
 
-      const waitMs = outcome.kind === 'forbidden' ? config.FORBIDDEN_RETRY_MS : backoffDelay(retryIndex);
-      if (outcome.kind === 'temporary') retryIndex += 1;
+      let waitMs;
+      if (outcome.kind === 'forbidden') {
+        forbiddenInARow += 1;
+        waitMs = forbiddenWait(forbiddenInARow);
+      } else {
+        waitMs = backoffDelay(retryIndex);
+        retryIndex += 1;
+      }
       onRetry({ reason: outcome.reason, waitMs });
       await sleep(waitMs);
     }

@@ -8,8 +8,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../src/config.js';
 import {
-  CollectedRunPendingError, LockHeldError, acquireRun, findLiveRun, isProcessAlive, startHeartbeat, writeEmergencyHeartbeat, writeHeartbeat,
+  CollectedRunPendingError, LockHeldError, acquireRun, startHeartbeat, writeHeartbeat,
 } from '../src/collector/jobLock.js';
+import { findLiveRun, isProcessAlive, writeEmergencyHeartbeat } from '../src/shared/runLock.js';
 import { TEST_NOW, makeTempDb } from './helpers.js';
 
 const CRASH_CHILD = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'crash-child.mjs');
@@ -87,7 +88,7 @@ test('taken over at once when owner_pid is NULL (released by the emergency heart
   assert.equal(run.tookOver, true);
 });
 
-test('a take-over keeps started_at and the checklist; the fetching company goes back to not_started', (t) => {
+test('a take-over keeps started_at and the checklist; the fetching company goes back to not_started; companies added to the list join the run (D79)', (t) => {
   const { db } = makeTempDb(t);
   addCompanies(db);
   const runId = runOwnedByOther(db, { ageMs: 2 * 24 * 3600 * 1000 }); // started two days ago
@@ -99,8 +100,14 @@ test('a take-over keeps started_at and the checklist; the fetching company goes 
   const run = acquireRun(db, ['a', 'b', 'c', 'd'], { now: TEST_NOW, pid: 1, isAlive: () => false });
   assert.equal(run.startedAt, before.started_at);
   const statuses = db.prepare('SELECT company_id, status FROM JobRunCompany WHERE run_id = ? ORDER BY rowid').all(runId);
-  assert.deepEqual(statuses.map((r) => [r.company_id, r.status]), [['a', 'finished'], ['b', 'not_started'], ['c', 'not_started']],
-    'the newly seeded company d waits for the next run');
+  assert.deepEqual(statuses.map((r) => [r.company_id, r.status]), [['a', 'finished'], ['b', 'not_started'], ['c', 'not_started'], ['d', 'not_started']],
+    'the newly seeded company d is added at the end of the checklist; the others keep their status');
+  assert.equal(run.addedCompanies, 1);
+
+  // A second take-over adds nothing twice.
+  db.prepare('UPDATE JobRun SET owner_pid = NULL WHERE id = ?').run(runId);
+  assert.equal(acquireRun(db, ['a', 'b', 'c', 'd'], { now: TEST_NOW, pid: 2, isAlive: () => false }).addedCompanies, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM JobRunCompany WHERE run_id = ?').get(runId).n, 4);
 });
 
 test('with no running run, a new run starts (after a done run)', (t) => {

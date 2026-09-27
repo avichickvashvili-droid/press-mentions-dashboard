@@ -4,11 +4,11 @@
 // (no processes, no timers), so every rule can be tested on its own.
 // Reads/writes: nothing.
 //
-// Exit codes (full table in exitCodes.js):
+// Exit codes (full table in src/shared/exitCodes.js):
 //   0 finished (restart only if the service should always run) · 3 refused, nothing wrong ·
 //   1 crash · 130 Ctrl+C · 143 stop request (130/143 without a stop request = crash).
 
-import { EXIT_CODES } from './exitCodes.js';
+import { EXIT_CODES } from '../shared/exitCodes.js';
 
 // Sorts one process end into: 'stopped' | 'finished' | 'refused' | 'crash'.
 //   stopAsked = the orchestrator asked this service to stop (or is stopping everything):

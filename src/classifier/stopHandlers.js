@@ -7,19 +7,16 @@
 //   - Ctrl+C (SIGINT, exit 130) or a stop request (SIGTERM / orchestrator message, exit 143):
 //     articles in progress go back to the queue and their attempt is undone (they did nothing wrong).
 //   - Uncaught error or unhandled promise rejection (exit 1): articles in progress go back to the
-//     queue but the attempt still counts (one of them may have caused the crash: poison-article rule).
+//     queue but the attempt still counts (one of them may have caused the crash: poison-article
+//     rule, D59). They are marked suspect, so each is asked alone next time (D78), and one that
+//     has used all its attempts becomes 'failed' for good (see queueStore.js).
 //   - If a run is held: crashed_at, last_error, owner_pid = NULL, so the next start takes it over at once.
 
-import { EXIT_CODES } from '../supervisor/exitCodes.js';
-import { writeEmergencyHeartbeat } from '../collector/jobLock.js';
-import { classifierConfig } from './classifierConfig.js';
+import { config } from '../config.js';
+import { EXIT_CODES } from '../shared/exitCodes.js';
+import { writeEmergencyHeartbeat } from '../shared/runLock.js';
+import { describeError } from '../shared/text.js';
 import { giveBackClaims, releaseOwnClaimsAfterCrash } from './queueStore.js';
-
-// Turns any thrown value into readable text.
-function describeError(error) {
-  if (error instanceof Error) return `${error.name}: ${error.message}`;
-  return String(error);
-}
 
 // Installs the handlers for Ctrl+C, a stop request, an uncaught error and an unhandled promise
 // rejection. Each one runs the last clean-up once and exits with the matching code.
@@ -35,7 +32,7 @@ export function installStopHandlers({ db, classifier, pid = process.pid, log = c
       const count = crashed ? releaseOwnClaimsAfterCrash(db, { pid }) : giveBackClaims(db, null, { pid });
       if (count) log(`${count} articles in progress were given back to the queue.`);
     } catch (error) {
-      log(`Could not give the articles in progress back (${error.message}); they are released after ${classifierConfig.CLAIM_TIMEOUT_MS / 60000} min.`);
+      log(`Could not give the articles in progress back (${error.message}); they are released after ${config.CLAIM_TIMEOUT_MS / 60000} min.`);
     }
     const heldRunId = classifier.state.heldRunId;
     if (heldRunId !== null) {

@@ -7,7 +7,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { SeedError, makeSlug, parseCompanyList, seedCompanies, stripAnnotation } from '../src/seed/seedLoader.js';
+import { makeSlug, seedCompanies } from '../src/seed/seedLoader.js';
+import { SeedError, parseCompanyList, stripAnnotation } from '../src/shared/companyList.js';
 import { TEST_KEYWORDS, makeTempDb, writeDataFiles } from './helpers.js';
 
 const SECTION_1_WORDS = '(company OR startup OR AI OR software OR cybersecurity OR chip OR funding OR valuation)';

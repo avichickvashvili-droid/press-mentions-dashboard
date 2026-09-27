@@ -2004,3 +2004,84 @@ is it wrtiten in how to run , npm install?
 ```
 ok commit notes
 ```
+
+---
+
+## Prompt 159 — Where are the component commit notes?
+
+```
+where is the notes for creating all the components as DC Classifier and the orcathrot with tests
+```
+
+---
+
+## Prompt 160 — Code review agent + fix agent
+
+```
+send to an agent to do a code review tell him he can act as a senior software engineer and one of the juniors gave him code to review
+make sure the notes are handled with other agent that will pick up the changes and do them
+```
+
+---
+
+## Prompt 161 — Review ETA
+
+```
+how long for the review
+```
+
+---
+
+## Prompt 162 — Review too slow
+
+```
+20-40min??????
+```
+
+---
+
+## Prompt 163 — Let the reviewer finish
+
+```
+let him finish
+```
+
+---
+
+## Prompt 164 — Approve all review decisions
+
+```
+ok
+```
+
+---
+
+## Prompt 165 — Fix agent ETA
+
+```
+how long left
+```
+
+---
+
+## Prompt 166 — Fix agent ETA again
+
+```
+how long will it take +-
+```
+
+---
+
+## Prompt 167 — Is it reviewing and editing in parallel?
+
+```
+wait is it reviewing and editing in parllel?
+```
+
+---
+
+## Prompt 168 — Commit the code-review fixes
+
+```
+prapre a commit with code review notes
+```

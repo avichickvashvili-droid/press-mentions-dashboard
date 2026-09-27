@@ -1,4 +1,4 @@
-// logging.js — how the orchestrator shows output: every line gets a label in front (D66, Q6).
+// logging.js — how the orchestrator shows output: every line gets a label in front (D66, D69).
 //
 // Where it sits: used by serviceProcess.js (a service's output, e.g. "[collector] ...") and by
 // runSupervisor.js (the orchestrator's own lines, "[orchestrator] 10:15:03 ...").

@@ -8,7 +8,8 @@
 //    (the company does not fail because of one bad item).
 //  - An item dated outside the run's 90 days is dropped.
 //  - The whole headline is kept as Google gives it ("Headline - Publisher"). The
-//    " - Publisher" ending is removed only when comparing titles for the D33 duplicate check.
+//    " - Publisher" ending is removed only when comparing titles for the D33 duplicate check
+//    (stripPublisherSuffix in src/shared/text.js, used by bufferWriter.js).
 
 import { dayNumberOf, isInsideRange } from './dateWindows.js';
 
@@ -55,12 +56,4 @@ export function sortItems(rawItems, range) {
     good.push(result.item);
   }
   return { good, bad, outside };
-}
-
-// Removes the trailing " - Publisher" from a headline, only for comparing (D33).
-// "Harvey raises $300M - Reuters" with publisher "Reuters" -> "Harvey raises $300M".
-export function stripPublisherSuffix(title, publisher) {
-  if (!publisher) return title;
-  const suffix = ` - ${publisher}`;
-  return title.endsWith(suffix) ? title.slice(0, -suffix.length) : title;
 }

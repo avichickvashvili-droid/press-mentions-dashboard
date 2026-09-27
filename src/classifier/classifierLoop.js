@@ -7,39 +7,47 @@
 //
 // One pass of the loop:
 //   1. give back claims whose worker is gone (process dead or claim older than 10 min)
-//   2. claim a batch of the oldest waiting articles (CLAIM_BATCH = 4 × LLM_CONCURRENCY)
+//   2. claim a batch of the oldest waiting articles (CLAIM_BATCH = 4 × LLM_CONCURRENCY), or ONE
+//      article if a "suspect" one is waiting (a worker died while working on it, D78)
 //   3. ask Ollama about them, LLM_CONCURRENCY at a time (one end-to-end question each, D26)
 //   4. save the whole batch's answers in one transaction
 //   5. when ≥ MOVE_CHUNK relevant rows are waiting, move them to Mention
 //   6. when nothing is waiting: if a run is 'collected' and the queue is drained,
 //      finish it (leftovers → data/ → 'done')
-// Ollama down / slow / HTTP error → the articles are given back unchanged and the loop waits
-// 2 s, 5 s, 10 s, 30 s, 60 s, then every 60 s, and never gives up (Q6).
-// Any other error in a pass is logged and the pass is retried after a wait (D37): the loop never dies.
+// When a request to Ollama fails (D75), a quick version check decides what it means:
+//   - Ollama is down (not reachable): the articles are given back unchanged and the loop waits
+//     2 s, 5 s, 10 s, 30 s, 60 s, then every 60 s, and never gives up (D59);
+//   - Ollama is reachable, so only that request failed (timeout, HTTP error): it counts as a
+//     failed attempt for that one article (retried later, 'failed' for good after MAX_ATTEMPTS).
+// Any other error in a pass (e.g. the data/ files could not be written) is logged and the pass is
+// retried after its own growing wait (D37), so the loop keeps going. The exception is a database
+// error that is not "busy" (D76): it can't fix itself, so it is thrown on and the classifier
+// crashes on purpose (emergency clean-up, exit 1, the orchestrator restarts it and shows why).
 
 import { config } from '../config.js';
-import { isProcessAlive } from '../collector/jobLock.js';
-import { retryDbWrite, sleep as realSleep } from '../collector/waiting.js';
-import { classifierConfig } from './classifierConfig.js';
+import { isDatabaseBusyError, isDatabaseError } from '../db/database.js';
+import { retryDbWrite, sleep as realSleep } from '../shared/retry.js';
+import { findCollectedRun, isProcessAlive } from '../shared/runLock.js';
+import { cleanForLog, formatCount } from '../shared/text.js';
 import { OllamaUnavailableError } from './ollamaClient.js';
 import { claimBatch, countQueue, giveBackClaims, isQueueDrained, releaseAbandonedClaims, saveBatchResults } from './queueStore.js';
 import { moveFullChunks } from './mover.js';
-import { findCollectedRun, finishHeldRun, takeOverRun } from './runFinisher.js';
-
-// Formats a number with thousands separators, e.g. 10000 -> "10,000".
-const formatCount = (count) => Number(count).toLocaleString('en-US');
+import { finishHeldRun, takeOverRun } from './runFinisher.js';
 
 // Creates the classifier. Everything it talks to can be replaced in tests (fake Ollama,
-// temp database, instant sleep). Returns functions to run one pass, run forever, and stop.
+// temp database, instant sleep, a small company list, a failing rename). Returns functions to
+// run one pass, run forever, and stop.
 export function createClassifier({
   db,
   client,
   sectionNames,
   pid = process.pid,
-  concurrency = classifierConfig.LLM_CONCURRENCY,
-  claimBatchSize = classifierConfig.CLAIM_BATCH,
+  concurrency = config.LLM_CONCURRENCY,
+  claimBatchSize = config.CLAIM_BATCH,
   moveChunk = config.MOVE_CHUNK,
   dataDir,
+  companyListFile = config.COMPANY_LIST_FILE,
+  exportWriteOptions = {},
   isAlive = isProcessAlive,
   sleep = realSleep,
   now = () => Date.now(),
@@ -50,6 +58,7 @@ export function createClassifier({
     stopping: false,
     ollamaReady: false,     // true after the start-up check passed; false again after an outage
     ollamaRetryIndex: 0,    // position in the OLLAMA_BACKOFF_MS list
+    passErrorIndex: 0,      // position in the PASS_ERROR_BACKOFF_MS list (failed passes, not Ollama)
     heldRunId: null,        // the JobRun this process holds while finishing it (for the emergency heartbeat)
     articlesDone: 0,        // answered articles since start (for the progress line)
     lastProgressAt: now(),
@@ -69,7 +78,7 @@ export function createClassifier({
 
   // Asks Ollama about every row of a batch, `concurrency` at a time.
   // Returns { results, giveBackIds, ollamaError }: answers to save, rows to give back untouched
-  // (Ollama failed or we are stopping), and the Ollama error if there was one.
+  // (Ollama is down or we are stopping), and the "Ollama is down" error if there was one.
   async function classifyBatch(rows) {
     const results = [];
     const giveBackIds = [];
@@ -80,21 +89,30 @@ export function createClassifier({
       while (next < rows.length) {
         const row = rows[next++];
         if (ollamaError || state.stopping) { giveBackIds.push(row.id); continue; }
+        const title = cleanForLog(row.title); // headlines come from the internet: cleaned for logs only
         try {
           const answer = await client.classifyArticle(articleFor(row));
           if (answer.ok) {
             results.push({ id: row.id, outcome: answer.relevant ? 'relevant' : 'irrelevant', sentiment: answer.sentiment, attempts: row.attempts });
           } else {
-            warn(`Invalid AI answer for "${row.title}" (${row.company_name}), attempt ${row.attempts}/${classifierConfig.MAX_ATTEMPTS}: ${answer.error}.`);
+            warn(`Invalid AI answer for "${title}" (${row.company_name}), attempt ${row.attempts}/${config.MAX_ATTEMPTS}: ${answer.error}.`);
             results.push({ id: row.id, outcome: 'invalid', attempts: row.attempts });
           }
         } catch (error) {
           if (error instanceof OllamaUnavailableError) {
-            ollamaError = ollamaError ?? error;
-            giveBackIds.push(row.id);
+            if (ollamaError || !(await client.isReachable())) {
+              // Ollama itself is down: not the article's fault (D59).
+              ollamaError = ollamaError ?? error;
+              giveBackIds.push(row.id);
+            } else {
+              // Ollama answers, so only this request failed (D75): a failed attempt for this article.
+              warn(`AI request for "${title}" (${row.company_name}) failed while Ollama is running, ` +
+                `attempt ${row.attempts}/${config.MAX_ATTEMPTS}: ${cleanForLog(error.message)}.`);
+              results.push({ id: row.id, outcome: 'invalid', attempts: row.attempts });
+            }
           } else {
             // An unexpected problem with this one article: count it as a failed attempt (bounded by MAX_ATTEMPTS).
-            warn(`Could not classify "${row.title}" (${row.company_name}): ${error?.message ?? error}.`);
+            warn(`Could not classify "${title}" (${row.company_name}): ${cleanForLog(error?.message ?? error)}.`);
             results.push({ id: row.id, outcome: 'invalid', attempts: row.attempts });
           }
         }
@@ -107,7 +125,7 @@ export function createClassifier({
 
   // Finishes the oldest 'collected' run if the queue is drained (see runFinisher.js).
   // Returns true if a run became 'done'.
-  function tryFinishRun() {
+  async function tryFinishRun() {
     const run = findCollectedRun(db);
     if (!run || !isQueueDrained(db)) return false;
     if (!takeOverRun(db, run.id, { pid, now: now(), isAlive })) {
@@ -116,7 +134,7 @@ export function createClassifier({
     }
     state.heldRunId = run.id;
     log(`Run ${run.id}: queue drained. Moving the last relevant articles and writing data/ ...`);
-    const result = finishHeldRun(db, run.id, { pid, now: now(), dataDir });
+    const result = await finishHeldRun(db, run.id, { pid, now: now(), dataDir, companyListFile, writeOptions: exportWriteOptions });
     if (!result.done) {
       warn(`Run ${run.id}: data/ was written, but the run could not be marked done (another process took it over).`);
       state.heldRunId = null;
@@ -135,7 +153,7 @@ export function createClassifier({
 
     if (rows.length === 0) {
       moveFullChunks(db, { chunk: moveChunk });
-      const finished = tryFinishRun();
+      const finished = await tryFinishRun();
       return { kind: 'idle', finished };
     }
 
@@ -154,9 +172,18 @@ export function createClassifier({
 
   // The wait before the next try while Ollama is unavailable (2 s, 5 s, 10 s, 30 s, 60 s, 60 s, ...).
   function nextOllamaWait() {
-    const steps = classifierConfig.OLLAMA_BACKOFF_MS;
+    const steps = config.OLLAMA_BACKOFF_MS;
     const wait = steps[Math.min(state.ollamaRetryIndex, steps.length - 1)];
     state.ollamaRetryIndex += 1;
+    return wait;
+  }
+
+  // The wait before retrying after a pass failed for a reason that is not Ollama
+  // (2 s, 5 s, 10 s, 30 s, 60 s, 60 s, ...). Its own counter, reset after a pass that works.
+  function nextPassErrorWait() {
+    const steps = config.PASS_ERROR_BACKOFF_MS;
+    const wait = steps[Math.min(state.passErrorIndex, steps.length - 1)];
+    state.passErrorIndex += 1;
     return wait;
   }
 
@@ -183,10 +210,10 @@ export function createClassifier({
   function maybePrintProgress(force = false) {
     const nowMs = now();
     const elapsed = nowMs - state.lastProgressAt;
-    if (!force && elapsed < classifierConfig.PROGRESS_EVERY_MS) return;
+    if (!force && elapsed < config.PROGRESS_EVERY_MS) return;
     const rate = elapsed > 0 ? (state.articlesDone - state.articlesAtLastProgress) / (elapsed / 1000) : 0;
     let counts;
-    try { counts = countQueue(db); } catch (error) { counts = null; }
+    try { counts = countQueue(db); } catch { counts = null; } // display only
     const run = (() => { try { return db.prepare("SELECT id, status FROM JobRun WHERE status IN ('running', 'collected') ORDER BY id DESC LIMIT 1").get(); } catch { return null; } })();
     const parts = [`classifier · ${rate.toFixed(2)} articles/s`];
     if (counts) {
@@ -200,7 +227,8 @@ export function createClassifier({
     state.articlesAtLastProgress = state.articlesDone;
   }
 
-  // Runs until stop() is called. Never throws: every failure is logged and retried.
+  // Runs until stop() is called. Every failure is logged and retried, except a database error
+  // that is not "busy" (D76): that one is thrown on, so the service crashes and is restarted.
   async function runForever() {
     while (!state.stopping) {
       try {
@@ -217,6 +245,7 @@ export function createClassifier({
         }
 
         const pass = await runOnePass();
+        state.passErrorIndex = 0;
         if (pass.kind === 'ollama-down') {
           state.ollamaReady = false;
           const wait = nextOllamaWait();
@@ -227,17 +256,19 @@ export function createClassifier({
           state.ollamaRetryIndex = 0;
           state.note = 'waiting for new articles';
           maybePrintProgress();
-          await sleep(classifierConfig.CLASSIFIER_POLL_MS);
+          await sleep(config.CLASSIFIER_POLL_MS);
         } else {
           state.ollamaRetryIndex = 0;
           state.note = 'Ollama ok';
           maybePrintProgress();
         }
       } catch (error) {
+        if (isDatabaseError(error) && !isDatabaseBusyError(error)) throw error; // D76: crash on purpose
         // Not an article's fault (per-article problems are handled inside the batch): give this
         // process's claimed articles back unchanged so they don't wait for the 10-minute claim timeout.
         try { giveBackClaims(db, null, { pid }); } catch { /* the timeout will release them */ }
-        const wait = nextOllamaWait();
+        const wait = nextPassErrorWait();
+        state.note = `last pass failed, retry in ${Math.round(wait / 1000)} s`;
         warn(`Classifier pass failed: ${error?.message ?? error}. Nothing half-saved; retrying in ${Math.round(wait / 1000)} s.`);
         await sleep(wait);
       }

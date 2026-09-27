@@ -11,7 +11,6 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { config } from '../config.js';
 import { createLineSplitter } from './logging.js';
-import { supervisorConfig } from './supervisorConfig.js';
 
 // Writes text to a stream, ignoring a failed write (the terminal may be gone).
 function safeWrite(stream, text) {
@@ -41,7 +40,7 @@ export function startServiceProcess(service, {
   out = process.stdout,
   err = process.stderr,
   nodePath = process.execPath,
-  errorLinesKept = supervisorConfig.ERROR_LINES_KEPT,
+  errorLinesKept = config.ERROR_LINES_KEPT,
 } = {}) {
   const entryFile = path.resolve(projectRoot, service.entry);
   const label = `[${service.name}]`;

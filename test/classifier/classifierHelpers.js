@@ -5,9 +5,20 @@
 // (makeTempDb from test/helpers.js), removed after each test.
 // Writes: rows in the temporary database.
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { OllamaUnavailableError } from '../../src/classifier/ollamaClient.js';
 
 export const SECTION_NAMES = { 1: 'High-Tech (Information Technology)', 2: 'Health (Healthcare & Biotechnology)', 13: 'Unsorted (line of business not confirmed)' };
+
+// Writes a small company list file (the format of filtered_ourcrowd_companies.txt) with the given
+// names, all in section 1, into `dir`. Returns its path. The data/ export only includes companies
+// that are in the list (D79), so tests point the export to this file instead of the real list.
+export function writeCompanyList(dir, names) {
+  const file = path.join(dir, 'companies.txt');
+  fs.writeFileSync(file, ['## 1. Test', ...names, ''].join('\n'));
+  return file;
+}
 
 // Adds companies: [{ id, name, section }].
 export function addCompanies(db, companies) {
@@ -43,8 +54,10 @@ export function queueRows(db) {
 // A fake Ollama client. `decide(article)` returns one of:
 //   { relevant: true, sentiment } / { relevant: false } → a valid answer
 //   'invalid'  → an invalid answer (after all tries)
-//   'down'     → throws OllamaUnavailableError
+//   'down'     → throws OllamaUnavailableError, and Ollama is not reachable (a real outage)
+//   'timeout'  → throws OllamaUnavailableError, but Ollama is still reachable (only this request failed, D75)
 //   'crash'    → throws a plain Error (a bug-like problem with this article)
+//   a function → called with the article; its result is used as above (e.g. to crash the process)
 // Records every article asked in `client.asked`.
 export function makeFakeClient(decide, { selfCheckOk = true, ready = true } = {}) {
   const client = {
@@ -53,17 +66,28 @@ export function makeFakeClient(decide, { selfCheckOk = true, ready = true } = {}
     asked: [],
     inFlight: 0,
     maxInFlight: 0,
+    down: false,            // true after a 'down' answer: isReachable() then says no
+    reachableChecks: 0,     // how many times isReachable() was asked
     async classifyArticle(article) {
       client.asked.push(article);
       client.inFlight += 1;
       client.maxInFlight = Math.max(client.maxInFlight, client.inFlight);
       await new Promise((resolve) => setImmediate(resolve));
       client.inFlight -= 1;
-      const answer = decide(article);
-      if (answer === 'down') throw new OllamaUnavailableError('Ollama is not reachable at http://fake (ECONNREFUSED)');
+      let answer = decide(article);
+      if (typeof answer === 'function') answer = await answer(article);
+      if (answer === 'down') {
+        client.down = true;
+        throw new OllamaUnavailableError('Ollama is not reachable at http://fake (ECONNREFUSED)');
+      }
+      if (answer === 'timeout') throw new OllamaUnavailableError('Ollama is not reachable at http://fake (no answer within 120 s)');
       if (answer === 'crash') throw new Error('boom');
       if (answer === 'invalid') return { ok: false, error: 'invalid JSON', tries: 2 };
       return { ok: true, relevant: answer.relevant, sentiment: answer.relevant ? answer.sentiment : null, tries: 1 };
+    },
+    async isReachable() {
+      client.reachableChecks += 1;
+      return ready && !client.down;
     },
     async checkReady() {
       if (!ready) throw new OllamaUnavailableError('Ollama is not reachable at http://fake (ECONNREFUSED)');

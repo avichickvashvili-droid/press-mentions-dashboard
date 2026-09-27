@@ -1,11 +1,13 @@
 // companyLoop.test.js — tests of the whole collector loop (src/collector/companyLoop.js) with a
-// fake Google News: window split order, permanent failures, bad items, crash + resume, and the
+// fake Google News: window split order, permanent failures, bad items, crash + resume, a take-over by
+// another collector (D71: the old one writes nothing and stops), and the
 // end of the run ('collected', owner_pid released, heartbeat stopped).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { seedCompanies } from '../src/seed/seedLoader.js';
-import { CollectedRunPendingError, acquireRun, writeEmergencyHeartbeat } from '../src/collector/jobLock.js';
+import { CollectedRunPendingError, LostOwnershipError, acquireRun } from '../src/collector/jobLock.js';
+import { writeEmergencyHeartbeat } from '../src/shared/runLock.js';
 import { createGoogleNewsClient } from '../src/collector/googleNews.js';
 import { buildSummary, createSessionStats, runCompanyLoop } from '../src/collector/companyLoop.js';
 import { buildWindowQuery, formatDay, runRange, splitWindow } from '../src/collector/dateWindows.js';
@@ -49,7 +51,7 @@ test('companies go in section order; a permanent error fails only that company; 
   const progress = makeSilentProgress();
   let heartbeatStopped = false;
   const stats = await runCompanyLoop({
-    db, runId, client, progress, wait: noWait,
+    db, runId, pid: 1, client, progress, wait: noWait,
     stopHeartbeat: () => {
       heartbeatStopped = true;
       assert.equal(db.prepare('SELECT status FROM JobRun WHERE id = ?').get(runId).status, 'running', 'stopped before collected');
@@ -79,7 +81,7 @@ test('companies go in section order; a permanent error fails only that company; 
 test('after the run is collected, a new collect is refused until the run is done', async (t) => {
   const { db, runId } = setUpRun(t);
   const { client } = fakeClient(() => EMPTY);
-  await runCompanyLoop({ db, runId, client, progress: makeSilentProgress(), wait: noWait });
+  await runCompanyLoop({ db, runId, pid: 1, client, progress: makeSilentProgress(), wait: noWait });
   assert.throws(() => acquireRun(db, ['alpha'], { now: TEST_NOW, pid: 2 }), CollectedRunPendingError);
   db.prepare("UPDATE JobRun SET status = 'done' WHERE id = ?").run(runId);
   assert.equal(acquireRun(db, ['alpha'], { now: TEST_NOW, pid: 2 }).tookOver, false);
@@ -88,7 +90,7 @@ test('after the run is collected, a new collect is refused until the run is done
 test('the search is: date part first, then query_param, over the full 90 days', async (t) => {
   const { db, runId } = setUpRun(t);
   const { client, queries } = fakeClient(() => EMPTY);
-  await runCompanyLoop({ db, runId, client, progress: makeSilentProgress(), wait: noWait });
+  await runCompanyLoop({ db, runId, pid: 1, client, progress: makeSilentProgress(), wait: noWait });
   assert.equal(queries()[0], 'after:2026-06-29 before:2026-09-28 "Alpha" (company OR AI)');
 });
 
@@ -105,7 +107,7 @@ test('a full window (95+) is stored, then split depth-first, oldest half first',
     if (answers.has(query)) return { status: 200, body: answers.get(query) };
     return { status: 200, body: makeFeed(makeItems(`q${query.length}`, 3, '2026-09-01')) };
   });
-  const stats = await runCompanyLoop({ db, runId, client, progress: makeSilentProgress(), wait: noWait });
+  const stats = await runCompanyLoop({ db, runId, pid: 1, client, progress: makeSilentProgress(), wait: noWait });
 
   const alphaQueries = queries().filter((q) => q.includes('"Alpha"'));
   assert.deepEqual(alphaQueries, [RANGE, older, olderOlder, olderNewer, newer].map((w) => buildWindowQuery(w, '"Alpha" (company OR AI)')));
@@ -118,7 +120,7 @@ test('a window is never split below 1 day (always-full answers give 179 searches
   const { db, runId } = setUpRun(t);
   const feed = makeFeed(makeItems('same', 100, '2026-09-01'));
   const { client, queries } = fakeClient((query) => (query.includes('"Alpha"') ? { status: 200, body: feed } : EMPTY));
-  await runCompanyLoop({ db, runId, client, progress: makeSilentProgress(), wait: noWait });
+  await runCompanyLoop({ db, runId, pid: 1, client, progress: makeSilentProgress(), wait: noWait });
   const alphaQueries = queries().filter((q) => q.includes('"Alpha"'));
   assert.equal(alphaQueries.length, 179); // 90 one-day leaves + 89 splits
   assert.equal(new Set(alphaQueries).size, 179, 'no window searched twice');
@@ -133,7 +135,7 @@ test('bad items and items outside the 90 days are skipped; the company still fin
     return EMPTY;
   });
   const progress = makeSilentProgress();
-  const stats = await runCompanyLoop({ db, runId, client, progress, wait: noWait });
+  const stats = await runCompanyLoop({ db, runId, pid: 1, client, progress, wait: noWait });
   assert.deepEqual({ ...stats }, { inserted: 3, duplicates: 0, badItems: 4, outsideRange: 2 });
   assert.equal(progress.messages.warn.filter((w) => w.startsWith('Alpha: skipped an article')).length, 4);
   assert.ok(checklist(db, runId).every(([, status]) => status === 'finished'));
@@ -161,7 +163,7 @@ test('crash in the middle of a company, then resume: the company is redone, noth
       return result;
     },
   };
-  await assert.rejects(runCompanyLoop({ db, runId, client: crashingClient, progress: makeSilentProgress(), wait: noWait }), /unexpected bug/);
+  await assert.rejects(runCompanyLoop({ db, runId, pid: 1, client: crashingClient, progress: makeSilentProgress(), wait: noWait }), /unexpected bug/);
   assert.deepEqual(checklist(db, runId).map(([id, status]) => [id, status]), [['alpha', 'finished'], ['beta', 'fetching'], ['gamma', 'not_started']]);
   writeEmergencyHeartbeat(db, runId, 'crashed: Error: unexpected bug', { pid: 1 });
 
@@ -169,7 +171,7 @@ test('crash in the middle of a company, then resume: the company is redone, noth
   const resumed = acquireRun(db, ['alpha', 'beta', 'gamma'], { now: TEST_NOW + 3600000, pid: 2 });
   assert.deepEqual([resumed.runId, resumed.tookOver], [runId, true]);
   const second = fakeClient(answer);
-  const stats = await runCompanyLoop({ db, runId, client: second.client, progress: makeSilentProgress(), wait: noWait });
+  const stats = await runCompanyLoop({ db, runId, pid: 2, client: second.client, progress: makeSilentProgress(), wait: noWait });
 
   assert.deepEqual(second.queries().map((q) => q.match(/"(\w+)"/)[1]), ['Beta', 'Gamma'], 'Alpha is not searched again');
   assert.deepEqual({ inserted: stats.inserted, duplicates: stats.duplicates }, { inserted: 9, duplicates: 1 });
@@ -193,8 +195,59 @@ test('the DB count is used for the progress line and the loop pauses when the qu
     db.prepare("DELETE FROM BufferQueue WHERE id IN (SELECT id FROM BufferQueue WHERE guid LIKE 'fill-%' LIMIT 2000)").run();
   };
   const progress = makeSilentProgress();
-  await runCompanyLoop({ db, runId, client, progress, wait });
+  await runCompanyLoop({ db, runId, pid: 1, client, progress, wait });
   assert.equal(pauses, 1, '9,999 -> 7,999 after one 5 s pause');
   assert.ok(progress.messages.updates.some((u) => u.phase === 'waiting' && u.queueCount === 9999));
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM BufferQueue WHERE company_id = 'alpha'").get().n, 3);
+});
+
+test('taken over in the middle of a company (D71): no status is written for it, the loop stops with LostOwnershipError, and the new owner finishes the run', async (t) => {
+  const { db, runId } = setUpRun(t);
+  const feeds = { Alpha: makeFeed(makeItems('alpha', 2)), Beta: makeFeed(makeItems('beta', 2)), Gamma: makeFeed(makeItems('gamma', 2)) };
+  const answer = (query) => ({ status: 200, body: feeds[query.match(/"(\w+)"/)[1]] });
+
+  // Collector 1 (pid 1) went silent while searching Beta; collector 2 took the run over.
+  const real = fakeClient(answer);
+  const frozenClient = {
+    async search(query) {
+      const result = await real.client.search(query);
+      if (query.includes('"Beta"')) {
+        const takeover = acquireRun(db, ['alpha', 'beta', 'gamma'], { now: TEST_NOW + 3600000, pid: 2, isAlive: () => false });
+        assert.equal(takeover.tookOver, true);
+      }
+      return result;
+    },
+  };
+  const progress = makeSilentProgress();
+  await assert.rejects(runCompanyLoop({ db, runId, pid: 1, client: frozenClient, progress, wait: noWait }), LostOwnershipError);
+  assert.deepEqual(checklist(db, runId).map(([id, status]) => [id, status]), [['alpha', 'finished'], ['beta', 'not_started'], ['gamma', 'not_started']],
+    'collector 1 did not mark Beta finished and did not take Gamma');
+  assert.equal(db.prepare('SELECT owner_pid FROM JobRun WHERE id = ?').get(runId).owner_pid, 2);
+
+  // Collector 2 finishes the run normally.
+  const second = fakeClient(answer);
+  await runCompanyLoop({ db, runId, pid: 2, client: second.client, progress: makeSilentProgress(), wait: noWait });
+  assert.deepEqual(second.queries().map((q) => q.match(/"(\w+)"/)[1]), ['Beta', 'Gamma']);
+  assert.ok(checklist(db, runId).every(([, status]) => status === 'finished'));
+  assert.equal(db.prepare('SELECT status FROM JobRun WHERE id = ?').get(runId).status, 'collected');
+});
+
+test('taken over just before the end: the old collector does not mark the run collected under the new owner (D71)', async (t) => {
+  const { db, runId } = setUpRun(t);
+  const { client } = fakeClient(() => EMPTY);
+  await assert.rejects(runCompanyLoop({
+    db, runId, pid: 1, client, progress: makeSilentProgress(), wait: noWait,
+    // Between the last company and "collected", another collector takes the run over.
+    stopHeartbeat: () => acquireRun(db, [], { now: TEST_NOW + 3600000, pid: 2, isAlive: () => false }),
+  }), LostOwnershipError);
+  const run = db.prepare('SELECT status, owner_pid FROM JobRun WHERE id = ?').get(runId);
+  assert.deepEqual([run.status, run.owner_pid], ['running', 2], 'still running, still owned by the new collector');
+});
+
+test('a collector that does not own the run writes nothing (checked in the same transaction as each write)', async (t) => {
+  const { db, runId } = setUpRun(t);
+  const { client, queries } = fakeClient(() => EMPTY);
+  await assert.rejects(runCompanyLoop({ db, runId, pid: 999, client, progress: makeSilentProgress(), wait: noWait }), LostOwnershipError);
+  assert.equal(queries().length, 0, 'not even the first company was taken');
+  assert.ok(checklist(db, runId).every(([, status]) => status === 'not_started'));
 });

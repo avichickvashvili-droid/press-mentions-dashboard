@@ -12,30 +12,13 @@
 // then its section's words. Example: "Harvey AI" (company OR startup OR AI ...).
 // There is no date part: the collector puts the date window in front of it.
 //
-// If anything in the files is wrong, the loader stops with a clear message and the
-// Company table is left exactly as it was.
+// If anything in the files is wrong, the loader stops with a clear message (SeedError) and the
+// Company table is left exactly as it was. Reading the company list file itself is shared with
+// the data/ export (src/shared/companyList.js).
 
-import fs from 'node:fs';
 import { config } from '../config.js';
 import { inTransaction } from '../db/database.js';
-
-// The error the seed loader throws for a problem in the data files. The message is
-// written for a person, so the command can print it as it is.
-export class SeedError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'SeedError';
-  }
-}
-
-// Reads a text file, or stops with a clear message if it is missing or unreadable.
-function readTextFile(filePath, description) {
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch (error) {
-    throw new SeedError(`Cannot read the ${description} (${filePath}): ${error.message}`);
-  }
-}
+import { parseCompanyList, readTextFile, SeedError } from '../shared/companyList.js';
 
 // Reads and parses a JSON file, or stops with a clear message if it is missing or not valid JSON.
 function readJsonFile(filePath, description) {
@@ -45,12 +28,6 @@ function readJsonFile(filePath, description) {
   } catch (error) {
     throw new SeedError(`The ${description} (${filePath}) is not valid JSON: ${error.message}`);
   }
-}
-
-// Removes a trailing "(...)" note from a list name, e.g. "Lambda (lambda.ai)" -> "Lambda",
-// "Cycuity (formerly Tortuga Logic)" -> "Cycuity". The note is for people, not for the search.
-export function stripAnnotation(listName) {
-  return listName.replace(/\s*\([^()]*\)\s*$/, '').trim();
 }
 
 // Turns a company name into its id: lowercase, and every run of characters that are not
@@ -72,48 +49,6 @@ export function buildQueryParam(name, hint, sectionWords) {
 // Counts the words of a search, the way Google News sees them (split on spaces).
 export function countWords(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
-}
-
-// Reads filtered_ourcrowd_companies.txt (given as text) and returns its companies in file
-// order: [{ listName, name, section }]. Rules: "## N. Name" starts section N; other lines that
-// start with "#" are comments; blank lines are ignored; every other line is one company.
-// Windows (CRLF) and Unix (LF) line endings both work.
-export function parseCompanyList(text) {
-  const companies = [];
-  let currentSection = null;
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
-
-  lines.forEach((rawLine, index) => {
-    const lineNumber = index + 1;
-    const line = rawLine.trim();
-    if (line === '') return;
-
-    if (line.startsWith('##')) {
-      const header = line.match(/^##\s*(\d+)\.\s*(.*)$/);
-      if (!header) {
-        throw new SeedError(`Company list, line ${lineNumber}: "${line}" looks like a section header but is not in the form "## N. Name".`);
-      }
-      const sectionNumber = Number(header[1]);
-      if (sectionNumber < 1 || sectionNumber > 13) {
-        throw new SeedError(`Company list, line ${lineNumber}: section number ${sectionNumber} is outside 1-13.`);
-      }
-      currentSection = sectionNumber;
-      return;
-    }
-
-    if (line.startsWith('#')) return; // a comment
-
-    if (currentSection === null) {
-      throw new SeedError(`Company list, line ${lineNumber}: company "${line}" appears before any "## N. Section" header.`);
-    }
-    const name = stripAnnotation(line);
-    if (name === '') {
-      throw new SeedError(`Company list, line ${lineNumber}: "${line}" has no company name left after removing the "(...)" note.`);
-    }
-    companies.push({ listName: line, name, section: currentSection, lineNumber });
-  });
-
-  return companies;
 }
 
 // Returns the hint for a list name from company_hints.json, or null when there is none

@@ -16,11 +16,13 @@
 //  - Rows that failed for good (status 'failed' and attempts >= MAX_ATTEMPTS) are NOT counted:
 //    the classifier will never take them again, so they would block the queue forever (D72).
 //    When such rows exist, a warning says how many (only when that number changes).
+//  - While waiting for space, a count that fails because the database is busy is simply tried
+//    again at the next check; any other database error is thrown on (D76).
 
 import { config } from '../config.js';
-import { inTransaction, nowIso } from '../db/database.js';
-import { stripPublisherSuffix } from './itemRules.js';
-import { sleep as realSleep } from './waiting.js';
+import { inTransaction, isDatabaseBusyError, nowIso } from '../db/database.js';
+import { sleep as realSleep } from '../shared/retry.js';
+import { formatCount, stripPublisherSuffix } from '../shared/text.js';
 
 // Reads the queue size for the CAP check: `live` = rows that still count (everything except
 // rows that failed for good), `dead` = rows that failed for good and are left out.
@@ -45,7 +47,7 @@ export function createDeadRowReporter(warn = console.warn) {
     if (deadCount === lastReported) return;
     lastReported = deadCount;
     if (deadCount > 0) {
-      warn(`${deadCount.toLocaleString('en-US')} queue rows failed the AI step for good (${config.MAX_ATTEMPTS} attempts); ` +
+      warn(`${formatCount(deadCount)} queue rows failed the AI step for good (${config.MAX_ATTEMPTS} attempts); ` +
         'they stay in BufferQueue but are not counted toward the queue limit.');
     }
   };
@@ -103,7 +105,8 @@ export function insertChunk(db, companyId, items, firstSeenAt = nowIso()) {
 // wait, it goes on only when the queue is down to QUEUE_RESUME_AT (8,000).
 // onWaiting(queueCount) is called on every check while waiting (for the progress line);
 // onDeadRows(count) gets the number of rows that failed for good at every check.
-// A failed count (e.g. database busy) is logged and simply checked again later.
+// A count that fails because the database is busy is logged and simply checked again later;
+// any other database error is thrown on (D76).
 // Returns the last queue count it read.
 export async function waitForQueueSpace(db, chunkSize, {
   sleep = realSleep, onWaiting = () => {}, onDeadRows = () => {}, warn = console.warn,
@@ -114,6 +117,7 @@ export async function waitForQueueSpace(db, chunkSize, {
       onDeadRows(dead);
       return live;
     } catch (error) {
+      if (!isDatabaseBusyError(error)) throw error;
       warn(`Could not count the queue (${error.message}); checking again in ${config.CAP_POLL_MS / 1000} s.`);
       return null;
     }

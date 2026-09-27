@@ -8,7 +8,7 @@
 // Reads/writes: nothing itself. Processes are started through `startProcess`
 // (serviceProcess.js in real use, a fake in tests); time comes from `clock` (fake in tests).
 //
-// Exit codes of a service and what happens (full table in exitCodes.js):
+// Exit codes of a service and what happens (full table in src/shared/exitCodes.js):
 //   0   finished normally  -> not restarted (for an always-on service: unexpected = crash)
 //   3   refused, nothing wrong (e.g. lock held by another run) -> logged, not restarted
 //   1   crashed            -> restarted after 1 s, 2 s, 5 s, 10 s, 30 s, 60 s, 60 s ...
@@ -27,7 +27,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
-import { supervisorConfig } from './supervisorConfig.js';
 import {
   classifyExit, describeExit, formatWait, isStopCode, recordCrash, restartWait, tooManyCrashes,
 } from './restartRules.js';
@@ -48,7 +47,7 @@ export function createSupervisor({
   services,
   startProcess,
   log,
-  settings = supervisorConfig,
+  settings = config,
   clock = realClock,
   entryExists = (entry) => fs.existsSync(path.resolve(config.PROJECT_ROOT, entry)),
   onFinished = () => {},

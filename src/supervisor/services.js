@@ -26,7 +26,7 @@ export const SERVICES = [
   },
   {
     name: 'classifier',
-    // Assumed path; the classifier's entry file is not final yet (to be confirmed).
+    // Always on (D62): the classifier polls the queue and never ends by itself.
     entry: 'src/classifier/runClassifier.js',
     npmScript: 'classifier',
     policy: 'always',

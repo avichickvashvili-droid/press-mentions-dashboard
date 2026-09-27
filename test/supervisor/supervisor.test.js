@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSupervisor } from '../../src/supervisor/supervisor.js';
-import { supervisorConfig } from '../../src/supervisor/supervisorConfig.js';
+import { config } from '../../src/config.js';
 import { createFakeClock, createFakeLauncher, createFakeLog } from './testTools.js';
 
 const COLLECTOR = { name: 'collector', entry: 'collector.js', npmScript: 'collect', policy: 'once' };
@@ -35,7 +35,7 @@ test('starts every service as its own process', async () => {
   assert.deepEqual(supervisor.statuses(), { collector: 'running', classifier: 'running' });
 });
 
-test('collector exit 0 = finished, not restarted; the classifier keeps running (D68, Q8e)', async () => {
+test('collector exit 0 = finished, not restarted; the classifier keeps running (D68)', async () => {
   const { clock, launcher, log, supervisor, finished } = await setUp();
   launcher.latest('collector').end(0);
   clock.advance(10 * 60 * 1000);
@@ -79,12 +79,12 @@ test('the wait goes back to 1 s after the service stayed up 5 minutes', async ()
   clock.advance(1000);
   launcher.latest('classifier').end(1);
   clock.advance(2000);
-  clock.advance(supervisorConfig.STABLE_UPTIME_MS); // healthy for 5 minutes
+  clock.advance(config.STABLE_UPTIME_MS); // healthy for 5 minutes
   launcher.latest('classifier').end(1);
   assert.match(log.lines.at(-1), /restart #3 in 1 s/);
 });
 
-test('always-on service ending with 0 is unexpected = a crash, restarted (Q3c)', async () => {
+test('always-on service ending with 0 is unexpected = a crash, restarted (D68: an always-on service never ends by itself)', async () => {
   const { clock, launcher, log } = await setUp();
   launcher.latest('classifier').end(0);
   assert.match(log.text(), /classifier crashed \(exit 0\), restart #1 in 1 s/);
@@ -96,7 +96,7 @@ test('130 / 143 nobody asked for = a crash, judged after a short grace (D68)', a
   const { clock, launcher, log, supervisor } = await setUp();
   launcher.latest('classifier').end(143);
   assert.equal(supervisor.statuses().classifier, 'ending');
-  clock.advance(supervisorConfig.STOP_SIGNAL_GRACE_MS);
+  clock.advance(config.STOP_SIGNAL_GRACE_MS);
   assert.match(log.text(), /classifier crashed \(exit 143\), restart #1/);
 });
 
@@ -129,7 +129,7 @@ test('more than 5 crashes in 10 minutes: gives up on that service only, with a c
   assert.match(text, /npm run classifier/);
 });
 
-test('ends by itself when nothing is left: 1 if a service was given up, 0 if all finished (Q3d)', async () => {
+test('ends by itself when nothing is left: 1 if a service was given up, 0 if all finished (exit code of the orchestrator itself)', async () => {
   const onlyCollector = await setUp({ services: [COLLECTOR] });
   onlyCollector.launcher.latest('collector').end(0);
   assert.deepEqual(onlyCollector.finished, [0]);
@@ -195,7 +195,7 @@ test('stop: a service still running after 10 s is force-killed, and the log says
   const { clock, launcher, log, supervisor } = await setUp();
   supervisor.stop(130);
   launcher.latest('collector').end(143);
-  clock.advance(supervisorConfig.STOP_TIMEOUT_MS - 1);
+  clock.advance(config.STOP_TIMEOUT_MS - 1);
   assert.equal(launcher.latest('classifier').killed, false);
   clock.advance(1);
   assert.equal(launcher.latest('classifier').killed, true);

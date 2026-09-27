@@ -12,6 +12,9 @@
 //   JobRunCompany  the per-run checklist of companies
 //
 // All dates are stored as ISO-8601 text in UTC, e.g. "2026-09-27T10:15:00.000Z".
+//
+// Columns added after the first version are added to an existing database file on open
+// (addMissingColumns), so an older database keeps working: BufferQueue.suspect (D78).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,6 +45,7 @@ CREATE TABLE IF NOT EXISTS BufferQueue (
   attempts      INTEGER NOT NULL DEFAULT 0,
   claimed_at    TEXT,
   claimed_by_pid INTEGER,                       -- process id of the classifier worker that claimed the row
+  suspect       INTEGER NOT NULL DEFAULT 0,     -- 1 = was being worked on when a classifier died: asked alone (D78)
   UNIQUE (company_id, guid)
 );
 
@@ -96,7 +100,21 @@ CREATE INDEX IF NOT EXISTS idx_mention_alerted ON Mention(alerted_at);
 CREATE INDEX IF NOT EXISTS idx_jobruncompany_run_status ON JobRunCompany(run_id, status);
 `;
 
-// Opens (and creates if needed) the database file and makes sure all tables exist.
+// Columns added after the first version of a table: [table, column, definition]. A database
+// file created before a column existed gets it added on open (existing rows get the default).
+const ADDED_COLUMNS = [
+  ['BufferQueue', 'suspect', 'INTEGER NOT NULL DEFAULT 0'],
+];
+
+// Adds every column of ADDED_COLUMNS that the database file doesn't have yet.
+function addMissingColumns(db) {
+  for (const [table, column, definition] of ADDED_COLUMNS) {
+    const hasColumn = db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column);
+    if (!hasColumn) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+  }
+}
+
+// Opens (and creates if needed) the database file and makes sure all tables and columns exist.
 // WAL mode + a busy timeout let the collector, classifier and API share the file safely.
 export function openDatabase(dbPath = config.DB_PATH) {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -105,6 +123,7 @@ export function openDatabase(dbPath = config.DB_PATH) {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA_SQL);
+  addMissingColumns(db);
   return db;
 }
 
@@ -126,8 +145,15 @@ export function inTransaction(db, work) {
   }
 }
 
+// True when the error was raised by SQLite itself (any database error, busy or not).
+// Used to tell a database problem apart from other failures (e.g. a file that can't be written).
+export function isDatabaseError(error) {
+  return error?.code === 'ERR_SQLITE_ERROR';
+}
+
 // True when a database error only means "another service is writing right now" —
-// a temporary condition that is worth retrying.
+// a temporary condition that is worth retrying. It is the ONLY database error that is retried
+// (D76, see src/shared/retry.js); every other one is thrown on.
 export function isDatabaseBusyError(error) {
   const code = error?.errcode;
   // 5 = SQLITE_BUSY, 6 = SQLITE_LOCKED (the low byte of extended codes is the same).

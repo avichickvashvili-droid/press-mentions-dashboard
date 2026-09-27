@@ -16,7 +16,7 @@
 //     force-kills at once;
 //   - it ends by itself when nothing is left to supervise.
 //
-// Exit codes of the services (full table in exitCodes.js):
+// Exit codes of the services (full table in src/shared/exitCodes.js):
 //   0 finished · 3 refused, nothing wrong · 1 crash · 130 Ctrl+C · 143 stop request
 // Exit code of the orchestrator itself:
 //   0 everything finished normally · 1 a service was given up / missing, or the orchestrator
@@ -26,7 +26,7 @@ import { SERVICES } from './services.js';
 import { createSupervisor } from './supervisor.js';
 import { startServiceProcess } from './serviceProcess.js';
 import { createOrchestratorLog } from './logging.js';
-import { EXIT_CODES } from './exitCodes.js';
+import { EXIT_CODES } from '../shared/exitCodes.js';
 
 const log = createOrchestratorLog();
 

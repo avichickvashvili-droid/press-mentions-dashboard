@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { config } from '../src/config.js';
 import { parseFeed } from '../src/collector/googleNews.js';
 import { runRange } from '../src/collector/dateWindows.js';
-import { sortItems, stripPublisherSuffix } from '../src/collector/itemRules.js';
+import { sortItems } from '../src/collector/itemRules.js';
+import { stripPublisherSuffix } from '../src/shared/text.js';
 import { countQueue, createDeadRowReporter, insertChunk, readQueueCounts, waitForQueueSpace } from '../src/collector/bufferWriter.js';
 import { TEST_NOW, makeTempDb, readFixture } from './helpers.js';
 

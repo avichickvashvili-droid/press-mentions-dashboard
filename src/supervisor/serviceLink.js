@@ -15,11 +15,11 @@
 // last_error, owner_pid = NULL) and exits with code 143.
 //
 // It also stops the service if the orchestrator itself dies (the channel "disconnects"), so no
-// service is left running on its own (no orphans, Q5).
+// service is left running on its own (no orphans, D69).
 //
-// Exit codes involved: 143 = stopped on request (see exitCodes.js for the full table).
+// Exit codes involved: 143 = stopped on request (see src/shared/exitCodes.js for the full table).
 
-import { EXIT_CODES } from './exitCodes.js';
+import { EXIT_CODES } from '../shared/exitCodes.js';
 
 // Connects the service to the orchestrator, if it was started by one.
 // Returns true when connected, false when the service runs alone.

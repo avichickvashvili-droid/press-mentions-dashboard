@@ -1,12 +1,13 @@
 // prompt.test.js — the classifier's prompt and answer checks (prompt.js, answerValidator.js).
 // Offline: no Ollama. Checks that the prompt stays the tested wording (D58), is filled safely,
-// and that only answers of the agreed shape are accepted (D27, Q5).
+// and that only answers of the agreed shape are accepted (D27, and the owner's rule that an answer must be exactly this shape).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildPrompt, loadSectionNames, PROMPT_TEMPLATE, ANSWER_SCHEMA, stripPublisherSuffix } from '../../src/classifier/prompt.js';
+import { buildPrompt, loadSectionNames, PROMPT_TEMPLATE, ANSWER_SCHEMA } from '../../src/classifier/prompt.js';
+import { stripPublisherSuffix } from '../../src/shared/text.js';
 import { validateAnswer } from '../../src/classifier/answerValidator.js';
 import { makeTempDir } from '../helpers.js';
 
@@ -64,7 +65,7 @@ test('loadSectionNames gives a clear error for a missing or broken file', (t) =>
 test('validateAnswer accepts the two valid shapes', () => {
   assert.deepEqual(validateAnswer('{"relevant": true, "sentiment": "negative"}'), { ok: true, relevant: true, sentiment: 'negative' });
   assert.deepEqual(validateAnswer('{"relevant": false, "sentiment": null}'), { ok: true, relevant: false, sentiment: null });
-  // Irrelevant with a sentiment: accepted as irrelevant, sentiment ignored (Q5).
+  // Irrelevant with a sentiment: accepted as irrelevant, sentiment ignored (the owner's rule: "not about the company" needs no sentiment).
   assert.deepEqual(validateAnswer('{"relevant": false, "sentiment": "positive"}'), { ok: true, relevant: false, sentiment: null });
 });
 

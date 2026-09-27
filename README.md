@@ -11,7 +11,7 @@ For every company in `ourcrowd_companies.txt` (258 companies), the system:
 2. **Classifies** each article with a **local Ollama model**: is it really about this company, and if so, is it positive, negative or neutral?
 3. **Stores** the relevant mentions in SQLite.
 4. **Shows** a dashboard: every company with its status ("last mentioned 3 days ago" / "no coverage found"). Click a company to see its mentions, newest first, each with its sentiment and a link to the article.
-5. **Runs daily**, adds new mentions, and sends one alert listing them.
+5. **Runs daily**, adds new mentions, and sends one alert listing them (the daily job: planned, not built yet).
 
 ## How it works
 
@@ -70,7 +70,7 @@ This starts the **orchestrator**, which runs two services side by side and resta
 
 | Service | What it does | How long (on the dev PC) |
 |---|---|---|
-| `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue | About 10–30 minutes |
+| `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue | About 10–30 minutes of searching. It pauses whenever the queue is full (10,000), so on a big backfill it finishes close to the classifier |
 | `[classifier]` | Asks the local AI about each article: relevant? sentiment? Deletes the irrelevant ones, saves the rest as mentions | Keeps pace with the collector, then about 1–2 hours to finish the queue |
 
 When the queue is empty, the classifier writes the results to **`data/`** and the run is marked `done`:
@@ -135,6 +135,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
 - **Solution:**
   - One request at a time, **1 second apart** with a little random jitter.
   - On 429 or CAPTCHA, **back off exponentially** (wait longer each time), then retry the same company until it's done.
+  - On 403 (blocked), wait 5 s for the first 3 tries, then use the same growing waits (up to 10 min), so a real block isn't hammered.
   - Companies are fetched **one at a time**.
 - **Trade-offs:**
   - 1 second is faster than the 3–5 seconds commonly reported as safe, so a block is more likely. We accept that risk for faster daily runs (a few minutes of collection instead of ~15–20), and the backoff handles blocks when they happen.
@@ -256,14 +257,14 @@ Each design choice solves a specific problem. For each one: the problem, what we
 - **Solution: 3 independent services + a supervisor, with 4 layers of protection.**
   ```
   npm start
-    └─ supervisor  (restarts any service that dies)
-         ├─ api          → API + dashboard
+    └─ orchestrator  (restarts any service that dies)
          ├─ collector    → 90-day search → BufferQueue
-         └─ classifier   → BufferQueue → Ollama → Mention → data/ + alert
+         ├─ classifier   → BufferQueue → Ollama → Mention → data/
+         └─ api          → API + dashboard   (next step, not built yet)
   ```
   1. **One item fails → retry it.** A temporary Google error (no internet, 429, timeout) is retried on the **same company until it's done**, with growing waits capped at ~10 minutes. A permanent error (e.g. a malformed query) marks that company `failed` and is reported. Invalid LLM JSON is retried, then marked `failed`.
   2. **A loop fails → only that loop restarts.**
-  3. **A process dies → the supervisor restarts only that service.** The others keep running: if the internet drops, the collector waits **while the classifier keeps working through the queue**. A service that keeps crashing is stopped with a clear error instead of looping forever. An article that crashes the classifier is counted *before* processing, so after 3 tries it's marked `failed`.
+  3. **A process dies → the supervisor restarts only that service.** The others keep running: if the internet drops, the collector waits **while the classifier keeps working through the queue**. A service that keeps crashing is stopped with a clear error instead of looping forever. An article that crashes the classifier is counted *before* processing; after a crash the articles are retried one at a time, so only the one that really causes it reaches 3 tries and is set aside as `failed`.
   4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat) and a per-run company checklist (`JobRunCompany`, each company `not_started` → `fetching` → `finished`, or `failed`) record where we stopped. The collection job ends when every company is `finished` or `failed`. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
   - The services share only the SQLite file. There's **no database service**: SQLite is a file, not a server, so there's nothing to crash.
   - **Exit codes** tell the orchestrator why a service stopped, so it only restarts real crashes:
@@ -278,8 +279,8 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - **Every stop or restart writes the emergency heartbeat first.** The orchestrator sends the service a "stop" message (Windows has no soft stop signal between programs), the service writes its last heartbeat to the database and exits, and only if it hasn't exited after 10 s is it force-killed. Every restart is logged, e.g. `[orchestrator] classifier crashed (exit 1), restart #2 in 5 s`.
   - Articles that failed for good (3 failed rounds) don't count toward the queue limit, so they can't block collection. How many were skipped is logged.
   - When there is no `.env` file, Node prints `.env not found. Continuing without it.` That's expected: `.env` is optional.
-  - If the PC was off at the scheduled time, the run starts as soon as `npm start` launches.
-  - The alert is marked "sent" only after it actually sends.
+  - If the PC was turned off mid-run, the next `npm start` resumes the unfinished collection.
+  - (Daily job, planned) The alert will be marked "sent" only after it actually sends.
 - **Trade-offs:**
   - Alerts are *at-least-once*. In the rare case of a crash between sending and marking, the next digest may repeat a mention. We prefer that over missing one.
   - Our own small supervisor instead of **PM2** (the standard Node process manager): no extra tool for the reviewer to install, but PM2 would be the choice in production.
@@ -526,6 +527,8 @@ qwen3:4b is slower (3.06 vs 5.54 articles/s), but it is better on every quality 
 
 **Side result: no company descriptions needed.** The model test gave the AI a hand-written line on what each company does. The real system has no such line for 258 companies, so the classifier gives the company name and its full section name instead (e.g. `Ukko` · `Health (Healthcare & Biotechnology)`). Compared on the same 598 headlines: precision 96.6% vs 97.7%, recall 97.4% vs 97.7%, sentiment 80.7% vs 82.2%. Slightly weaker, still above the 95% precision target.
 
+**Note:** after this test the classifier also caps each answer's length (`num_predict` = 64, D75), so a stuck answer can't hold a worker. The answers here are 17 tokens on average, so the cap doesn't change them.
+
 **How to use it.** Ollama must run with `OLLAMA_NUM_PARALLEL=4` (set it as a user environment variable and restart the Ollama app), and the classifier with `LLM_CONCURRENCY=4`.
 
 ### 8. Limits and next steps
@@ -580,10 +583,6 @@ Notes:
 | [`queries.json`](research/model-test/queries.json) | The Google News search used for each company |
 | [`run-models.mjs`](research/model-test/run-models.mjs), [`score.mjs`](research/model-test/score.mjs) | The runner and the scorer |
 | [`results/`](research/model-test/results/) | Each model's raw answers, plus the partial gpt-oss run in `results/excluded/` |
-
-## Setup and running
-
-> To be added as the system is built: dependencies, environment variables, installing Ollama and pulling the model, and the exact commands to run end to end.
 
 ## Known limitations
 

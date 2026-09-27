@@ -2,7 +2,8 @@
 //
 // Where it sits: used by `npm run collect` at start-up (take the lock), while running
 // (heartbeat every 5 min) and when it crashes or is stopped (emergency heartbeat).
-// `npm run seed` also uses it to refuse to run while a collection is live.
+// The parts other programs need too (is the lock live? the emergency heartbeat) live in
+// src/shared/runLock.js; this file has the collector-only parts.
 // Reads/writes: the JobRun table (the lock and the run record) and, when a run starts or is
 // taken over, the JobRunCompany table (the run's checklist of companies). D39, D48, D48a.
 //
@@ -14,12 +15,19 @@
 // When there is no 'running' run at all, `collect` starts a new run, UNLESS a run is still
 // 'collected' (collection done, classification not yet 'done'): then it refuses, so the
 // classifier can finish that run first.
+// On a take-over, companies that were added to the company list after the run started are
+// added to the run's checklist as 'not_started', so this run collects them too (D79).
+// Every write the collector makes on the run checks, in the same transaction, that this process
+// still owns the run; if another process took it over, the collector stops itself (D71).
 // At the end of collection the run becomes 'collected' with owner_pid = NULL, which hands it
 // over to the classifier (see companyLoop.js).
 // The collector never sets a run to 'failed'.
 
 import { config } from '../config.js';
-import { inTransaction, nowIso } from '../db/database.js';
+import { inTransaction, isDatabaseBusyError, nowIso } from '../db/database.js';
+import { EXIT_CODES } from '../shared/exitCodes.js';
+import { findCollectedRun, findRunningRun, isProcessAlive, isRunLive, writeEmergencyHeartbeat } from '../shared/runLock.js';
+import { describeError } from '../shared/text.js';
 
 // Thrown when another live process holds the lock. The message is for a person.
 export class LockHeldError extends Error {
@@ -45,51 +53,35 @@ export class CollectedRunPendingError extends Error {
   }
 }
 
-// The oldest run that is 'collected' but not yet 'done', or undefined. Read-only.
-export function findCollectedRun(db) {
-  return db.prepare("SELECT * FROM JobRun WHERE status = 'collected' ORDER BY id LIMIT 1").get();
-}
-
-// True if a process with this id exists. Signal 0 does not stop the process, it only checks.
-// "EPERM" means it exists but belongs to someone else: still alive.
-export function isProcessAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === 'EPERM';
+// Thrown when this collector finds that another process has taken its run over (D71): it must
+// stop, because two collectors must never work on the same run. Nothing is wrong, so the
+// collector exits with 3 ("refused / stood down") and writes no emergency heartbeat (the run is
+// not ours any more).
+export class LostOwnershipError extends Error {
+  constructor(runId) {
+    super(`Run ${runId} was taken over by another process (this one was silent for too long). ` +
+      'Stopping this collector so only one works on the run.');
+    this.name = 'LostOwnershipError';
+    this.runId = runId;
   }
 }
 
-// The current 'running' run, or undefined.
-function findRunningRun(db) {
-  return db.prepare("SELECT * FROM JobRun WHERE status = 'running' ORDER BY id DESC LIMIT 1").get();
-}
-
-// True if a 'running' run is still held by a live process (see the rules at the top).
-export function isRunLive(run, { now = Date.now(), isAlive = isProcessAlive } = {}) {
-  if (run.owner_pid === null || run.owner_pid === undefined) return false;
-  if (!isAlive(run.owner_pid)) return false;
-  const heartbeatAge = now - Date.parse(run.last_heartbeat);
-  return !(heartbeatAge > config.STALE_AFTER_MS);
-}
-
-// Read-only lock check: returns the live run holding the lock, or null. Changes nothing.
-// Used before seeding, so a live collection is never disturbed.
-export function findLiveRun(db, options = {}) {
-  const run = findRunningRun(db);
-  return run && isRunLive(run, options) ? run : null;
+// True if this process still owns the 'running' run. Called inside the transaction of each
+// write the collector makes on the run, so the check and the write happen together (D71). Read-only.
+export function ownsRun(db, runId, pid = process.pid) {
+  return Boolean(db.prepare("SELECT 1 FROM JobRun WHERE id = ? AND status = 'running' AND owner_pid = ?").get(runId, pid));
 }
 
 // Takes the lock in ONE transaction. It re-checks the lock first (something may have changed
 // since the read-only check), then either:
 //   - takes over the 'running' run (its owner is gone or silent): owner_pid = us, fresh
-//     heartbeat, and its 'fetching' company goes back to 'not_started' to be redone, or
+//     heartbeat, its 'fetching' company goes back to 'not_started' to be redone, and companies
+//     of the given list that are not in its checklist yet are added as 'not_started' (D79), or
 //   - starts a new run with one 'not_started' checklist row per company, in the given order.
 // Throws LockHeldError if a live process holds the lock, and CollectedRunPendingError if a new
 // run would start while an earlier run is still 'collected'.
-// Returns { runId, startedAt, tookOver }.
+// Returns { runId, startedAt, tookOver, addedCompanies } (addedCompanies = how many companies a
+// take-over added to the checklist; 0 for a new run).
 export function acquireRun(db, companyIdsInOrder, { now = Date.now(), pid = process.pid, isAlive = isProcessAlive } = {}) {
   return inTransaction(db, () => {
     const nowText = new Date(now).toISOString();
@@ -99,7 +91,10 @@ export function acquireRun(db, companyIdsInOrder, { now = Date.now(), pid = proc
       if (isRunLive(running, { now, isAlive })) throw new LockHeldError(running);
       db.prepare('UPDATE JobRun SET owner_pid = ?, last_heartbeat = ? WHERE id = ?').run(pid, nowText, running.id);
       db.prepare("UPDATE JobRunCompany SET status = 'not_started' WHERE run_id = ? AND status = 'fetching'").run(running.id);
-      return { runId: running.id, startedAt: running.started_at, tookOver: true };
+      const addMissing = db.prepare("INSERT OR IGNORE INTO JobRunCompany (run_id, company_id, status) VALUES (?, ?, 'not_started')");
+      let addedCompanies = 0;
+      for (const companyId of companyIdsInOrder) addedCompanies += addMissing.run(running.id, companyId).changes;
+      return { runId: running.id, startedAt: running.started_at, tookOver: true, addedCompanies };
     }
 
     const collectedRun = findCollectedRun(db);
@@ -111,11 +106,12 @@ export function acquireRun(db, companyIdsInOrder, { now = Date.now(), pid = proc
     const runId = Number(result.lastInsertRowid);
     const addCompany = db.prepare("INSERT INTO JobRunCompany (run_id, company_id, status) VALUES (?, ?, 'not_started')");
     for (const companyId of companyIdsInOrder) addCompany.run(runId, companyId);
-    return { runId, startedAt: nowText, tookOver: false };
+    return { runId, startedAt: nowText, tookOver: false, addedCompanies: 0 };
   });
 }
 
-// Writes "I'm alive" for our run. Only succeeds while we still own the run.
+// Writes "I'm alive" for our run. Only succeeds while we still own the run (checked in the same
+// transaction, D71).
 // Returns true if written, false if another process has taken the run over.
 export function writeHeartbeat(db, runId, { pid = process.pid, now = nowIso() } = {}) {
   return inTransaction(db, () => {
@@ -124,8 +120,9 @@ export function writeHeartbeat(db, runId, { pid = process.pid, now = nowIso() } 
   });
 }
 
-// Starts the heartbeat timer (every 5 min). A failed write is logged and tried again at the
-// next beat (the stale limit allows 3 missed beats).
+// Starts the heartbeat timer (every 5 min). A write that failed because the database was busy is
+// logged and tried again at the next beat (the stale limit allows 3 missed beats). Any other
+// database error is thrown on (D76): it reaches the crash handler, which exits with code 1.
 // If the beat finds that another process has taken the run over (D71), the timer stops and
 // onLostOwnership(message) is called: the collector must then stop itself, because two
 // collectors must never work on the same run.
@@ -138,39 +135,24 @@ export function startHeartbeat(db, runId, {
     try {
       stillOwner = writeHeartbeat(db, runId, { pid });
     } catch (error) {
+      if (!isDatabaseBusyError(error)) {
+        clearInterval(timer);
+        throw error;
+      }
       warn(`Heartbeat could not be written (${error.message}); will try again in ${Math.round(intervalMs / 60000)} min.`);
       return;
     }
     if (!stillOwner) {
       clearInterval(timer);
-      onLostOwnership(`Run ${runId} was taken over by another process (this one was silent for too long). ` +
-        'Stopping this collector so only one works on the run.');
+      onLostOwnership(new LostOwnershipError(runId).message);
     }
   }, intervalMs);
   timer.unref(); // the heartbeat alone must not keep the program running
   return () => clearInterval(timer);
 }
 
-// The emergency heartbeat (D48a): ONE write when the process crashes or is stopped:
-// crashed_at, last_error, and owner_pid = NULL, which releases the lock at once.
-// The run stays 'running', so the next `collect` resumes it immediately.
-// Returns true if the row was written.
-export function writeEmergencyHeartbeat(db, runId, reason, { pid = process.pid, now = nowIso() } = {}) {
-  return inTransaction(db, () => {
-    const result = db
-      .prepare('UPDATE JobRun SET crashed_at = ?, last_error = ?, owner_pid = NULL WHERE id = ? AND owner_pid = ?')
-      .run(now, String(reason), runId, pid);
-    return result.changes === 1;
-  });
-}
-
-// Turns any thrown value into readable text for last_error.
-function describeError(error) {
-  if (error instanceof Error) return `${error.name}: ${error.message}`;
-  return String(error);
-}
-
-// Installs the handlers that fire the emergency heartbeat and then end the program:
+// Installs the handlers that fire the emergency heartbeat (writeEmergencyHeartbeat in
+// src/shared/runLock.js; the run stays 'running', so the next `collect` resumes it) and then end the program:
 // an uncaught error, an unhandled promise rejection, Ctrl+C (SIGINT) or SIGTERM.
 // Returns { handleFatal(error), uninstall() }; handleFatal is also used by the main program
 // for an error that reaches its top level.
@@ -191,10 +173,10 @@ export function installEmergencyHandlers(db, runId, { pid = process.pid, log = c
     exit(exitCode);
   }
 
-  const onUncaught = (error) => stopWith(`crashed: ${describeError(error)}`, 1);
-  const onRejection = (error) => stopWith(`crashed (unhandled promise): ${describeError(error)}`, 1);
-  const onSigint = () => stopWith('stopped by Ctrl+C (SIGINT)', 130);
-  const onSigterm = () => stopWith('stopped by SIGTERM', 143);
+  const onUncaught = (error) => stopWith(`crashed: ${describeError(error)}`, EXIT_CODES.CRASHED);
+  const onRejection = (error) => stopWith(`crashed (unhandled promise): ${describeError(error)}`, EXIT_CODES.CRASHED);
+  const onSigint = () => stopWith('stopped by Ctrl+C (SIGINT)', EXIT_CODES.STOPPED_BY_CTRL_C);
+  const onSigterm = () => stopWith('stopped by SIGTERM', EXIT_CODES.STOPPED_BY_REQUEST);
 
   process.on('uncaughtException', onUncaught);
   process.on('unhandledRejection', onRejection);

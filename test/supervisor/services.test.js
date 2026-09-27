@@ -1,5 +1,6 @@
 // services.test.js — checks that the orchestrator starts each service with the SAME command as
-// its npm script (Q8a): `node --env-file-if-exists=.env <entry>`, and that `npm start` runs the
+// its npm script (the owner's rule: a service is started exactly as its npm script starts it):
+// `node --env-file-if-exists=.env <entry>`, and that `npm start` runs the
 // orchestrator. A script that is not in package.json yet is reported as skipped, not failed.
 // Reads: package.json.
 

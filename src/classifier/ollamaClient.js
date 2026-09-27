@@ -4,13 +4,20 @@
 // (prompt.js) and checks the answer (answerValidator.js). Also used by the parallel test.
 // Reads: Ollama's HTTP API (/api/version, /api/show, /api/chat). Writes: nothing.
 //
-// Two kinds of failure are kept apart on purpose (owner decisions Q6, D59):
-//   - OllamaUnavailableError: Ollama is down, too slow, or answered with an HTTP error.
-//     That is not the article's fault: the caller gives the article back and waits.
+// Kinds of failure (D59, D75):
+//   - OllamaUnavailableError: a request got no usable answer (no connection, timeout, HTTP error,
+//     unreadable body). The caller then asks isReachable() (a quick /api/version check) to tell
+//     the two cases apart:
+//       * Ollama is down (not reachable): not the article's fault; the caller gives the article
+//         back (the attempt is undone) and waits;
+//       * Ollama is reachable, so only this one request failed: it counts as a failed attempt for
+//         that article (normal retry rules, 'failed' for good after MAX_ATTEMPTS).
 //   - An invalid answer (bad JSON / wrong shape): asked again, up to LLM_TRIES_PER_ATTEMPT
 //     times; after that the attempt counts as failed for that article.
+// Every answer is capped at OLLAMA_NUM_PREDICT tokens (D75), so a model that keeps writing gives
+// a quick invalid answer instead of running until the timeout.
 
-import { classifierConfig } from './classifierConfig.js';
+import { config } from '../config.js';
 import { ANSWER_SCHEMA, buildPrompt } from './prompt.js';
 import { validateAnswer } from './answerValidator.js';
 
@@ -34,28 +41,31 @@ const SELF_CHECK_ARTICLE = {
 
 // Creates the client. `fetchImpl` can be replaced by a fake in tests.
 export function createOllamaClient({
-  url = classifierConfig.OLLAMA_URL,
-  model = classifierConfig.OLLAMA_MODEL,
-  timeoutMs = classifierConfig.OLLAMA_TIMEOUT_MS,
-  keepAlive = classifierConfig.OLLAMA_KEEP_ALIVE,
-  triesPerAttempt = classifierConfig.LLM_TRIES_PER_ATTEMPT,
+  url = config.OLLAMA_URL,
+  model = config.OLLAMA_MODEL,
+  timeoutMs = config.OLLAMA_TIMEOUT_MS,
+  keepAlive = config.OLLAMA_KEEP_ALIVE,
+  numPredict = config.OLLAMA_NUM_PREDICT,
+  reachableCheckTimeoutMs = config.OLLAMA_REACHABLE_CHECK_TIMEOUT_MS,
+  triesPerAttempt = config.LLM_TRIES_PER_ATTEMPT,
   fetchImpl = fetch,
 } = {}) {
   const baseUrl = url.replace(/\/+$/, '');
 
-  // Sends one HTTP request to Ollama and returns the parsed JSON body.
+  // Sends one HTTP request to Ollama and returns the parsed JSON body. `waitMs` = how long to
+  // wait for the answer (default: OLLAMA_TIMEOUT_MS).
   // Every problem (no connection, timeout, HTTP error, unreadable body) becomes OllamaUnavailableError.
-  async function callOllama(path, { method = 'POST', body } = {}) {
+  async function callOllama(path, { method = 'POST', body, waitMs = timeoutMs } = {}) {
     let response;
     try {
       response = await fetchImpl(`${baseUrl}${path}`, {
         method,
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.timeout(waitMs),
       });
     } catch (error) {
-      const reason = error?.name === 'TimeoutError' ? `no answer within ${Math.round(timeoutMs / 1000)} s` : (error?.cause?.code ?? error?.message ?? String(error));
+      const reason = error?.name === 'TimeoutError' ? `no answer within ${Math.round(waitMs / 1000)} s` : (error?.cause?.code ?? error?.message ?? String(error));
       throw new OllamaUnavailableError(`Ollama is not reachable at ${baseUrl} (${reason})`);
     }
     let text;
@@ -76,7 +86,8 @@ export function createOllamaClient({
   }
 
   // Asks the model once. Returns the raw answer text plus a few numbers for logs and tests.
-  // Settings (D27, D49): strict JSON schema, temperature 0, thinking off.
+  // Settings (D27, D49, D75): strict JSON schema, temperature 0, thinking off, answer capped at
+  // OLLAMA_NUM_PREDICT tokens.
   async function askOnce(promptText) {
     const result = await callOllama('/api/chat', {
       body: {
@@ -85,7 +96,7 @@ export function createOllamaClient({
         think: false,
         format: ANSWER_SCHEMA,
         keep_alive: keepAlive,
-        options: { temperature: 0 },
+        options: { temperature: 0, num_predict: numPredict },
         messages: [{ role: 'user', content: promptText }],
       },
     });
@@ -120,6 +131,18 @@ export function createOllamaClient({
     return { version: version?.version ?? 'unknown' };
   }
 
+  // Quick check whether the Ollama server answers at all (GET /api/version, short timeout).
+  // Used after a request failed, to tell "Ollama is down" (false) from "only that request
+  // failed" (true) (D75). Never throws.
+  async function isReachable() {
+    try {
+      await callOllama('/api/version', { method: 'GET', waitMs: reachableCheckTimeoutMs });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // Start-up self-check (I24): one known headline must come back as valid JSON with no
   // "thinking" text. Returns { ok, detail }; throws OllamaUnavailableError if Ollama is down.
   async function selfCheck() {
@@ -130,5 +153,5 @@ export function createOllamaClient({
     return { ok: true, detail: `answer ${answer.content.replace(/\s+/g, ' ')}` };
   }
 
-  return { askOnce, classifyArticle, checkReady, selfCheck, model, baseUrl };
+  return { askOnce, classifyArticle, checkReady, isReachable, selfCheck, model, baseUrl };
 }

@@ -10,11 +10,7 @@
 // their own line, so they stay visible.
 
 import { config } from '../config.js';
-
-// Formats a number with thousands separators, e.g. 10000 -> "10,000".
-function formatCount(count) {
-  return Number(count).toLocaleString('en-US');
-}
+import { formatCount } from '../shared/text.js';
 
 // Creates the progress display. `out` receives the progress line and info messages, `err`
 // receives warnings and errors. `interactive` = redraw in place (default: when `out` is a terminal).

@@ -1,10 +1,11 @@
 // googleNews.test.js — tests of the Google News client (src/collector/googleNews.js) with a
-// fake fetch: how each kind of answer is handled, the pace, and feed parsing. No real requests.
+// fake fetch: how each kind of answer is handled (including repeated 403s, D77), the pace, and
+// feed parsing. No real requests.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { config } from '../src/config.js';
-import { PermanentFetchError, buildSearchUrl, createGoogleNewsClient, parseFeed } from '../src/collector/googleNews.js';
+import { PermanentFetchError, buildSearchUrl, createGoogleNewsClient, forbiddenWait, parseFeed } from '../src/collector/googleNews.js';
 import { makeFakeFetch, makeFakeSleep, readFixture } from './helpers.js';
 
 // Builds a client around a fake fetch that gives the listed answers in order (the last one repeats).
@@ -69,6 +70,29 @@ test('403: logged, fixed 5 s wait, same request retried', async () => {
   assert.deepEqual(retries.map((r) => r.waitMs), [5000, 5000, 5000]);
   assert.match(retries[0].reason, /403/);
   assert.ok(fetchImpl.calls.every((url) => url === fetchImpl.calls[0]), 'the same request each time');
+});
+
+test('403 again and again (D77): 3 fixed 5 s waits, then the growing waits; a success starts the count again', async () => {
+  const forbidden = { status: 403 };
+  const { client, retries } = clientWithAnswers([
+    forbidden, forbidden, forbidden, forbidden, forbidden, forbidden, GOOD, // first search
+    forbidden, GOOD, // second search, after Google answered normally
+  ]);
+  await client.search('q1');
+  assert.deepEqual(retries.map((r) => r.waitMs), [5000, 5000, 5000, 5000, 10000, 30000]);
+  await client.search('q2');
+  assert.deepEqual(retries.slice(6).map((r) => r.waitMs), [5000], 'the count started again after the success');
+  assert.ok(retries.every((r) => /403/.test(r.reason)));
+});
+
+test('the 403 count goes on across searches until Google answers normally (a block is not per search)', async () => {
+  const forbidden = { status: 403 };
+  const { client, retries } = clientWithAnswers([forbidden, forbidden, { status: 400 }, forbidden, forbidden, GOOD]);
+  await assert.rejects(client.search('q1'), PermanentFetchError); // 403, 403, then a permanent 400
+  await client.search('q2'); // 403, 403, then OK
+  assert.deepEqual(retries.map((r) => r.waitMs), [5000, 5000, 5000, 5000], '4 403s in a row: the 4th uses the first growing wait (5 s)');
+  assert.equal(forbiddenWait(5), 10000);
+  assert.equal(forbiddenWait(3 + config.RETRY_BACKOFF_MS.length + 5), 600000, 'never more than 10 min');
 });
 
 test('429, 5xx, 408 and network errors: growing waits, same request retried until it works', async () => {

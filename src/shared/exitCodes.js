@@ -1,8 +1,9 @@
-// exitCodes.js — what each service's exit code means to the orchestrator (D68).
+// exitCodes.js — what each program's exit code means (D68). The ONE list of exit codes.
 //
-// Where it sits: read by the orchestrator (supervisor) when a service process ends, to decide
-// whether to restart it. The services (collector, classifier, later the api) end with these
-// codes so the orchestrator can tell "done" from "crashed".
+// Where it sits: shared by every program. The services (collector, classifier, later the api)
+// and `npm run seed` end with these codes; the orchestrator (supervisor) reads them when a
+// service process ends, to decide whether to restart it, so it can tell "done" from "crashed".
+// Nobody else defines exit-code numbers, so they can't drift apart.
 // Reads/writes: nothing.
 //
 // Exit code table (plain language):

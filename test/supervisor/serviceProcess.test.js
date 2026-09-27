@@ -1,6 +1,6 @@
 // serviceProcess.test.js — tests with REAL child processes (tiny fake services in fixtures/):
 // labelled output, exit codes, the clean stop through serviceLink.js (the emergency heartbeat
-// is written, D48a/D70), "the orchestrator died" (no orphans, Q5), and the force-kill fallback.
+// is written, D48a/D70), "the orchestrator died" (no orphans, D69), and the force-kill fallback.
 // Also runs the whole orchestrator on fake services: crash, restart, finish, and stop.
 // Offline: no Google, no Ollama. Writes only temporary SQLite files.
 
@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { startServiceProcess } from '../../src/supervisor/serviceProcess.js';
 import { createSupervisor } from '../../src/supervisor/supervisor.js';
-import { supervisorConfig } from '../../src/supervisor/supervisorConfig.js';
+import { config } from '../../src/config.js';
 import { openDatabase } from '../../src/db/database.js';
 import {
   FIXTURES_DIR, createCaptureStream, createFakeLog, waitForExit,
@@ -103,7 +103,7 @@ test('stop request: the service runs its own stop and WRITES THE EMERGENCY HEART
   assert.ok(run.crashed_at, 'crashed_at written');
 });
 
-test('the orchestrator dies (channel disconnects): the service stops itself and writes the emergency heartbeat (Q5)', async (t) => {
+test('the orchestrator dies (channel disconnects): the service stops itself and writes the emergency heartbeat (D69, D70)', async (t) => {
   const dbPath = path.join(makeTempDir(t), 'test.sqlite');
   withEnv(t, { FAKE_DB_PATH: dbPath });
   const out = createCaptureStream();
@@ -156,7 +156,7 @@ test('whole orchestrator with real processes: crashes twice, restarted with wait
       services: [{ name: 'collector', entry: 'crash-until.mjs', npmScript: 'collect', policy: 'once' }],
       startProcess: (service) => startServiceProcess(service, { projectRoot: FIXTURES_DIR, out, err: out }),
       log,
-      settings: { ...supervisorConfig, RESTART_BACKOFF_MS: [20, 40] }, // short waits for the test
+      settings: { ...config, RESTART_BACKOFF_MS: [20, 40] }, // short waits for the test
       entryExists: () => true,
       onFinished: resolve,
     });

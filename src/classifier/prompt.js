@@ -8,7 +8,8 @@
 // Reads: section_keywords.json (section names only). Writes: nothing.
 
 import fs from 'node:fs';
-import { classifierConfig } from './classifierConfig.js';
+import { config } from '../config.js';
+import { stripPublisherSuffix } from '../shared/text.js';
 
 // The prompt. {{company}}, {{section}}, {{title}} and {{publisher}} are filled in per article.
 export const PROMPT_TEMPLATE = `You check news headlines for a press-mentions monitor.
@@ -45,15 +46,10 @@ export const ANSWER_SCHEMA = {
   required: ['relevant', 'sentiment'],
 };
 
-// Google gives headlines as "Headline - Publisher". The model test stripped that ending and
-// passed the publisher separately, so we do the same. The stored title is never changed (D55).
-export function stripPublisherSuffix(title, publisher) {
-  if (!publisher) return title;
-  const suffix = ` - ${publisher}`;
-  return title.endsWith(suffix) ? title.slice(0, -suffix.length) : title;
-}
-
-// Fills the prompt for one article. A missing publisher is written as "unknown" (owner, Q3).
+// Fills the prompt for one article. Google gives headlines as "Headline - Publisher"; the model
+// test stripped that ending and passed the publisher separately, so we do the same
+// (stripPublisherSuffix, src/shared/text.js). The stored title is never changed (D55).
+// A missing publisher is written as "unknown" (the owner's choice for articles without a <source>).
 // Plain string replacement (no regex), so "$" or other special characters in a headline are kept as-is.
 export function buildPrompt({ companyName, sectionName, title, publisher }) {
   const values = {
@@ -70,16 +66,16 @@ export function buildPrompt({ companyName, sectionName, title, publisher }) {
 }
 
 // Reads the full section names from section_keywords.json, e.g. { 1: "High-Tech (Information Technology)" }.
-// Section 13 (Unsorted) has no entry there, so its name comes from the classifier config.
+// Section 13 (Unsorted) has no entry there, so its name comes from src/config.js (UNSORTED_SECTION_NAME).
 // Throws a clear error if the file is missing or broken: the classifier can't build prompts without it.
-export function loadSectionNames(file = classifierConfig.SECTION_KEYWORDS_FILE) {
+export function loadSectionNames(file = config.SECTION_KEYWORDS_FILE) {
   let parsed;
   try {
     parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (error) {
     throw new Error(`Cannot read the section names from ${file}: ${error.message}`);
   }
-  const names = { 13: classifierConfig.UNSORTED_SECTION_NAME };
+  const names = { 13: config.UNSORTED_SECTION_NAME };
   for (const [number, section] of Object.entries(parsed?.sections ?? {})) {
     if (typeof section?.name === 'string' && section.name.trim()) names[Number(number)] = section.name.trim();
   }

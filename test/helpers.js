@@ -42,15 +42,25 @@ export function makeTempDir(t) {
 
 // Opens a fresh database in a temporary folder. When the test ends, the database is closed
 // FIRST and only then is the folder removed (Windows can't delete an open file).
+// openOther() opens a second, separate connection to the same file (like a second process);
+// it is closed before the folder is removed too.
 export function makeTempDb(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'press-dc-test-'));
   const dbPath = path.join(dir, 'test.sqlite');
   const db = openDatabase(dbPath);
+  const others = [];
   t.after(() => {
-    try { db.close(); } catch { /* already closed */ }
+    for (const connection of [...others, db]) {
+      try { connection.close(); } catch { /* already closed */ }
+    }
     removeTempDir(dir);
   });
-  return { db, dbPath, dir };
+  const openOther = () => {
+    const connection = openDatabase(dbPath);
+    others.push(connection);
+    return connection;
+  };
+  return { db, dbPath, dir, openOther };
 }
 
 // Writes small data files (company list + hints + keywords) and returns their paths.

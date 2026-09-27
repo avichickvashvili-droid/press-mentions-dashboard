@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>outside window</title>
+    <item>
+      <title>Too old: the day before the 90 days - Reuters</title>
+      <link>https://news.google.com/rss/articles/OLD</link>
+      <guid isPermaLink="false">OLD</guid>
+      <pubDate>Mon, 29 Jun 2026 23:59:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>First day of the 90 days - Reuters</title>
+      <link>https://news.google.com/rss/articles/FIRSTDAY</link>
+      <guid isPermaLink="false">FIRSTDAY</guid>
+      <pubDate>Tue, 30 Jun 2026 00:00:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>Last day of the 90 days - Reuters</title>
+      <link>https://news.google.com/rss/articles/LASTDAY</link>
+      <guid isPermaLink="false">LASTDAY</guid>
+      <pubDate>Sun, 27 Sep 2026 23:00:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>Too new: the day after - Reuters</title>
+      <link>https://news.google.com/rss/articles/NEW</link>
+      <guid isPermaLink="false">NEW</guid>
+      <pubDate>Mon, 28 Sep 2026 01:00:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+  </channel>
+</rss>

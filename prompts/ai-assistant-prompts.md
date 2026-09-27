@@ -1623,3 +1623,311 @@ yes.
 all companies
 what is gpt oss
 ```
+
+---
+
+## Prompt 121 — Delete gpt-oss
+
+```
+delete it
+```
+
+---
+
+## Prompt 122 — Step-by-step build instructions for the DC
+
+```
+Im going to ask you to give a clear instructions and steps on how to build the DC component
+give me it in a format of 1. 2. 3.
+use what we planned and agreed everything should be answered by now
+```
+
+---
+
+## Prompt 123 — DC scope, CAP, company status names
+
+```
+Its job ends when hes finished all the companies
+leave the daily job out of it, its not going to be the same job
+CAP gonna be 10000, move chunk 1000 at a time, 
+i didnt see a mention of company finished, fetching, not started
+in the db
+```
+
+---
+
+## Prompt 124 — Agent builds the DC
+
+```
+ok i want you to send an agent to create the DC section of the application
+I want you to monitor him like your hes team lead
+and i want you to give him the full details its needs to do this job. everhting that he dont understand tell him to ask you
+and dont take any new decisions without my permission
+```
+
+---
+
+## Prompt 125 — Answers to the DC agent's questions
+
+```
+didnt understand 
+Smoke run (Q20): I propose npm run collect -- --only harvey,cerebras,lambda,ro,itsmine,klook against a separate database file (db/smoke.sqlite), so the real database stays clean. Please confirm the flag name, the six companies and the separate file.
+what is smokerun
+1. ok
+2.explain
+3. shouldnt happen we are querriyn for 90days,
+4. skip and log that
+5. keep always the whole headline
+6. whats 403
+7. explain 
+8. yes they wait for new run
+9. that can be data  patched later via handpicked queries
+10. always rolling 90days
+11. locally
+explain
+```
+
+---
+
+## Prompt 126 — DC answers, part 2
+
+```
+call smoke run a testing run and we will do it when we are done.
+leave that for now until testing 
+
+2. no we should have only relevent in this 95, what adding to it will give us, we are assuming the sections, hint and query section will give us solid data, this 95 is way stronger than any other data
+3.ignore than ofcourse its irrelevent
+6. when 403 occures log that, and wait 5second and retry
+7. Queue check every 5s -> i want it to continue fetch data when the queue is at 8000 , for retry do what you suggested
+11. make sure to follow coding standarts and make it where it should be
+```
+
+---
+
+## Prompt 127 — Window split: follow the FR
+
+```
+its not that complex just do as the FR we need eventualley get all the data of the past 90d which is relevent
+```
+
+---
+
+## Prompt 128 — Explain the window split
+
+```
+splits the window in half and searches each half
+explain each part
+```
+
+---
+
+## Prompt 129 — Ack
+
+```
+ok sure
+```
+
+---
+
+## Prompt 130 — Classifier agent (interrupted)
+
+```
+ok now im going to ask you to do the same for the CLASSIFIER
+play as a team lead and send an agent to build the
+```
+
+---
+
+## Prompt 131 — Restart the DC agent
+
+```
+sorry return the agent
+```
+
+---
+
+## Prompt 132 — Classifier agent
+
+```
+ok now im going to ask you to do the same for the CLASSIFIER
+play as a team lead and send an agent to build the CLASSIFIER 
+write here the full instructions and steps it needs to follow in order to build the CLASSIFIER
+add a step where i want him to test , how many LLM can run in parllel to get as fast througput as we can
+dont take any decsion on ur own , and ask everything not clear
+```
+
+---
+
+## Prompt 133 — Resend classifier questions
+
+```
+im not following send me again the classifier issues questions
+```
+
+---
+
+## Prompt 134 — Answers to the classifier questions
+
+```
+1. use the query param we add to the sections, to answer that for example anthropic Ukko Health (Healthcare & Biotechnology)
+2. ok
+3. ok
+4. no need than too expensive
+5. daily job leave for now
+6. npm run classifier
+7. ofcourse
+8.yes add
+9 dont cap my gpu try to use 60% of it
+```
+
+---
+
+## Prompt 135 — Orchestrator agent
+
+```
+ok keep me updated with the progrress, 
+for now send another agent that will handle the orcahstrator again handle as his team lead
+and give him clear instruction no decisions made alone every question goes through me
+```
+
+---
+
+## Prompt 136 — Answers to the orchestrator questions
+
+```
+1. only the orchastrator that will manage both DC and CLASSIFIER
+2. it should anyways only run once than its always the daily job
+3. didnt understand
+4. ok 
+5. so send every time it retries
+6. ok
+7. ok 
+8. it soppuse to be the CLASSIFIER responsibilty
+9.
+```
+
+---
+
+## Prompt 137 — Exit codes
+
+```
+3. use differnt and doc that
+```
+
+---
+
+## Prompt 138 — Emergency heartbeat on stop, DC answers
+
+```
+5. Did "send every time it retries" mean "print a log line every time it restarts a service"? I already told the agent to do that. And is the Ctrl+C part ok? That's the "please stop" message, a 10 s wait, then a force-kill. it was asked in regards of emergancy write to the db of the last heart beat so thats what i mean
+D1. Should a frozen collector that wakes up after being replaced stop itself? My pick: yes.
+ok
+D2. Accept the ".env not found" message and note it in the README? My pick: yes.
+ok
+D3. Should the 10,000 queue limit skip articles that failed for good? My pick: yes.
+ok but log that
+```
+
+---
+
+## Prompt 139 — Status of all 3 components
+
+```
+give me status for all 3 components
+```
+
+---
+
+## Prompt 140 — How was the DC tested
+
+```
+tell me how you have tested DC
+```
+
+---
+
+## Prompt 141 — Collector must run on a fresh clone
+
+```
+Collector: launched only if the 90-day collection never completed. If it did, the orchestrator logs "Last collection finished at X" and doesn't start it.
+thats not what i asked, it should be able to start collection lets say somone clonse ym git project it should be able to run it
+```
+
+---
+
+## Prompt 142 — TL;DR catch-up
+
+```
+im starting to loose track give me everything ive missed in a tldr
+```
+
+---
+
+## Prompt 143 — Approve orchestrator edits, quick Google test run
+
+```
+2 small edits the permission system blocked: add npm start to package.json, and add 1 line in the collector so it hears the "stop" message and writes its emergency heartbeat.
+its 5 small choices. The main one: if it can't read the database, it doesn't start the collector, so it never starts 20,000 requests by mistake. ok ok
+The testing run on real Google, after the build.
+make a quick test run on google
+
+whats the status with the classifier?
+```
+
+---
+
+## Prompt 144 — How was the orchestrator tested
+
+```
+ok how did you test the orcastrator
+```
+
+---
+
+## Prompt 145 — Waiting for the classifier
+
+```
+ok im witing for the classifier to finish
+```
+
+---
+
+## Prompt 146 — Why is the classifier slow
+
+```
+whats taking soo long
+```
+
+---
+
+## Prompt 147 — Parallel test into the README
+
+```
+ok please add that test to the README where we optimized the LLM to reduce throughput overload
+```
+
+---
+
+## Prompt 148 — Prepare: commit + end-to-end run on 2 companies
+
+```
+ok i want you to be prapared to run this test the moment the CLASSIFIER is done and tests:
+1. commit to devleop
+2. run on 2 companies the whole flow end to end
+```
+
+---
+
+## Prompt 149 — Pick other companies for the end-to-end test
+
+```
+man stop with testing harvey every time be creatie pick something else not from the huge companies
+```
+
+---
+
+## Prompt 150 — Classifier status
+
+```
+classifier status
+```

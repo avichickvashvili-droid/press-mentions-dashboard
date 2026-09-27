@@ -174,6 +174,7 @@ Not added: portfolio vs fund type (not in the list). A separate former_name fiel
 | sentiment | enum, nullable | Set by the LLM step when relevant (D26); NULL while pending |
 | attempts | int | LLM retries (NFR7) |
 | claimed_at | datetime, nullable | Set when a classifier worker takes the row (D45, parallel LLM), so two workers never process the same article. A claim older than a timeout is released (the worker probably died) |
+| claimed_by_pid | int, nullable | Process ID of the classifier that claimed the row, so a dead worker's claims are freed at once on restart (D63) |
 
 Constraint: UNIQUE(company_id, guid) (D32).
 
@@ -184,7 +185,7 @@ Constraint: UNIQUE(company_id, guid) (D32).
 | id | int | PK |
 | company_id | FK → Company | |
 | guid | string | Copied from BufferQueue; dedup key together with company_id (D32) |
-| url | string | Link to the article (FR4): the **real publisher URL**, decoded at move time; falls back to the Google link if decoding fails (D31) |
+| url | string | Link to the article (FR4): the **Google News link** from RSS, which opens the article (D60; decoding to the publisher URL was dropped) |
 | title | string | |
 | publisher | string, nullable | e.g. "Reuters" |
 | published_at | datetime | Drives the 90-day window and the status |
@@ -220,8 +221,8 @@ Mention                                ← move in 1 transaction: insert into Me
 ```
 
 - **Queue size** (for the CAP check): the count of BufferQueue rows. It's asked from the DB before each chunk. There's no in-memory counter, because the DB always has the true number (Prompt 40).
-- **CAP**: the maximum BufferQueue size, tuned to the dev PC's measured LLM speed (Step 3). It must be ≥ the largest chunk (~100). It limits the queue, not the number of mentions (D11).
-- **MOVE_CHUNK**: how many relevant rows to collect before moving them to Mention. Size decided later.
+- **CAP**: the maximum BufferQueue size, **10,000** (Prompt 123). It must be ≥ the largest chunk (~100). It limits the queue, not the number of mentions (D11).
+- **MOVE_CHUNK**: how many relevant rows to collect before moving them to Mention: **1,000** (Prompt 123).
 - **End of run:** the leftover relevant rows (< MOVE_CHUNK) are moved too, so nothing is stuck before the alert and the `data/` export.
 - **DB writes are always in chunks:** a search result per insert, an LLM batch per update, a MOVE_CHUNK per move (I9).
 
@@ -256,19 +257,22 @@ Two details make this work:
 | id | int | PK |
 | started_at | datetime | |
 | finished_at | datetime, nullable | |
-| status | enum: `running` / `collected` / `done` / `failed` | `collected` = the collector finished every company; `done` = the queue is drained, `data/` is written and the alert is sent |
+| status | enum: `running` / `collected` / `done` / `failed` | `collected` = the collector finished every company; `done` = the queue is drained and `data/` is written (no alert yet: that's the daily job, D61) |
 | last_heartbeat | datetime | Updated **every 5 minutes** while running (D48). If it's older than **15 minutes** (3 missed beats), the run is treated as crashed and taken over (stale lock) |
 | owner_pid | int, nullable | Process ID of the service holding the run. On restart, if that process is no longer alive, the run is taken over at once without waiting 15 minutes (D48). Set to NULL by the emergency heartbeat |
 | last_error | string, nullable | Written by the **emergency heartbeat** when the service crashes or is stopped: what went wrong, plus `crashed_at` time. Shown in the run summary and logs (D48) |
 | crashed_at | datetime, nullable | When the emergency heartbeat fired |
+| classified_count, relevant_count, irrelevant_count, failed_count | int, default 0 | Run counters, updated by the classifier inside each batch transaction; used for `data/run.json` (D64) |
 
-**JobRunCompany** (D39): the checklist of companies for one run. At the start of a run, one row per company is inserted as `pending`. The collector always takes the next `pending` one.
+**Hand-over (D63):** when the collector finishes, it stops its heartbeat and in one transaction sets `collected` + `owner_pid = NULL`; the classifier then takes the run. `collect` refuses to start a new run while any run is `collected`.
+
+**JobRunCompany** (D39): the checklist of companies for one run. At the start of a run, one row per company is inserted as `not_started`. The collector always takes the next `not_started` one (statuses renamed in Prompt 123).
 
 | Field | Type | Notes |
 |---|---|---|
 | run_id | FK → JobRun | PK together with company_id |
 | company_id | FK → Company | |
-| status | enum: `pending` / `in_progress` / `done` / `failed` | `failed` only for permanent errors (D40). After a crash, `in_progress` goes back to `pending` and the company is searched again (duplicates are skipped by guid) |
+| status | enum: `not_started` / `fetching` / `finished` / `failed` (names from Prompt 123) | `failed` only for permanent errors (D40). After a crash, `fetching` goes back to `not_started` and the company is searched again (duplicates are skipped by guid) |
 | error | string, nullable | Why it failed, shown in the run summary |
 
 It's not a temp table: it stays as a history of each run (which companies were done, which failed). The Company table itself never changes during a run.
@@ -340,7 +344,7 @@ Only the dashboard calls the API. Fetching, classifying and alerting run as scri
  │    click → its mentions      │
  └──────────────────────────────┘
 
- ⏰ DAILY JOB: node-cron (in the collector service) starts a run once a day.
+ ⏰ DAILY JOB: a separate job, designed in Step 6 (D52). `npm run collect` runs the 90-day collection.
     Collector (1) and classifier (3) are separate services that meet only
     in the DB. When collection is done and the queue is empty, the classifier
     writes data/ and sends ONE alert listing the new mentions (D38).
@@ -354,11 +358,11 @@ How to read it:
 | Component | What it does | Requirement |
 |---|---|---|
 | Seed loader | Runs at every start-up. Reads `filtered_ourcrowd_companies.txt` (name + section), `company_hints.json` (hint) and `section_keywords.json` (words per section); builds each company's `query_param` (D46) and creates or updates the Company rows. It runs again after any file edit, so changes apply on the next start | FR9 |
-| Collector | One company at a time: reads the company's ready-made `query_param` from the DB, puts the date window at the front (`after:… before:…` for the 90-day backfill windows, or the last day for the daily run), and searches Google News RSS (paced, adaptive date windows). Inserts each search result into BufferQueue as one chunk, waiting while it doesn't fit under CAP. Skips articles already stored | FR10, FR13, D16, D21–D23 |
+| Collector | One company at a time: reads the company's ready-made `query_param` from the DB, puts the date window at the front (`after:… before:…` 90-day windows; the daily job is separate, D52), and searches Google News RSS (paced, adaptive date windows). Inserts each search result into BufferQueue as one chunk, waiting while it doesn't fit under CAP. Skips articles already stored | FR10, FR13, D16, D21–D23 |
 | BufferQueue (DB table) | Holds articles waiting for the LLM; its row count is the queue size | D21, D24 |
 | Classifier | Takes `pending`/`failed` rows in batches and asks Ollama about relevance (irrelevant → delete) and sentiment. Moves relevant rows to Mention in chunks | FR11, FR12, D9 |
 | Supervisor | `npm start`. Starts the 3 services as separate processes and restarts any that dies, with growing waits; stops and logs a clear error if one keeps crashing | D38 |
-| node-cron | Lives in the collector service; starts a run once a day. On start, if the last run is older than 24 h, it starts one right away (missed-run catch-up) | FR6, D38 |
+| Daily job | **Separate job, designed in Step 6 (D52).** Not part of the collector. (Earlier plan: node-cron inside the collector, superseded) | FR6, D52 |
 | Alerter | Collects Mention rows with `alerted_at` NULL into one digest, sends it, then sets `alerted_at` | FR7, FR8 |
 | Exporter | At the end of the run, writes the mentions and a per-company status snapshot to `data/` | FR14, D20 |
 | API server | Serves the two endpoints and the dashboard page; reads Mention and Company only | FR1–FR5, D19 |
@@ -370,7 +374,7 @@ How to read it:
 npm start
   └─ supervisor  (restarts any child that dies, with backoff)
        ├─ api          → API + dashboard
-       ├─ collector    → node-cron fires daily → JobRunCompany checklist → Google News → BufferQueue
+       ├─ collector    → npm run collect → JobRunCompany checklist → Google News → BufferQueue (daily job separate, D52)
        └─ classifier   → always on: BufferQueue → Ollama → delete, or move to Mention
                           → when the run is `collected` and the queue is empty: data/ + alert → `done`
 ```
@@ -663,6 +667,9 @@ Labels: [OFFICIAL] = documented by Google or the vendor · [COMMUNITY] = third-p
 
 ### 2. Data collection ⏳
 Fetch recent news per company (Node.js). Details come from 1.8.
+- **Build order (Prompts 122–123):** config + `.env.example` → DB + schema → seed loader (`npm run seed`) → Google News client (URL, pacing, parse, retries) → 90-day date windows (split at ≥95 items) → insert-if-absent chunk writer with the CAP wait → JobRun lock + 5 min heartbeat + emergency heartbeat → JobRunCompany loop (`not_started` → `fetching` → `finished` / `failed`) → `npm run collect` → progress line → offline tests with a fake Google News → one real run on 6 companies. **The DC job ends when every company is `finished` or `failed`** (JobRun → `collected`).
+- **Quick testing run (Prompt 143, 2026-09-27):** real DC code against real Google News, 6 companies (Harvey, Cerebras, Lambda, Ro, ItsMine, Klook), throwaway DB. All 6 `finished`, run `collected` + `owner_pid` NULL, **32 s**. Articles: Cerebras 495 (window splitting worked), Harvey 95, Klook 82, Lambda 50, Ro 36, ItsMine 0. 0 duplicate guids, 0 articles outside the 90 days. Some junk as expected (Ro/Lambda) — the classifier's job.
+- Values (Prompt 123): **CAP = 10,000**, **MOVE_CHUNK = 1,000**. XML parser: `fast-xml-parser` (Prompt 122 proposal). **The daily job is a separate job (D52)** and is not part of the DC build.
 - Check the real data for same-article / different-URL duplicates; add the D18 backup rule only if they appear.
 - Measure the irrelevant rate per section (I14 / open question on deleting irrelevant rows).
 
@@ -703,7 +710,7 @@ README, `data/` output from a real run, prompts file finalized, push to GitHub.
 | A service process dies (out of memory, bug) | The supervisor restarts only that service, with growing waits; the others keep running. More than N crashes in a few minutes → stop restarting it and log a clear error (no endless crash loop) (D38) |
 | One article crashes the classifier every time ("poison" article) | `attempts` is increased **before** the article is processed, so after 3 crashes it's marked `failed` and skipped |
 | Two runs at once (cron + manual `npm run collect`) | JobRun is a lock: only one `running` run. A run whose heartbeat is older than 15 minutes (beat every 5 min), or whose owner process is dead, counts as crashed and is taken over (D39, D48) |
-| Process killed / PC off | On restart, resume from the DB (D16, D39): the collector continues from the next `pending` company in JobRunCompany (the `in_progress` one is redone; duplicates are skipped by guid), and the classifier continues with the `pending` rows. If a daily run was missed, it starts right away |
+| Process killed / PC off | On restart, resume from the DB (D16, D39): the collector continues from the next `not_started` company in JobRunCompany (the `fetching` one is redone; duplicates are skipped by guid), and the classifier continues with the `pending` rows. If a daily run was missed, it starts right away |
 | Alert send fails | `alerted_at` stays NULL, so it is sent on the next run (at-least-once) |
 | API: DB unreadable / unknown id | 500 / 404 with a clear message; the dashboard shows an error state instead of a blank page |
 | Unexpected error anywhere | A top-level handler logs it clearly and exits with a message, never silently |
@@ -720,11 +727,11 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | Runtime | **Node.js 24** (dev machine: v24.15.0) | Required by the brief (backend + data collection in Node) | — |
 | Database | **SQLite via `node:sqlite`** (built into Node, SQLite 3.51) | We need **relations between tables**: Company → BufferQueue / Mention (foreign keys). We also need **UNIQUE constraints** to stop duplicates (D18), **transactions** so chunk inserts and BufferQueue→Mention moves are all-or-nothing (crash safety, D16/D24), and **indexes** for the queue count and dashboard queries. It's a single file with no server ("lightweight DB" per the brief), built into Node so there's no install or native build | **JSON files**: no relations, uniqueness or transactions; we'd hand-code all of it. **better-sqlite3**: same SQLite, but a native addon that must compile on install. **Postgres/Mongo**: a server to install; overkill for one local user |
 | News source | **Google News RSS search feed** (D23) | The only free, structured access to Google's news results; no key | Paid wrappers (SerpApi etc.) break $0 (D12); scraping the News tab (CAPTCHAs, stricter ToS) |
-| RSS/XML parsing | TBD (a small XML parser) | Turns the RSS feed into items (title, link, guid, pubDate, source) | — |
+| RSS/XML parsing | **fast-xml-parser** (Prompt 122) | Turns the RSS feed into items (title, link, guid, pubDate, source) | — |
 | LLM | **Ollama** (local), model **`qwen3:4b`** (D49, chosen by research: Prompts 30, 86, 120) | Required by the brief: local model for relevance + sentiment | Cloud LLMs are not allowed |
 | LLM output | **Strict JSON** via Ollama structured output (`format` = JSON schema) (D27) | The model must answer in a fixed shape we can check, e.g. `{"relevant": true, "sentiment": "positive"}`. Anything else is treated as a failure, not guessed at | Free-text answers parsed with regex: fragile |
 | Orchestration | **3 independent services** (api, collector, classifier) + **our own tiny supervisor** (D22, D38) | The DB is already the queue (D21/D24), so the services only need to share the SQLite file. The supervisor restarts any service that dies. No dependency, and the reviewer runs one command | BullMQ / pg-boss / Agenda: need Redis/Postgres/Mongo servers. **PM2**: the standard process manager, would work, but it's one more tool to install (noted in the README) |
-| Scheduler | **node-cron** (D22) | Starts the daily job from Node, and it's documented in the README | OS schedulers (Task Scheduler / cron): outside the codebase and differ per OS |
+| Scheduler | **To decide in Step 6** (daily job is separate, D52; node-cron was the earlier plan, D22) | Starts the daily job from Node, and it's documented in the README | OS schedulers (Task Scheduler / cron): outside the codebase and differ per OS |
 | Progress display | TBD (e.g. a terminal progress-bar library) | Multi-hour runs must show stage, %, current company, companies left, LLM rate (I10) | — |
 | API server | **Express** (D34) | Serves the 2 read-only endpoints (D19) and the built React app (`express.static`). The most familiar option and the fastest to build under the take-home time limit | **Fastify**: built-in validation + logging; the better choice for a production API (noted for README / 1.13). **Plain `node:http`**: hand-written routing, parsing and errors |
 | Frontend | **React + Vite** (D29) | A component-based UI for a list → click → detail view; Vite gives a fast dev server and a simple build. Widely known, so easy to review | Plain HTML/JS: no build step, but harder to keep tidy as the UI grows |
@@ -776,12 +783,12 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | D36 | Packaging | npm scripts (required). Optional stretch: a Docker image for API + dashboard serving the committed `data/`. Kubernetes out of scope | User meant Docker (Prompt 55). The pipeline stays local because Ollama needs the GPU |
 | D37 | Failure handling | Collector and classifier are independent loops; any failure in one (e.g. internet down) is retried with backoff while the other keeps working; every write is a transaction; nothing crashes unhandled. Full table in Engineering Standards | User requirement (Prompt 57) |
 | D38 | Services + supervisor | `npm start` runs a tiny supervisor that starts **api**, **collector** (with node-cron) and **classifier** as separate processes and restarts any that dies (growing waits, stops after repeated crashes). They share only the SQLite file; no DB service. Each can also run alone (`npm run api` / `collector` / `classifier`); `npm run collect` / `classify` run once. Missed daily run → start on launch | User (Prompts 64–66): the orchestrator carries the whole throughput, so one part crashing must not affect the others, and it must relaunch. SQLite is a file, so a DB service would only add a single point of failure. PM2 noted as the alternative |
-| D39 | Resume + lock | **JobRun** (status, heartbeat) is the lock and the run record. **JobRunCompany** is the per-run checklist of companies (`pending` / `in_progress` / `done` / `failed`). After a crash, the `in_progress` company is redone and the rest continue. Stale heartbeat → take over | User agreed (Prompt 67). Restarting must continue, not start over. A checklist row per company is simpler than tracking positions, and redoing one company is safe because duplicates are skipped by guid |
+| D39 | Resume + lock | **JobRun** (status, heartbeat) is the lock and the run record. **JobRunCompany** is the per-run checklist of companies (`not_started` / `fetching` / `finished` / `failed`, renamed in Prompt 123). After a crash, the `fetching` company is redone and the rest continue. Stale heartbeat → take over | User agreed (Prompt 67). Restarting must continue, not start over. A checklist row per company is simpler than tracking positions, and redoing one company is safe because duplicates are skipped by guid |
 | D40 | Collector retries | Temporary errors (network, 429, 5xx, timeout): retry the same company **until it's done**, backoff capped at ~10 min. Permanent errors (400, unparseable response): mark the company `failed`, move on, report it | User (Prompt 65): keep going until the company is done. Permanent errors are the exception, because retrying them forever would stall the whole run |
 | D41 | `data/` export safety | Written by the classifier at the end of the run as a full snapshot (not an append); each file goes to a `.tmp` file first, then is renamed over the old one; export happens **before** the alert; a failed export keeps the run from being `done` | Prompt 68. A crash mid-export must never leave a half-written JSON in the deliverable. Exporting before alerting keeps the alert and `data/` consistent |
 | D42 | Collector pace (revises D23's 3–5 s) | **Fixed 1 request/second** (+ small jitter), always. A 429 / CAPTCHA still triggers backoff and retry (D40); once a request succeeds, the pace returns to 1 s. Configurable (`REQUEST_INTERVAL_MS`) | User decision (Prompt 71): always 1 second; the adaptive slowdown was rejected. Risk accepted and documented (I23) |
 | D43 | Company → section assignment | A static file, `filtered_ourcrowd_companies.txt`: 12 sections plus **13. Unsorted** for companies whose business couldn't be confirmed. Sorted by the AI assistant from its general knowledge at design time and open to review by the user. Automotive goes to Consumer Discretionary, commercial vehicles, aerospace and defense to Industrials, and agtech to Consumer Staples | Prompt 72. This is one-time setup data, like the seed list, not text understanding done by the running system, so the "Ollama for all text understanding" rule doesn't apply. Ambiguous names keep their section; the query and the LLM relevance check handle the ambiguity |
-| D44 | Search query shape | One simple query per company: `when:90d` + **the name, or the company's hint if it has one** + **its section's context words**. Hints exist only for hard names (common words, people's names, places, other companies, a different press name, "formerly" names), stored in **`company_hints.json`**: 108 hard names, found by an agent (Prompt 84) and spot-tested on Google News (40 searches). The other 150 names use the plain name. Section words are in **`section_keywords.json`** (agent, Prompt 94, 67 searches). Every list starts with `company`, which recovers real articles that the other words dropped | User (Prompts 82, 85): keep it simple. Sections plus hints **cut the junk articles that reach the LLM** (less load on the slowest stage) and leave more of the 100 results for real coverage. Replaces the longer per-section templates from the query test |
+| D44 | Search query shape | One simple query per company: date part first (was `when:90d`; now `after:/before:` windows, D46) + **the name, or the company's hint if it has one** + **its section's context words**. Hints exist only for hard names (common words, people's names, places, other companies, a different press name, "formerly" names), stored in **`company_hints.json`**: 108 hard names, found by an agent (Prompt 84) and spot-tested on Google News (40 searches). The other 150 names use the plain name. Section words are in **`section_keywords.json`** (agent, Prompt 94, 67 searches). Every list starts with `company`, which recovers real articles that the other words dropped | User (Prompts 82, 85): keep it simple. Sections plus hints **cut the junk articles that reach the LLM** (less load on the slowest stage) and leave more of the 100 results for real coverage. Replaces the longer per-section templates from the query test |
 | D45 | LLM speed-up: parallel classification (planned) | After the model is chosen, run **2 or more classification requests at once**: Ollama `OLLAMA_NUM_PARALLEL` = N and N classifier workers. Measure N = 1, 2, 4… on the chosen model (articles/s, errors, GPU memory) and pick the best stable N. Configurable (`LLM_CONCURRENCY`). Each worker **claims** its BufferQueue rows (e.g. a `claimed_at` / `worker` mark in one transaction) so two workers never process the same article. MOVE_CHUNK and the crash rules (D38–D40) stay the same | User (Prompt 97). The LLM is the slowest stage (1.5–5.5 articles/s one at a time in the model test), so this is where speed-ups pay off |
 | D46 | Where the query is built | The **seed loader** builds each company's search **once at start-up** and saves it in `Company.query_param`:<br>1. Section from `filtered_ourcrowd_companies.txt`.<br>2. Hint from `company_hints.json` if there is one, otherwise the name in quotes.<br>3. Section words from `section_keywords.json`, for **all** companies (I34, decided in Prompt 120).<br>The **collector** never reads the files. It takes `query_param` and puts the date part at the front: `after:/before:` windows for the backfill (D23), or the last day for daily runs. The date is always first (I28) | Prompt 100–101. The collector stays simple, every company's exact search is visible in the DB for checking, and editing a file takes effect on the next start. The date isn't stored because adaptive windows change it per search |
 | D47 | Model must fit the machine | Only models that fit fully in GPU memory (8 GB on the dev machine) are candidates. Larger models are excluded and marked "does not fit the system" in the research | User (Prompt 104), after measuring gpt-oss:20b at 56% CPU and 0.37–0.42 articles/s, versus 1.6–5.5 articles/s for the models that fit. A 20,000-article backfill would take days. Revises the "hardware not a constraint" note from Prompt 71 |
@@ -789,6 +796,30 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | D48a | Emergency heartbeat | When a service crashes (uncaught error, unhandled promise rejection) or is stopped (Ctrl+C, SIGTERM from the supervisor), it makes **one last write before exiting**: `crashed_at`, `last_error`, and `owner_pid = NULL`, which releases the lock. The run stays `running` so it resumes. The next start sees a released lock and **resumes at once**. Best effort only: a hard kill, power loss or `kill -9` can't write anything, and then the `owner_pid` check or the 15-minute timeout (D48) takes over | User (Prompt 117). Instant, explained recovery for the common crash, with the heartbeat as a safety net |
 | D49 | LLM model | **qwen3:4b** on Ollama, thinking off, temperature 0, strict JSON. Our own test on 598 real headlines: 97.7% relevance precision, 97.7% recall, 82.2% sentiment accuracy, 3.06 articles/s (about 1.8 h for the 20k backfill). Fits in 8 GB of VRAM | User confirmed (Prompt 120). The best balance of the models that fit (D47). llama3.2:3b is faster but misses 12% of real articles and gets 62% of sentiment right (I35) |
 | D50 | Section words scope | Section words are added for **all** companies, not only the hinted ones | User (Prompt 120). One simple rule. The recall loss for well-known unique names (I34) is accepted |
+| D51 | CAP and MOVE_CHUNK | CAP = **10,000** rows in BufferQueue; MOVE_CHUNK = **1,000** relevant rows per move to Mention | User (Prompt 123). Replaces the "tuned later" placeholders |
+| D52 | DC scope; daily job separate | The DC (collector) job does the 90-day collection and **ends when every company is `finished` or `failed`**. The daily job is **a separate job**, designed later in Step 6; node-cron and the "last day" window are not part of the DC. JobRunCompany statuses are `not_started` / `fetching` / `finished` / `failed` | User (Prompt 123). Keeps the DC simple. Revises the node-cron part of D22/D38 and the daily window in D46 (moved to Step 6) |
+| D53 | Queue pause/resume | When a chunk would push BufferQueue over CAP (10,000), the collector pauses, re-checks every 5 s, and **resumes only when the queue is down to 8,000** (`QUEUE_RESUME_AT`) | User (Prompt 126). Avoids stop-start on every chunk near the CAP |
+| D54 | Google 403 | HTTP 403 (blocked): log it, wait a **fixed 5 s** (`FORBIDDEN_RETRY_MS`), retry. Other temporary errors keep the growing backoff 5s → 10s → 30s → 1m → 2m → 5m → 10m (then every 10m); request timeout 30 s | User (Prompt 126) |
+| D55 | DC item rules | Items dated outside the run's 90 days are dropped. Broken items (no guid/link/title/date) are skipped and logged; the company doesn't fail. The **whole headline is stored as-is** ("Headline - Publisher"); D33 strips " - Publisher" only when comparing. The 90-day range is fixed from the run's start day (UTC), always rolling 90 days | User (Prompts 125–126) |
+| D57 | Full windows split | A window returning ≥ 95 items: keep its items, then split it in half and search both halves (oldest first) until windows are under 95 or 1 day long. Confirms D23 / I12 | User (Prompt 127): follow FR2, eventually get all relevant data of the past 90 days |
+| D58 | Company context in the LLM prompt | No hand-written descriptions. The prompt's "what the company does" line uses what we already have: the company name + its **full section name** (e.g. `Ukko` · `Health (Healthcare & Biotechnology)`), in place of the tested description. Accuracy of this variant is measured on the 598 test headlines during the parallel test | User (Prompt 134) |
+| D59 | Classifier retries | Broken answer: 2 tries per attempt; after **3 attempts** the row stays `failed` for good, is listed in `data/run.json`, and doesn't block `done`. Ollama down / timeout / 5xx doesn't count as an attempt: claims are released and it waits and retries forever | User (Prompt 134). Revises D27's "N, TBD" |
+| D60 | No URL decoding | Mention.url keeps the **Google News link** (opens the same article, verified in Prompt 51). No extra Google requests | User (Prompt 134): decoding would cost ~20k requests and ~5.5 h. **Replaces D31** |
+| D61 | Classifier scope | The classifier ends a run by moving leftovers, writing `data/` and setting JobRun `done`. **No alert** for now: the alert belongs to the daily job (Step 6), which reads `alerted_at` NULL later | User (Prompt 134) |
+| D62 | Classifier command | One command: `npm run classifier`, always on (polls when idle). No run-once command | User (Prompt 134) |
+| D63 | Collector → classifier hand-over | At `collected` the collector releases the run (owner_pid NULL); the classifier takes it over. A new collection can't start while a run is `collected` (not yet `done`). Adds `BufferQueue.claimed_by_pid` so a dead worker's claims are freed at once | User (Prompt 134) |
+| D64 | Run counters | JobRun gets counters updated inside each batch transaction: classified, relevant, irrelevant (deleted), failed. Used for `data/run.json` | User (Prompt 134): deleted rows leave no trace otherwise |
+| D65 | Parallel LLM target | Pick the number of parallel requests that gives the best speed while using **about 60% of the GPU** (don't max it out); the test measures GPU use at each step | User (Prompt 134) |
+| D66 | Orchestrator scope | `npm start` runs only the orchestrator (supervisor), which starts and manages the **collector** and the **classifier** as separate processes. The API is added as one line when it exists. The orchestrator doesn't check or start Ollama: that's the classifier's job | User (Prompt 136) |
+| D67 | When the orchestrator runs the collector | The 90-day collection runs **once**. `npm start` launches the collector only to finish or resume a collection that never completed; after that, freshness is the daily job's work (Step 6) | User (Prompt 136) |
+| D68 | Exit codes | Every service ends with a code that tells the orchestrator why it stopped: **0** = finished normally (don't restart); **3** = refused to start, nothing wrong (e.g. lock held by a live process, previous run still being classified; log it, don't restart); **1** = crash (restart); **130** = stopped by Ctrl+C; **143** = stopped by a stop request. Documented in the README | User (Prompt 137) |
+| D69 | Restart rules | Restart waits 1 s → 2 s → 5 s → 10 s → 30 s → 60 s (reset after 5 min up). More than **5 crashes in 10 minutes** → stop restarting that service, print a clear error; the other keeps running. Services show in logs with a `[collector]` / `[classifier]` label. If the orchestrator dies, the services stop cleanly too | User (Prompt 136) |
+| D70 | Emergency heartbeat on every stop/restart | Every time the orchestrator stops or restarts a service, the service first writes its **emergency heartbeat** to the DB (crashed_at, last_error, owner_pid NULL; D48a). How: the orchestrator sends a "stop" message (Windows can't deliver a soft stop signal), waits up to 10 s, then force-kills only if the service didn't exit; that fallback is covered by the owner_pid check (D48). A crashing service writes it itself. Each restart is logged | User (Prompt 138) |
+| D71 | Replaced collector stops | If a frozen collector wakes up and finds another process took over its run, it stops itself (logs why) | User (Prompt 138) |
+| D72 | Queue count skips dead rows | The CAP check counts BufferQueue rows **except** those that failed for good (status `failed` with attempts ≥ 3), and logs how many were skipped. `MAX_ATTEMPTS` lives in the shared config | User (Prompt 138) |
+| D73 | ".env not found" message | Node prints ".env not found. Continuing without it." when there is no `.env`. Accepted (`.env` is optional) and noted in the README | User (Prompt 138) |
+| D74 | Parallel LLM requests | **4 at once** (`OLLAMA_NUM_PARALLEL=4`, `LLM_CONCURRENCY=4`). Parallel test on the 598 real headlines: 4.08 articles/s (1.66× vs 1), model 5.1 GB (62% of GPU memory), 0 errors, same accuracy. 8 spills onto the CPU and is slower. Also measured: the D58 prompt (name + full section) scores 96.6% precision / 97.4% recall / 80.7% sentiment vs 97.7 / 97.7 / 82.2 with hand-written descriptions: kept | User (Prompts 146–147), results in `research/parallel-test/results.md` and README research section 7 |
+| D56 | Testing run | The first real run on a few companies (separate test DB) is called the **testing run** and is done after the DC build is finished, not during it | User (Prompt 126) |
 | D20 | When `data/` is written | At the end of the classification process: classified mentions (sentiment, links) + per-company status snapshot | User decision (Prompts 32–33). Sentiment labels only exist after classification, and the brief asks for them in `data/` |
 | D11 | How many mentions | All relevant mentions in 90 days that our sources return; no intentional cap | G1 says "its press appearances over the last quarter". Completeness is limited only by what the sources return, and that is documented. |
 

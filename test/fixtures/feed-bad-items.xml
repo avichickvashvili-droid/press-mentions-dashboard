@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>bad items</title>
+    <item>
+      <title>No guid here - Reuters</title>
+      <link>https://news.google.com/rss/articles/NOGUID</link>
+      <pubDate>Mon, 21 Sep 2026 07:00:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>No link here - Reuters</title>
+      <guid isPermaLink="false">NOLINK</guid>
+      <pubDate>Mon, 21 Sep 2026 07:00:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <link>https://news.google.com/rss/articles/NOTITLE</link>
+      <guid isPermaLink="false">NOTITLE</guid>
+      <pubDate>Mon, 21 Sep 2026 07:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Unreadable date - Reuters</title>
+      <link>https://news.google.com/rss/articles/BADDATE</link>
+      <guid isPermaLink="false">BADDATE</guid>
+      <pubDate>sometime last week</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>A good article - Reuters</title>
+      <link>https://news.google.com/rss/articles/GOOD</link>
+      <guid isPermaLink="false">GOOD</guid>
+      <pubDate>Mon, 21 Sep 2026 07:00:00 GMT</pubDate>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+  </channel>
+</rss>

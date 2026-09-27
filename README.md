@@ -36,7 +36,7 @@ ourcrowd_companies.txt (258 companies) → filtered_ourcrowd_companies.txt (12 s
         ▼
 5. API (Express) ──► 6. DASHBOARD (React + Vite)
 
-Daily job (node-cron): re-runs steps 1–4, then sends one alert with the new mentions.
+`npm run collect` runs the 90-day collection. The daily job (one alert with the new mentions) is a separate job, designed later.
 Collection (1), classification (3) and the API (5) are separate services, kept alive by a small supervisor.
 ```
 
@@ -48,7 +48,7 @@ Collection (1), classification (3) and the API (5) are separate services, kept a
 | Database | SQLite via built-in `node:sqlite` | We need relations between tables, unique rules to block duplicates, and transactions so chunk writes are all-or-nothing. It's a single file with no server and no install |
 | News source | Google News RSS search feed | The only free, structured access to Google's news results |
 | LLM | Ollama (local), model **`qwen3:4b`**, chosen by research ([see below](#llm-research-model-choice-and-validation)) | Required by the brief: a local model for all text understanding |
-| Orchestration | 3 independent services (api, collector, classifier) + our own small supervisor; node-cron starts the daily run | The database already is the queue, so a queue library would add a server (Redis) for nothing. Separate processes mean one crash doesn't affect the others |
+| Orchestration | 3 independent services (api, collector, classifier) + our own small supervisor; the daily job is a separate job (designed later) | The database already is the queue, so a queue library would add a server (Redis) for nothing. Separate processes mean one crash doesn't affect the others |
 | API | Express | Fastest to build in a time-limited task. *For a production API, Fastify would be the better choice* (built-in validation and logging) |
 | Frontend | React + Vite | List → click → detail view; fast dev server |
 | Tests | `node:test` (built in) with fakes for Google News and Ollama | Tests run offline and fast |
@@ -102,7 +102,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
      - Materials
      - Real Estate
   2. **Search hints for the hard names.** Some companies need more than section words, so they get a hint used in the search: the name the press actually writes ("Harvey AI", "Wave Financial", "Launchpad Build AI"), a product, a founder, or a very specific word. Unique names like *Cerebras* need no hint. The hints live in `company_hints.json`: 108 of the 258 names needed one.
-     - Example: `when:90d "Flash Forest" (section words)`, or, with a hint, `when:90d "Peak AI" (section words)`.
+     - Example: `after:2026-06-29 before:2026-09-28 "Flash Forest" (section words)`, or, with a hint, `after:… before:… "Peak AI" (section words)`. The date part always goes first.
      - **How the three files come together:**
        ```
        filtered_ourcrowd_companies.txt   company_hints.json    section_keywords.json
@@ -133,11 +133,11 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - Each search result is inserted as **one chunk**, and only if the whole chunk fits under the **CAP**. Example: with CAP 10,000 and 9,999 waiting, a chunk of 100 waits until the queue drops to 9,900.
   - The collector **holds** while the queue is full and the LLM catches up.
   - The collector and classifier are separate services that meet only in this table. No queue library is needed.
-  - **Speeding up the LLM: parallel requests (planned).** Once the model is chosen, the classifier sends **2 or more articles to Ollama at the same time** (Ollama's `OLLAMA_NUM_PARALLEL` setting, plus 2+ workers in the classifier). We'll measure 1, 2, 4… and keep the fastest setting that stays stable. Measured single-request speeds in the model test: llama3.2:3b 5.5, gemma3:4b 3.7, qwen3:4b 3.1 articles/s.
+  - **Speeding up the LLM: parallel requests (measured on REAL DATA).** The classifier sends **4 articles to Ollama at the same time** (Ollama's `OLLAMA_NUM_PARALLEL` = 4, plus 4 workers in the classifier, `LLM_CONCURRENCY`). We measured 1 to 8 at once on the 598 real headlines: 4 at once is **1.66× faster** (2.45 → 4.08 articles/s) with the same accuracy, taking the ~20k-article backfill from about 2.3 h to 1.4 h. Details: [LLM research, section 7](#7-speeding-up-the-llm-parallel-requests).
 - **Trade-offs:**
   - The collector sometimes sits idle.
   - Parallel requests don't scale for free: each one uses extra GPU memory, and on one GPU the gain is usually well below 2× per doubling. Too many can push the model partly onto the CPU and make it slower. Workers must never pick the same article, so each worker claims its rows in the queue first.
-  - The CAP must be tuned to the machine's LLM speed, and it must be at least the largest chunk (~100), or the loop would wait forever.
+  - The CAP is **10,000** rows, and relevant rows move to the Mention table **1,000 at a time**. The CAP must be at least the largest chunk (~100), or the loop would wait forever.
   - The CAP limits the *queue*, **not** the number of mentions: every relevant mention is kept.
 
 ### 6. Memory: articles piling up in RAM
@@ -188,11 +188,11 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - RSS links are Google redirect pages (`news.google.com/rss/articles/...`), not the publisher's URL.
   - The "description" field is not a real snippet, just the title and publisher again.
 - **Solution:**
-  - For **relevant articles only** (when they move to the Mention table), decode the Google link into the **real publisher URL**. Tested: two requests to Google return e.g. `politico.com/news/2026/09/24/...`.
-  - If decoding fails, we keep the Google link, which still opens the article in a browser.
+  - We **keep the Google link**. It opens the real article in a browser (checked by hand).
+  - Decoding it into the publisher URL (e.g. `politico.com/...`) was tested and works, but it costs 2 extra Google requests per article: about 20,000 requests and 5.5 hours for the backfill, plus a higher risk of being blocked. Not worth it (D60).
   - The LLM classifies from the **title** (and publisher).
 - **Trade-offs:**
-  - Decoding uses an undocumented Google endpoint that could break. The fallback keeps every mention linkable.
+  - Links show `news.google.com` instead of the publisher's site; the publisher name is shown next to each mention.
   - Classifying from titles only is less accurate than full text. The model choice and validation take this into account.
 
 ### 12. Crashes and failures
@@ -203,14 +203,26 @@ Each design choice solves a specific problem. For each one: the problem, what we
   npm start
     └─ supervisor  (restarts any service that dies)
          ├─ api          → API + dashboard
-         ├─ collector    → daily search → BufferQueue
+         ├─ collector    → 90-day search → BufferQueue
          └─ classifier   → BufferQueue → Ollama → Mention → data/ + alert
   ```
   1. **One item fails → retry it.** A temporary Google error (no internet, 429, timeout) is retried on the **same company until it's done**, with growing waits capped at ~10 minutes. A permanent error (e.g. a malformed query) marks that company `failed` and is reported. Invalid LLM JSON is retried, then marked `failed`.
   2. **A loop fails → only that loop restarts.**
   3. **A process dies → the supervisor restarts only that service.** The others keep running: if the internet drops, the collector waits **while the classifier keeps working through the queue**. A service that keeps crashing is stopped with a clear error instead of looping forever. An article that crashes the classifier is counted *before* processing, so after 3 tries it's marked `failed`.
-  4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat) and a per-run company checklist (`JobRunCompany`) record where we stopped. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
+  4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat) and a per-run company checklist (`JobRunCompany`, each company `not_started` → `fetching` → `finished`, or `failed`) record where we stopped. The collection job ends when every company is `finished` or `failed`. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
   - The services share only the SQLite file. There's **no database service**: SQLite is a file, not a server, so there's nothing to crash.
+  - **Exit codes** tell the orchestrator why a service stopped, so it only restarts real crashes:
+
+    | Code | Meaning | What the orchestrator does |
+    |---|---|---|
+    | `0` | Finished normally (e.g. the collection is done) | Doesn't restart it |
+    | `3` | Refused to start, nothing wrong (another live process holds the run, or the previous run is still being classified) | Logs the reason, doesn't restart it |
+    | `1` | Crashed | Restarts it: 1 s → 2 s → 5 s → 10 s → 30 s → 60 s; more than 5 crashes in 10 minutes → gives up on that service with a clear error |
+    | `130` | Stopped with Ctrl+C | Expected during shutdown |
+    | `143` | Stopped by a stop request | Expected during shutdown |
+  - **Every stop or restart writes the emergency heartbeat first.** The orchestrator sends the service a "stop" message (Windows has no soft stop signal between programs), the service writes its last heartbeat to the database and exits, and only if it hasn't exited after 10 s is it force-killed. Every restart is logged, e.g. `[orchestrator] classifier crashed (exit 1), restart #2 in 5 s`.
+  - Articles that failed for good (3 failed rounds) don't count toward the queue limit, so they can't block collection. How many were skipped is logged.
+  - When there is no `.env` file, Node prints `.env not found. Continuing without it.` That's expected: `.env` is optional.
   - If the PC was off at the scheduled time, the run starts as soon as `npm start` launches.
   - The alert is marked "sent" only after it actually sends.
 - **Trade-offs:**
@@ -346,7 +358,7 @@ To score a model we need the "correct" answer for every headline.
 
 - **They were made by an AI (Claude), not by a human.** Claude labeled all 598 headlines with written rules ([`labeling-rules.md`](research/model-test/labeling-rules.md)), using only the headline and publisher, the same input the models get.
 - All labels were written **before any model ran**, so no model answer could influence them.
-- **Limitation:** AI labels can be wrong, so the scores measure agreement with Claude, not with a human. A human spot-check is advised (see [section 7](#7-limits-and-next-steps)).
+- **Limitation:** AI labels can be wrong, so the scores measure agreement with Claude, not with a human. A human spot-check is advised (see [section 8](#8-limits-and-next-steps)).
 
 #### The method
 
@@ -433,14 +445,42 @@ qwen3:4b is slower (3.06 vs 5.54 articles/s), but it is better on every quality 
 
 *Status: **confirmed.** The project owner chose qwen3:4b on 27 Sep 2026.*
 
-### 7. Limits and next steps
+### 7. Speeding up the LLM: parallel requests
+
+> **REAL DATA:** the same 598 real, labelled headlines as the model test. No Google requests. Full results: [`research/parallel-test/results.md`](research/parallel-test/results.md).
+
+**The problem.** The LLM is the slowest stage: at one request at a time, the ~20,000-article backfill takes over 2 hours, and the collector keeps waiting for the queue to drain (challenge 5). Ollama can answer several requests at once (`OLLAMA_NUM_PARALLEL`), but each extra one needs more GPU memory, and too many push the model partly onto the CPU.
+
+**What we did.** Ran all 598 headlines through qwen3:4b with 1, 2, 3, 4, 6 and 8 requests at the same time, and measured speed, errors, GPU memory, whether the model stayed fully on the GPU, and accuracy against the labels.
+
+| At once | Articles/s | Speed vs 1 | GPU memory for the model | Model on GPU | Errors | Relevance precision / recall | Sentiment |
+|---|---|---|---|---|---|---|---|
+| 1 | 2.45 | 1.00× | 3.2 GB (40%) | 100% | 0 | 96.6% / 97.4% | 80.7% |
+| 2 | 3.32 | 1.35× | 3.9 GB (49%) | 100% | 0 | 96.8% / 97.7% | 81.0% |
+| 3 | 3.75 | 1.53× | 4.5 GB (55%) | 100% | 0 | 96.8% / 97.4% | 81.4% |
+| **4** | **4.08** | **1.66×** | **5.1 GB (62%)** | **100%** | **0** | **96.6% / 97.4%** | **81.0%** |
+| 6 | 4.39 | 1.79× | 6.3 GB (79%) | 100% | 0 | 96.8% / 97.4% | 81.4% |
+| 8 | 2.94 | 1.20× | doesn't fit | 81% (19% on CPU) | 0 | 97.0% / 97.4% | 80.7% |
+
+**What it shows.**
+- Each step up to 6 is faster, but the gain shrinks. At 8 the model no longer fits in the 8 GB card, part of it runs on the CPU, and it gets **slower**.
+- **Accuracy doesn't depend on the setting**, and there were 0 errors and 0 invalid answers at every step.
+- GPU *busy time* stays around 75–85% at every setting (about 30% of it is other programs on the PC), so it can't be tuned. GPU *memory* is what grows with each extra request.
+
+**The choice: 4 at once.** 1.66× faster (backfill about **2.3 h → 1.4 h**), the model uses about 60% of the GPU's memory, and it leaves room for other programs. 6 is only 8% faster but nearly fills the card.
+
+**Side result: no company descriptions needed.** The model test gave the AI a hand-written line on what each company does. The real system has no such line for 258 companies, so the classifier gives the company name and its full section name instead (e.g. `Ukko` · `Health (Healthcare & Biotechnology)`). Compared on the same 598 headlines: precision 96.6% vs 97.7%, recall 97.4% vs 97.7%, sentiment 80.7% vs 82.2%. Slightly weaker, still above the 95% precision target.
+
+**How to use it.** Ollama must run with `OLLAMA_NUM_PARALLEL=4` (set it as a user environment variable and restart the Ollama app), and the classifier with `LLM_CONCURRENCY=4`.
+
+### 8. Limits and next steps
 
 - **The reference answers are AI-made.** Claude, not a human, wrote the correct answers. A human should spot-check a sample of them.
 - **Only 6 companies were tested.** They cover the 6 largest sections and include both confusing and clean names, but the other 252 companies may behave differently.
 - **Headline only.** The model never sees the article text, so some headlines are truly unclear even for a human.
-- **Next step: parallel requests (D45).** All speeds above are one request at a time. The plan is to send 2 or more headlines to Ollama at once (`OLLAMA_NUM_PARALLEL`), measure 1, 2, 4… parallel requests on the chosen model, and keep the fastest setting that stays stable (see challenge 5).
+- **Parallel speeds depend on the PC.** The parallel test ran while other programs used about 30% of the GPU, so absolute speeds will differ on another machine; the pattern (gain up to ~6 at once, slower once the model spills to the CPU) is what carries over.
 
-### 8. How to reproduce the test
+### 9. How to reproduce the test
 
 **You need:**
 - Node.js 24 (the scripts use only built-in modules, so there is no `npm install`).

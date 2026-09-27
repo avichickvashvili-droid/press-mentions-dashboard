@@ -1,0 +1,8 @@
+{
+ "Harvey": "when:90d \"Harvey\" (startup OR valuation OR \"funding round\" OR unicorn OR \"legal AI\" OR \"AI startup\" OR raised)",
+ "OpenEvidence": "when:90d \"OpenEvidence\" (AI OR doctors OR medical OR startup OR funding)",
+ "Beyond Meat": "when:90d \"Beyond Meat\" (plant-based OR food OR shares OR stock OR sales)",
+ "Astra": "when:90d \"Astra\" (rocket OR launch OR spacecraft OR manufacturing OR startup OR funding)",
+ "Lemonade": "when:90d \"Lemonade\" (insurtech OR insurance OR fintech OR startup OR funding OR company OR shares)",
+ "Klook": "when:90d \"Klook\" (travel OR tourism OR booking OR IPO OR shares OR platform OR attractions OR experiences)"
+}

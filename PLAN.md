@@ -146,16 +146,17 @@ These state *what* the system must satisfy. *How* is decided in 1.5+ (high-level
 
 Logical entities only; the storage technology is chosen in 1.7. Three entities: **Company**, **BufferQueue** (waiting articles), **Mention** (final relevant mentions, the "sentiment table").
 
-**Company** (loaded from `ourcrowd_companies.txt`, the source of truth — FR9)
+**Company**: one row per portfolio company, **written by the seed loader at start-up (D46)**. Built from `filtered_ourcrowd_companies.txt` (the 258 companies, same as `ourcrowd_companies.txt`, sorted into sections: FR9), `company_hints.json` and `section_keywords.json`. Updated on every start-up, never wiped.
 
 | Field | Type | Notes |
 |---|---|---|
 | id | string (slug) | PK, e.g. `lambda` |
 | name | string | Display/search name with the annotation removed, e.g. `Lambda`. Unique. |
-| hint | string, nullable | Disambiguation taken from the seed line, e.g. `lambda.ai`, `Safe Superintelligence`, `formerly Edge` |
-| query_param | string | The search query used for this company, needed because many names are ambiguous. Built from the company's section (DD1: 12 sections, each with its own query/queries). |
+| section | int (1–13) | From `filtered_ourcrowd_companies.txt` (D43), e.g. `1` = High-Tech. Picks the section words |
+| hint | string, nullable | The search hint from `company_hints.json`, e.g. `"Harvey AI"`, `Lambda "GPU"`. Null for the ~150 unique names, which are searched by plain name (D44) |
+| query_param | string | The search query used for this company, needed because many names are ambiguous. Built once by the seed loader (D46): **the company's hint** from `company_hints.json` (or its plain name in quotes) + **its section's words** from `section_keywords.json`. It holds **no date part**: the collector puts the date window at the front of each search. |
 
-Not added: portfolio vs fund type (not in the list), sector/domain (not in the list). A separate former_name field was dropped: "(formerly X)" goes into `hint` (user's design).
+Not added: portfolio vs fund type (not in the list). A separate former_name field was dropped: "(formerly X)" names are handled inside the hint, e.g. `(Lifeward OR ReWalk)`. Status notes such as acquired or renamed stay in `company_hints.json` and aren't stored (not needed by the MVP). Updated in Prompt 114: `section` added and `hint` re-sourced, after D43, D44 and D46.
 
 **BufferQueue**: fetched articles waiting for the LLM (user's design, Prompt 42; D24). This is the queue between DC and classification (D21).
 
@@ -172,8 +173,9 @@ Not added: portfolio vs fund type (not in the list), sector/domain (not in the l
 | status | enum: `pending` / `relevant` / `failed` | `pending` = waiting for the LLM; `relevant` = passed, waiting to be moved; `failed` = LLM error, retried |
 | sentiment | enum, nullable | Set by the LLM step when relevant (D26); NULL while pending |
 | attempts | int | LLM retries (NFR7) |
+| claimed_at | datetime, nullable | Set when a classifier worker takes the row (D45, parallel LLM), so two workers never process the same article. A claim older than a timeout is released (the worker probably died) |
 
-Constraint: UNIQUE(company_id, url).
+Constraint: UNIQUE(company_id, guid) (D32).
 
 **Mention** (the "sentiment table"): one **relevant, classified** article for one company. This is what the dashboard, status, alert and `data/` export read.
 
@@ -208,7 +210,7 @@ Constraints:
 Google News search result (≤ ~100 items = 1 chunk)
         │  wait while  count(BufferQueue) + chunk > CAP
         ▼
-BufferQueue  status = pending          ← insert chunk in 1 transaction, skip (company,url) already in either table
+BufferQueue  status = pending          ← insert chunk in 1 transaction, skip (company, guid) already in either table
         │  LLM, per article: relevant? if yes → sentiment (batch)
         ├── irrelevant → DELETE row     (D25)
         └── relevant   → sentiment → status = relevant   (one end-to-end LLM step, D26)
@@ -247,10 +249,33 @@ Two details make this work:
 - **Deleting irrelevant rows: accepted (D25).** The daily search covers only the past ~24 h, so the same article rarely comes back. Small leftover risk (accepted): window edges are fuzzy by about a day, date windows overlap slightly, and crash reruns can bring an irrelevant article back for one more LLM check. We still measure the irrelevant rate per section in Step 2 (for the README and precision).
 - **Sentiment runs in the same LLM step (D26):** each article is handled end to end. Ask "is it about the company?" If not → delete, and skip the sentiment question. If yes → ask sentiment → it moves to Mention (in chunks). Mention only ever holds finished rows.
 
+**JobRun** (added in Prompts 64–67, D39): one row per run of the job. It's the lock and the "where did we stop" record.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | int | PK |
+| started_at | datetime | |
+| finished_at | datetime, nullable | |
+| status | enum: `running` / `collected` / `done` / `failed` | `collected` = the collector finished every company; `done` = the queue is drained, `data/` is written and the alert is sent |
+| last_heartbeat | datetime | Updated **every 5 minutes** while running (D48). If it's older than **15 minutes** (3 missed beats), the run is treated as crashed and taken over (stale lock) |
+| owner_pid | int, nullable | Process ID of the service holding the run. On restart, if that process is no longer alive, the run is taken over at once without waiting 15 minutes (D48). Set to NULL by the emergency heartbeat |
+| last_error | string, nullable | Written by the **emergency heartbeat** when the service crashes or is stopped: what went wrong, plus `crashed_at` time. Shown in the run summary and logs (D48) |
+| crashed_at | datetime, nullable | When the emergency heartbeat fired |
+
+**JobRunCompany** (D39): the checklist of companies for one run. At the start of a run, one row per company is inserted as `pending`. The collector always takes the next `pending` one.
+
+| Field | Type | Notes |
+|---|---|---|
+| run_id | FK → JobRun | PK together with company_id |
+| company_id | FK → Company | |
+| status | enum: `pending` / `in_progress` / `done` / `failed` | `failed` only for permanent errors (D40). After a crash, `in_progress` goes back to `pending` and the company is searched again (duplicates are skipped by guid) |
+| error | string, nullable | Why it failed, shown in the run summary |
+
+It's not a temp table: it stays as a history of each run (which companies were done, which failed). The Company table itself never changes during a run.
+
 **Not entities:**
 - Alert: covered by `Mention.alerted_at`.
 - Article (shared across companies): not needed. An article about two companies becomes one row per company (D17).
-- Run log: optional.
 
 #### 1.4 API Design ✅
 
@@ -273,13 +298,13 @@ Only the dashboard calls the API. Fetching, classifying and alerting run as scri
 #### 1.5 High-Level Architecture ✅
 
 ```
-        ourcrowd_companies.txt  (the 258 companies, sorted into 12 sections)
+        ourcrowd_companies.txt  (the 258 companies) → filtered_ourcrowd_companies.txt (12 sections + 13 Unsorted)
                     │
                     ▼
  ┌──────────────────────────────┐        ┌───────────────────┐
  │ 1. DATA COLLECTION           │ ◄────► │ Google News RSS   │
- │    one company at a time,    │        │ (1 req / 3–5 s)   │
- │    section queries, 90 days  │        └───────────────────┘
+ │    one company at a time,    │        │ (1 req / second)  │
+ │    hint + section, 90 days   │        └───────────────────┘
  └──────────────┬───────────────┘
                 │  each search result = 1 chunk
                 │  (waits while queue + chunk > CAP)
@@ -315,9 +340,10 @@ Only the dashboard calls the API. Fetching, classifying and alerting run as scri
  │    click → its mentions      │
  └──────────────────────────────┘
 
- ⏰ DAILY JOB: node-cron starts it once a day. Our own loop runs
-    steps 1 → 4 (DC holds when the queue is full, the LLM drains it),
-    then sends ONE alert listing the new mentions, then writes data/.
+ ⏰ DAILY JOB: node-cron (in the collector service) starts a run once a day.
+    Collector (1) and classifier (3) are separate services that meet only
+    in the DB. When collection is done and the queue is empty, the classifier
+    writes data/ and sends ONE alert listing the new mentions (D38).
 ```
 
 How to read it:
@@ -327,16 +353,55 @@ How to read it:
 
 | Component | What it does | Requirement |
 |---|---|---|
-| Seed loader | Reads the seed file and creates or updates Company rows (id, name, hint, query_param) | FR9 |
-| Collector | One company at a time: runs its section queries on Google News RSS (paced, adaptive date windows). Inserts each search result into BufferQueue as one chunk, waiting while it doesn't fit under CAP. Skips articles already stored | FR10, FR13, D16, D21–D23 |
+| Seed loader | Runs at every start-up. Reads `filtered_ourcrowd_companies.txt` (name + section), `company_hints.json` (hint) and `section_keywords.json` (words per section); builds each company's `query_param` (D46) and creates or updates the Company rows. It runs again after any file edit, so changes apply on the next start | FR9 |
+| Collector | One company at a time: reads the company's ready-made `query_param` from the DB, puts the date window at the front (`after:… before:…` for the 90-day backfill windows, or the last day for the daily run), and searches Google News RSS (paced, adaptive date windows). Inserts each search result into BufferQueue as one chunk, waiting while it doesn't fit under CAP. Skips articles already stored | FR10, FR13, D16, D21–D23 |
 | BufferQueue (DB table) | Holds articles waiting for the LLM; its row count is the queue size | D21, D24 |
 | Classifier | Takes `pending`/`failed` rows in batches and asks Ollama about relevance (irrelevant → delete) and sentiment. Moves relevant rows to Mention in chunks | FR11, FR12, D9 |
-| Orchestrator loop | Our own small loop: runs the collector and the classifier, holds the collector while the queue is full, shows progress (stage, %, current company, companies left, LLM rate) | D22, I10 |
-| node-cron | Starts the job once a day | FR6 |
+| Supervisor | `npm start`. Starts the 3 services as separate processes and restarts any that dies, with growing waits; stops and logs a clear error if one keeps crashing | D38 |
+| node-cron | Lives in the collector service; starts a run once a day. On start, if the last run is older than 24 h, it starts one right away (missed-run catch-up) | FR6, D38 |
 | Alerter | Collects Mention rows with `alerted_at` NULL into one digest, sends it, then sets `alerted_at` | FR7, FR8 |
 | Exporter | At the end of the run, writes the mentions and a per-company status snapshot to `data/` | FR14, D20 |
 | API server | Serves the two endpoints and the dashboard page; reads Mention and Company only | FR1–FR5, D19 |
 | Dashboard page | List of companies with status; click a company to see its mentions, newest first | G1, G2 |
+
+**Services and the supervisor (D38, Prompts 63–66).** The "orchestrator" is not one loop in one process. It's 3 independent services, like microservices on one machine, plus a tiny supervisor that keeps them alive:
+
+```
+npm start
+  └─ supervisor  (restarts any child that dies, with backoff)
+       ├─ api          → API + dashboard
+       ├─ collector    → node-cron fires daily → JobRunCompany checklist → Google News → BufferQueue
+       └─ classifier   → always on: BufferQueue → Ollama → delete, or move to Mention
+                          → when the run is `collected` and the queue is empty: data/ + alert → `done`
+```
+
+- Each service is its own Node process with its own memory. If one crashes, the other two don't notice.
+- They talk **only through the DB**. There's no DB service: SQLite is a file that each service opens directly, so there's nothing to crash. WAL mode + a busy timeout let the 3 processes take turns writing.
+- Each service can also run alone: `npm run api`, `npm run collector`, `npm run classifier`. For testing or a one-off run: `npm run collect` (one run now) and `npm run classify` (drain the queue once).
+- Write ownership: the **collector** runs the seed loader at its start and so owns the **Company** rows (D46). It also adds BufferQueue rows and writes JobRun/JobRunCompany progress. The **classifier** updates/deletes BufferQueue rows, adds Mention rows, writes `data/`, sends the alert and marks the run `done`. The **api** only reads.
+- Crash handling in 4 layers: (1) one item or company fails → retry; (2) a loop throws → only that loop restarts; (3) a process dies → the supervisor restarts it; (4) after a restart → resume from the DB (JobRun, JobRunCompany, BufferQueue statuses). Details in Engineering Standards.
+
+**The `data/` folder (D20, D35, D41, Prompt 68)**: the deliverable output of a real run, committed to git.
+
+```
+classifier: run is `collected` + queue empty
+   → move leftovers to Mention
+   → export  ──►  data/companies.json   every company + status (mentioned / no coverage, last mention, days ago)
+                  data/mentions.json    every relevant mention in the 90-day window (company, title, url, publisher, date, sentiment)
+                  data/run.json         run summary (when, how many fetched / relevant / deleted / failed, failed companies)
+   → send the alert → JobRun = done
+
+api on start: DB empty? → import data/*.json into SQLite → dashboard works right away
+```
+
+- **Who writes it:** only the classifier, at the end of a run (D20). It creates the folder if it's missing.
+- **What's in it:** relevant, classified mentions only. BufferQueue rows (pending or irrelevant) are never exported (Prompt 32).
+- **A full snapshot each run, not an append:** each file is rewritten with the current 90-day picture, so `data/` always matches the DB.
+- **Crash-safe write (D41):** each file is written to a temp file (`mentions.json.tmp`) and then renamed over the old one. A rename is all-or-nothing, so a crash mid-export leaves the previous complete file, never a half-written one. If the export fails, the run isn't marked `done`, so it's retried.
+- **Order: export before the alert,** so the alert never mentions something missing from `data/`.
+- **Who reads it:** the api service imports it only when the DB is empty (D35), for example on a reviewer's fresh clone. A reviewer can also just open the JSON on GitHub.
+- The `days ago` value in `companies.json` is a snapshot "as of" the export time (it includes `asOf`). The live dashboard always recomputes it (NFR5).
+- File names and fields are a **proposal**; they're finalized in Step 4.
 
 Key properties:
 - The job and the API are **separate processes** that share the DB. The dashboard never waits on Google News or Ollama (NFR4).
@@ -344,17 +409,47 @@ Key properties:
 - All DB writes are chunked: one search result, one LLM batch, or one move at a time (I9).
 - Each stage only picks up unfinished work, so the same command does the first 90-day backfill and every daily run, and it resumes after a crash (NFR3, D16).
 
-Not added, because no requirement needs them: message queues, caches, a search engine, RAG/embeddings, microservices, containers.
+Not added, because no requirement needs them: message brokers (the DB is the queue), caches, a search engine, RAG/embeddings, a DB server, containers for the pipeline. The 3 services are plain Node processes on one machine, not a distributed system.
 
 Still open for this step or the deep dives:
 - `query_param`: how it's built for ambiguous names → **Deep dive DD1** (user's design)
 - ~~News source(s) and the ~100-results limit~~ → decided: Google News RSS + adaptive date windows (D23, I12)
 - Alert channel (must be visible and documented, $0) → to decide
-- ~~Scheduler~~ → decided: node-cron starts the job; our own loop orchestrates (D22)
+- ~~Scheduler~~ → decided: node-cron starts the job (D22); 3 services + supervisor (D38)
 - Frontend tech (plain HTML/JS vs a framework) → to decide
 
 #### Deep dive DD1: query_param for ambiguous names 🔄
 Process (Prompt 27): the user first shares all their deep-dive ideas as input. They are recorded below as-is, and the review starts only after the user finishes.
+
+**Summary: how the list, hints and section words come together (D44, D46, Prompt 111)**
+
+```
+ filtered_ourcrowd_companies.txt   company_hints.json     section_keywords.json
+   "Harvey" → section 1              Harvey → "Harvey AI"   1 → (company OR AI OR startup …)
+            └───────────────────────────┬──────────────────────────┘
+                                        ▼
+                         SEED LOADER (runs at every start-up)
+                         builds 1 search per company
+                                        ▼
+                  Company.query_param in SQLite (no date part)
+                  Harvey   → "Harvey AI" (company OR AI …)
+                  Cerebras → "Cerebras" (company OR AI …)
+                                        ▼
+                  COLLECTOR: date window + query_param → Google News
+```
+
+1. **Read the list:** each company's name and section.
+2. **Look up a hint** in `company_hints.json`. If there is one, use it (`"Harvey AI"`). If not, use the plain name in quotes (`"Cerebras"`).
+3. **Add the section's words** from `section_keywords.json`. They go to all companies for now; whether to limit them to the hinted names is open (I34).
+4. **Save the result** as `Company.query_param`.
+5. **The collector** reads `query_param` and puts the date part at the **front**: `after:… before:…` windows for the backfill, or the last day for daily runs. Then it searches.
+
+- **When it's saved:** right away, at start-up, **before the first search**. The seed loader runs inside the collector as its first step (the collector owns the Company rows) and also runs alone with `npm run seed`. All 258 rows are written in **one transaction**, so either all are saved or none.
+- **Upsert, not wipe:** a company that already exists keeps its `id`, and only its section, hint and `query_param` are updated. Its mentions stay linked to it. New companies are added.
+- **Not rebuilt mid-run:** a run in progress keeps the searches it started with. File edits apply at the next start.
+- If a file is missing or broken (bad JSON, unknown section number), the seed loader stops with a clear error and the collector doesn't start. The old Company rows stay untouched.
+- The collector never reads the three files.
+
 
 **User inputs (recorded as-is, not yet reviewed):**
 
@@ -363,6 +458,32 @@ Process (Prompt 27): the user first shares all their deep-dive ideas as input. T
    - 1.1 Fix: sort the companies into **12 sections**. Each section has its own query or queries.
    - The 12 sections (Prompt 47, D28): High-Tech (Information Technology) · Health (Healthcare & Biotechnology) · Sports, Fitness & Entertainment · Financials (Banking & Insurance) · Consumer Staples (Essential Goods) · Consumer Discretionary (Luxury & Leisure) · Industrials (Manufacturing & Logistics) · Communication Services · Energy · Utilities · Materials · Real Estate.
    - Assigning companies to sections and writing each section's query is **part of the DC job** (Prompt 48). Deferred to Step 2.
+   - **Assignment done (Prompt 72, D43):** `filtered_ourcrowd_companies.txt`. Companies whose business couldn't be confirmed go to a 13th section, *Unsorted*. Counts after the unsorted companies were identified (Prompt 74): High-Tech 104 · Health 49 · Sports/Fitness/Entertainment 8 · Financials 15 · Consumer Staples 22 · Consumer Discretionary 15 · Industrials 19 · Communication Services 12 · Energy 6 · Utilities 3 · Materials 2 · Real Estate 3 · **Unsorted 0** (the section is kept for future companies). Queries per section are still to do.
+   - *The 15 formerly unsorted companies (agent, Prompt 74):* each was linked to its OurCrowd page, and the hints below are for the Step 2 queries.
+     - **Hints to tell them apart in search:**
+       - Arrow Global → "Arrow Global Group", private credit (4)
+       - Kini → kini.id, on-demand pay (4)
+       - Genopore → protein sequencing, imec (2)
+       - Peak → "Peak AI", decision intelligence (1)
+       - Launchpad → "Launchpad Build AI" (7)
+       - Tamar Robotics → brain-surgery robot (2)
+       - Shield → shieldfc, communications compliance (1)
+       - BlueCircle → also search "Trellis" / trellis.ai (5)
+       - Near → "Near Intelligence" (8)
+       - Wave → "Wave Financial" / waveapps (1)
+       - Appforma → "Maverick" (8)
+       - Mentad → "MentAd" (8)
+       - Powwow → "PowWow Mobile" (1)
+       - Barcode Nanotech → lipid nanoparticles (2)
+       - ItsMine → "ITsMine", DLP (1)
+     - **Acquired, renamed or closed:**
+       - Peak: acquired by UiPath in 2025.
+       - Wave: acquired by H&R Block in 2019; the brand lives on.
+       - Near: went bankrupt in 2023, and its executives face a fraud case.
+       - Mentad: acquired by SocialCode in 2017.
+       - Appforma: acquired by GIX, around 2016.
+       - Powwow: acquired; the buyer is unverified.
+     - **Borderline:** BlueCircle, Near, Appforma and Kini could also be High-Tech.
 2. Source: **Google News**.
 3. Loop over the companies and fetch mostly **relevant** data.
 4. Note (Prompt 29): we aren't worried about the high news volume from big companies, so **no cap** is needed (matches D11).
@@ -375,6 +496,109 @@ Process (Prompt 27): the user first shares all their deep-dive ideas as input. T
 4. Benchmarks must fit the data source we chose (Google News: titles and short snippets).
 - Goal: real research on which model to use, and why.
 - Fallback: if there's no similar use case or clear winner, **we test models ourselves on real data**.
+- Research agent launched (Prompt 71). Hardware is **not** a constraint on the choice (user, Prompt 71); each candidate's size and speed are reported only to show the trade-off. **Revised in Prompt 104:** models must fit in GPU memory (8 GB on the dev machine), after measuring how slowly the big models run partly on the CPU.
+
+*Research findings: model choice (agent, 2026-09-27)*
+- **Result: no public benchmark matches our task** (headline only, "is this about company X?", then sentiment toward X). The newest Ollama models (Qwen3.5/3.6/3.8, Gemma 4) have no published scores on real headline sentiment or entity relevance. **So the fallback applies: we test the shortlist ourselves on real data.**
+- Closest real-data benchmarks:
+  - **SEntFiN 1.0**: 10,753 real financial headlines with sentiment per entity. This is the best match for the sentiment step, but it has no recent zero-shot scores for open models.
+  - **RepLab 2013 filtering**: real tweets about entities with ambiguous names. This is the best match for the relevance step, but it has no LLM results.
+  - Financial PhraseBank, FiQA-SA, Twitter Financial News: real data, but they rate the whole sentence or tweet, not a target company. The only evidence found was Qwen3 8B zero-shot on Twitter Fin News, at 0.79 accuracy.
+  - Two papers (arXiv 2506.04574, 2603.19558) found that reasoning ("thinking") doesn't help simple classification, or hurts it, at 10–100× the tokens. **This supports running with thinking off.**
+- Shortlist (all Apache 2.0):
+
+  | Model | Size (q4) | Role |
+  |---|---|---|
+  | `qwen3.5:35b-a3b` | 24 GB, MoE (~3B active) | **Top pick.** Large total size means more world knowledge for ambiguous names (Harvey, Island, Silo, Lambda). With MoE, only ~3B parameters run per token, so it is fast for its size |
+  | `gemma4:26b` | 18 GB, MoE (~3.8B active) | Alternative from another model family |
+  | `qwen3.5:9b` | 6.6 GB | Fast baseline. If it scores close to the others, use it |
+  | `gemma4:31b` | 20 GB, dense | Quality ceiling, slower |
+
+- Speed (the agent's estimate, **not measured**): at ~200 input and ~15 output tokens per call with thinking off, the MoE models should reach ~5–10 items/s. That puts a 20k-headline backfill at about 0.5–1 h. The dense models should be 2–4× slower.
+- Prompt and schema tips:
+  - Temperature 0. Put the schema in the prompt as well as in `format`.
+  - Put `relevant` before `sentiment`; `sentiment` is null when not relevant.
+  - Strip the " - Publisher" suffix from the title and pass the publisher separately.
+  - Tell the model to answer `false` when the name could mean another person, product or common word.
+  - Use a few balanced hard-negative examples. Small models are sensitive to examples: one study measured a drop from 0.63 to 0.44 macro-F1.
+- Confidence: **low to medium**. The families are sensible choices, but nothing ranks them on our task.
+- **Next (our own test, Step 3):**
+  - **Data:** hand-label ~400–600 real Google News headlines from our feed. Oversample ambiguous names and include routine big-company news.
+  - **Measure for each model:**
+    - Relevance precision, the main metric: target ≥ 95%.
+    - Relevance recall.
+    - Sentiment macro-F1 on the relevant items.
+    - JSON and schema validity.
+    - Items/s on our hardware.
+    - Whether answers are the same across two runs.
+  - **Rule:** pick the **fastest model that meets the precision target**. The model is not decided until this test runs.
+
+*Model test: launched (agent, Prompt 86, 2026-09-27)*
+- **Data:** 1 company from each of the 6 largest sections (High-Tech, Health, Consumer Staples, Industrials, Financials, Consumer Discretionary), about 100 real Google News articles each, so **about 600 articles**. The final size goes in the README.
+- **Models:** all of them, none skipped (user). qwen3.5:35b-a3b, gemma4:26b, qwen3.5:9b, gemma4:31b, qwen3.6:27b, qwen3.8:27b, gpt-oss:20b, gemma3:4b, qwen3:4b, llama3.2:3b.
+- **Revised (Prompt 104): models that don't fit the system are excluded.** Only models that fit in the dev machine's **8 GB GPU memory** are scored: llama3.2:3b, qwen3:4b, gemma3:4b, qwen3.5:9b. Excluded as "does not fit the system": gpt-oss:20b (13 GB; measured 56% CPU, 0.37–0.42 articles/s), qwen3.5:35b-a3b (24 GB), gemma4:26b (18 GB), gemma4:31b (20 GB), qwen3.6:27b and qwen3.8:27b (about 18 GB). Running partly on the CPU, they would need days for the 20,000-article backfill.
+- **Method:**
+  - One fixed prompt for every model. Strict JSON, temperature 0, thinking off.
+  - Reference labels are made by the agent before any model runs. These are AI labels, not human ones, and the README must say so.
+- **Measured per model:**
+  - relevance precision, recall and F1
+  - sentiment accuracy and macro-F1
+  - JSON valid rate
+  - **total runtime**, articles per second, and the estimated 90-day backfill time
+- **Output:** `research/model-test/`, containing the dataset, labeling rules, prompt, runner, results for each model, and a summary.
+
+*Model test: results (Prompt 107, 2026-09-27)*
+- Scored on 598 articles; details in `research/model-test/summary.md`.
+
+  | Model | Precision | Recall | Sentiment | Runtime (598 articles) | Speed |
+  |---|---|---|---|---|---|
+  | llama3.2:3b | 96.2% | 87.9% | 62.3% | 1.8 min | 5.5/s |
+  | **qwen3:4b** | 97.7% | 97.7% | 82.2% | 3.3 min | 3.1/s |
+  | gemma3:4b | 80.4% | 99.8% | 84.4% | 2.7 min | 3.7/s |
+  | qwen3.5:9b | 86.2% | 100% | 83.8% | 6.3 min | 1.6/s |
+
+  JSON was 100% valid for every model.
+- **The rule's pick vs. the recommendation:**
+  - The written rule ("fastest with ≥ 95% precision") picks **llama3.2:3b**.
+  - It ignores recall and sentiment, and llama3.2:3b is weak on both.
+  - **Recommendation: qwen3:4b**, pending the user's decision.
+- The test agent was stopped after the change to D47. The scoring was finished by the main session, and the excluded section was added to `summary.md`. Partial gpt-oss results are in `results/excluded/`.
+
+*Query test: 3 sections (agent, Prompt 73, 2026-09-27)*
+
+Setup: 49 Google News RSS searches over `when:90d`, one search (up to 100 results) per test, 2 ambiguous-name companies per section. The agent judged each headline by hand. Raw data is in the session scratchpad (`query-tests/`).
+
+**Winning template per section:**
+- **High-Tech (T8):**
+  - `when:90d "{name}" (startup OR valuation OR "funding round" OR unicorn OR "venture capital" OR cybersecurity OR SaaS OR "tech company" OR "AI company" OR "AI startup" OR "AI platform" OR raised)`
+  - Harvey: 25 → 86 relevant (95% precision). Island: 4 → 34 relevant (46%).
+- **Health (H3), a weak win:**
+  - `when:90d "{name}" (health OR healthcare OR medical OR patients OR clinical OR FDA OR telehealth OR startup OR funding) -congressman -congresswoman -Rep -senator -Democrat -Democrats -Republican -obituary`
+  - Ro: 6 → 14 relevant (31% precision). Eko Health: about 1 either way, because it has almost no coverage.
+- **Consumer Staples (C4):**
+  - `when:90d ("{name}" OR "{alias}") (startup OR foodtech OR "plant-based" OR "alternative protein" OR "animal-free" OR vegan OR dairy OR funding)`
+  - Oshi: 4/57 → 3/13 +5 likely. Remilk has almost no coverage in the window.
+
+**Findings:**
+- **Query length:**
+  - Long queries silently lose their last words, including `when:90d`; results then went back to 1993.
+  - Put `when:90d` **first** and keep queries to about 30 words or fewer.
+- **How the operators behave:**
+  - Quotes ignore case and punctuation (`"Ro"` matches "RO water").
+  - OR with parentheses works.
+  - A `-word` exclusion matches the whole article, so it can drop real coverage.
+  - `intitle:` gives the best precision but cuts coverage by more than half.
+  - Context words match the article body, not only the title.
+- **The baseline hides real coverage:** noise fills the 100 slots. With the baseline, Harvey showed only 25 real articles; the template found 86.
+- **No blocking seen:** no 429s or CAPTCHAs in 49 requests at about 1.5 s apart.
+- **Company-specific problems need company-specific fixes:**
+  - Some companies are known by a different name in the press ("Eko", not "Eko Health").
+  - Aliases are needed for "formerly" names.
+  - Some exclusions only apply to one company (`-Khanna` for Ro, `-Lagos` for Eko).
+- **Avoid `Israel` / `Tel Aviv` as context words:** war news swamps them.
+- **Open questions:**
+  - Does a company's own blog (publisher = the company) count as press?
+  - Should Company get `search_name` / `alias` / `extra_exclusions` fields? That would feed `query_param`.
 
 *Throughput problem + buffer stream system* (Prompt 34)
 - Problem: the stages run at very different speeds.
@@ -470,13 +694,16 @@ README, `data/` output from a real run, prompts file finalized, push to GitHub.
 
 | Failure | Behaviour |
 |---|---|
-| **DC: internet down / Google 429 / CAPTCHA page** | The collector retries with exponential backoff (pausing and retrying). **Meanwhile the classifier keeps draining the queue.** The two loops are independent, so one failing doesn't stop the other. After max retries the company is logged as "skipped this run" and the loop moves on; the next run picks it up |
-| DC: one company's query fails / bad RSS | Log it, skip that company, continue with the rest |
+| **DC: temporary error** (internet down, Google 429 / 5xx, timeout, CAPTCHA page) | **Keep retrying the same company until it's done** (D40). The wait grows (5 s → 10 s → 30 s …) up to a cap of ~10 min, so we don't hammer Google. **Meanwhile the classifier keeps draining the queue**: it's a separate service (D38). Progress shows "Google unreachable, retry in 2 m" |
+| DC: permanent error (e.g. 400 for a malformed query, a response we can't parse) | Retrying can't fix it: mark the company `failed` in JobRunCompany with the reason, move on, and list it in the run summary (D40) |
 | Ollama down or slow | The classifier waits and retries with backoff. The collector keeps filling until the CAP, then holds. Nothing is lost: rows stay `pending` |
 | LLM returns invalid JSON | Retry up to N, then status `failed` (`attempts` counted), retried on the next run (D27) |
 | URL decoding fails | Keep the Google link (D31) |
 | DB write fails | Each chunk/batch/move is one transaction, so it rolls back fully. Log it and retry |
-| Process killed / PC off | Rerun resumes from the DB (D16): pending rows are still there, duplicates are skipped |
+| A service process dies (out of memory, bug) | The supervisor restarts only that service, with growing waits; the others keep running. More than N crashes in a few minutes → stop restarting it and log a clear error (no endless crash loop) (D38) |
+| One article crashes the classifier every time ("poison" article) | `attempts` is increased **before** the article is processed, so after 3 crashes it's marked `failed` and skipped |
+| Two runs at once (cron + manual `npm run collect`) | JobRun is a lock: only one `running` run. A run whose heartbeat is older than 15 minutes (beat every 5 min), or whose owner process is dead, counts as crashed and is taken over (D39, D48) |
+| Process killed / PC off | On restart, resume from the DB (D16, D39): the collector continues from the next `pending` company in JobRunCompany (the `in_progress` one is redone; duplicates are skipped by guid), and the classifier continues with the `pending` rows. If a daily run was missed, it starts right away |
 | Alert send fails | `alerted_at` stays NULL, so it is sent on the next run (at-least-once) |
 | API: DB unreadable / unknown id | 500 / 404 with a clear message; the dashboard shows an error state instead of a blank page |
 | Unexpected error anywhere | A top-level handler logs it clearly and exits with a message, never silently |
@@ -496,7 +723,7 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | RSS/XML parsing | TBD (a small XML parser) | Turns the RSS feed into items (title, link, guid, pubDate, source) | — |
 | LLM | **Ollama** (local), model **TBD by research** (Prompt 30) | Required by the brief: local model for relevance + sentiment | Cloud LLMs are not allowed |
 | LLM output | **Strict JSON** via Ollama structured output (`format` = JSON schema) (D27) | The model must answer in a fixed shape we can check, e.g. `{"relevant": true, "sentiment": "positive"}`. Anything else is treated as a failure, not guessed at | Free-text answers parsed with regex: fragile |
-| Orchestration | **Our own small loop** (D22) | The DB is already the queue (D21/D24); the loop just holds the collector while the queue is full | BullMQ / pg-boss / Agenda: need Redis/Postgres/Mongo servers |
+| Orchestration | **3 independent services** (api, collector, classifier) + **our own tiny supervisor** (D22, D38) | The DB is already the queue (D21/D24), so the services only need to share the SQLite file. The supervisor restarts any service that dies. No dependency, and the reviewer runs one command | BullMQ / pg-boss / Agenda: need Redis/Postgres/Mongo servers. **PM2**: the standard process manager, would work, but it's one more tool to install (noted in the README) |
 | Scheduler | **node-cron** (D22) | Starts the daily job from Node, and it's documented in the README | OS schedulers (Task Scheduler / cron): outside the codebase and differ per OS |
 | Progress display | TBD (e.g. a terminal progress-bar library) | Multi-hour runs must show stage, %, current company, companies left, LLM rate (I10) | — |
 | API server | **Express** (D34) | Serves the 2 read-only endpoints (D19) and the built React app (`express.static`). The most familiar option and the fastest to build under the take-home time limit | **Fastify**: built-in validation + logging; the better choice for a production API (noted for README / 1.13). **Plain `node:http`**: hand-written routing, parsing and errors |
@@ -533,7 +760,7 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | D19 | API surface | Two read-only endpoints: `GET /api/companies` (list + status) and `GET /api/companies/:id/mentions` (on click, newest first) | Matches the dashboard: list, then drill down. The first load stays small, and `daysAgo` is computed per request. Alternatives were one big endpoint or a static page over `data/` |
 | D21 | Buffer between DC and LLM | The queue lives in the DB (not RAM): articles are saved as `pending` in chunks; DC holds while queue + chunk > CAP; the LLM takes pending rows and writes results back in chunks. The table is BufferQueue (D24). CAP is tuned to the dev PC's measured speed | User decision (Prompt 36). Crash-safe (nothing lost in RAM), low memory, same rows as D16 |
 | D22 | Orchestrator | Our own small loop (hold while `count(BufferQueue) + chunk > CAP`, insert each search result as one chunk) + node-cron to start the job daily | User decision (Prompt 37). No extra servers (Redis etc.); the DB is already the queue (D21) |
-| D23 | News source | Google News RSS search feed (no key), paced ~1 req / 3–5 s with backoff, adaptive date windows | User confirmed (Prompt 39). Only free, structured access to Google's news results. ToS caveat (personal, non-commercial; robots.txt) accepted and documented in the README (I11) |
+| D23 | News source | Google News RSS search feed (no key), paced ~1 req / 3–5 s with backoff (pace revised to 1 s by D42), adaptive date windows | User confirmed (Prompt 39). Only free, structured access to Google's news results. ToS caveat (personal, non-commercial; robots.txt) accepted and documented in the README (I11) |
 | D24 | Queue table | Separate **BufferQueue** table for waiting articles; irrelevant → delete; relevant rows move to Mention in chunks (MOVE_CHUNK, size TBD). Mention holds only relevant, classified mentions | User decision (Prompt 42): the sentiment table must not double as the queue. Cleaner final table. Costs: dedup checks two tables; deleted irrelevant rows may be re-fetched and re-classified (open, verify in Step 2) |
 | D25 | Irrelevant articles | Delete from BufferQueue; keep no record | User decision (Prompt 45): the daily search covers only the past ~24 h, so re-fetches are rare; don't keep data we don't need. Accepted cost: an occasional re-check at window edges or after a crash |
 | D26 | LLM flow per article | One end-to-end step: relevance → (if relevant) sentiment; irrelevant skips the sentiment question and is deleted; relevant goes to Mention (in chunks) | User decision (Prompt 45). Mention never holds half-classified rows; no separate sentiment pass |
@@ -548,6 +775,18 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | D35 | `data/` format | JSON files (e.g. `companies.json` with status, `mentions.json`) written at the end of the run (D20). On start, the API imports them into SQLite if the DB is empty, so the dashboard works right away from the committed data | User goal (Prompt 54): the reviewer sees results without re-running. Readable on GitHub and loadable by the app. Exact file names/fields decided in Step 4 |
 | D36 | Packaging | npm scripts (required). Optional stretch: a Docker image for API + dashboard serving the committed `data/`. Kubernetes out of scope | User meant Docker (Prompt 55). The pipeline stays local because Ollama needs the GPU |
 | D37 | Failure handling | Collector and classifier are independent loops; any failure in one (e.g. internet down) is retried with backoff while the other keeps working; every write is a transaction; nothing crashes unhandled. Full table in Engineering Standards | User requirement (Prompt 57) |
+| D38 | Services + supervisor | `npm start` runs a tiny supervisor that starts **api**, **collector** (with node-cron) and **classifier** as separate processes and restarts any that dies (growing waits, stops after repeated crashes). They share only the SQLite file; no DB service. Each can also run alone (`npm run api` / `collector` / `classifier`); `npm run collect` / `classify` run once. Missed daily run → start on launch | User (Prompts 64–66): the orchestrator carries the whole throughput, so one part crashing must not affect the others, and it must relaunch. SQLite is a file, so a DB service would only add a single point of failure. PM2 noted as the alternative |
+| D39 | Resume + lock | **JobRun** (status, heartbeat) is the lock and the run record. **JobRunCompany** is the per-run checklist of companies (`pending` / `in_progress` / `done` / `failed`). After a crash, the `in_progress` company is redone and the rest continue. Stale heartbeat → take over | User agreed (Prompt 67). Restarting must continue, not start over. A checklist row per company is simpler than tracking positions, and redoing one company is safe because duplicates are skipped by guid |
+| D40 | Collector retries | Temporary errors (network, 429, 5xx, timeout): retry the same company **until it's done**, backoff capped at ~10 min. Permanent errors (400, unparseable response): mark the company `failed`, move on, report it | User (Prompt 65): keep going until the company is done. Permanent errors are the exception, because retrying them forever would stall the whole run |
+| D41 | `data/` export safety | Written by the classifier at the end of the run as a full snapshot (not an append); each file goes to a `.tmp` file first, then is renamed over the old one; export happens **before** the alert; a failed export keeps the run from being `done` | Prompt 68. A crash mid-export must never leave a half-written JSON in the deliverable. Exporting before alerting keeps the alert and `data/` consistent |
+| D42 | Collector pace (revises D23's 3–5 s) | **Fixed 1 request/second** (+ small jitter), always. A 429 / CAPTCHA still triggers backoff and retry (D40); once a request succeeds, the pace returns to 1 s. Configurable (`REQUEST_INTERVAL_MS`) | User decision (Prompt 71): always 1 second; the adaptive slowdown was rejected. Risk accepted and documented (I23) |
+| D43 | Company → section assignment | A static file, `filtered_ourcrowd_companies.txt`: 12 sections plus **13. Unsorted** for companies whose business couldn't be confirmed. Sorted by the AI assistant from its general knowledge at design time and open to review by the user. Automotive goes to Consumer Discretionary, commercial vehicles, aerospace and defense to Industrials, and agtech to Consumer Staples | Prompt 72. This is one-time setup data, like the seed list, not text understanding done by the running system, so the "Ollama for all text understanding" rule doesn't apply. Ambiguous names keep their section; the query and the LLM relevance check handle the ambiguity |
+| D44 | Search query shape | One simple query per company: `when:90d` + **the name, or the company's hint if it has one** + **its section's context words**. Hints exist only for hard names (common words, people's names, places, other companies, a different press name, "formerly" names), stored in **`company_hints.json`**: 108 hard names, found by an agent (Prompt 84) and spot-tested on Google News (40 searches). The other 150 names use the plain name. Section words are in **`section_keywords.json`** (agent, Prompt 94, 67 searches). Every list starts with `company`, which recovers real articles that the other words dropped | User (Prompts 82, 85): keep it simple. Sections plus hints **cut the junk articles that reach the LLM** (less load on the slowest stage) and leave more of the 100 results for real coverage. Replaces the longer per-section templates from the query test |
+| D45 | LLM speed-up: parallel classification (planned) | After the model is chosen, run **2 or more classification requests at once**: Ollama `OLLAMA_NUM_PARALLEL` = N and N classifier workers. Measure N = 1, 2, 4… on the chosen model (articles/s, errors, GPU memory) and pick the best stable N. Configurable (`LLM_CONCURRENCY`). Each worker **claims** its BufferQueue rows (e.g. a `claimed_at` / `worker` mark in one transaction) so two workers never process the same article. MOVE_CHUNK and the crash rules (D38–D40) stay the same | User (Prompt 97). The LLM is the slowest stage (1.5–5.5 articles/s one at a time in the model test), so this is where speed-ups pay off |
+| D46 | Where the query is built | The **seed loader** builds each company's search **once at start-up** and saves it in `Company.query_param`:<br>1. Section from `filtered_ourcrowd_companies.txt`.<br>2. Hint from `company_hints.json` if there is one, otherwise the name in quotes.<br>3. Section words from `section_keywords.json` (all companies, or only hinted ones: open, I34).<br>The **collector** never reads the files. It takes `query_param` and puts the date part at the front: `after:/before:` windows for the backfill (D23), or the last day for daily runs. The date is always first (I28) | Prompt 100–101. The collector stays simple, every company's exact search is visible in the DB for checking, and editing a file takes effect on the next start. The date isn't stored because adaptive windows change it per search |
+| D47 | Model must fit the machine | Only models that fit fully in GPU memory (8 GB on the dev machine) are candidates. Larger models are excluded and marked "does not fit the system" in the research | User (Prompt 104), after measuring gpt-oss:20b at 56% CPU and 0.37–0.42 articles/s, versus 1.6–5.5 articles/s for the models that fit. A 20,000-article backfill would take days. Revises the "hardware not a constraint" note from Prompt 71 |
+| D48 | Heartbeat interval | `JobRun.last_heartbeat` is written **every 5 minutes** (configurable, `HEARTBEAT_MS`). Stale after **15 minutes** (3 missed beats), so a slow moment isn't mistaken for a crash. `JobRun.owner_pid` allows an **immediate** takeover when the process that held the run is gone. That's the usual case, since the supervisor restarts a crashed service within seconds | User (Prompt 116): fewer DB writes. Trade-off: a truly hung process, still alive but stuck, is detected only after up to 15 minutes |
+| D48a | Emergency heartbeat | When a service crashes (uncaught error, unhandled promise rejection) or is stopped (Ctrl+C, SIGTERM from the supervisor), it makes **one last write before exiting**: `crashed_at`, `last_error`, and `owner_pid = NULL`, which releases the lock. The run stays `running` so it resumes. The next start sees a released lock and **resumes at once**. Best effort only: a hard kill, power loss or `kill -9` can't write anything, and then the `owner_pid` check or the 15-minute timeout (D48) takes over | User (Prompt 117). Instant, explained recovery for the common crash, with the heartbeat as a safety net |
 | D20 | When `data/` is written | At the end of the classification process: classified mentions (sentiment, links) + per-company status snapshot | User decision (Prompts 32–33). Sentiment labels only exist after classification, and the brief asks for them in `data/` |
 | D11 | How many mentions | All relevant mentions in 90 days that our sources return; no intentional cap | G1 says "its press appearances over the last quarter". Completeness is limited only by what the sources return, and that is documented. |
 
@@ -566,18 +805,40 @@ Rule (Prompt 31): whenever an issue or difficulty comes up (throughput, latency,
 | I7 | Speed mismatch: DC produces articles faster than the LLM classifies them (DC ~20–30 items/s at most with safe pacing vs LLM ~3–4/s, 2 steps each) | Throughput, backfill time | DB queue table BufferQueue: DC holds while queue + chunk > CAP, LLM catches up (D21, D24) | Prompt 34, 36 |
 | I8 | Memory: unclassified articles pile up in memory | Stability (OOM) | The queue lives in the DB, not RAM (D21), plus one company at a time | Prompt 34, 36 |
 | I9 | DB write pattern: too many rows at once, or one write per LLM result | DB load, run time | Chunked writes: one search result per insert, one LLM batch per update, one MOVE_CHUNK per move (D24) | Prompt 34 |
-| I11 | Google News has no official API. The RSS feed has undocumented rate limits (429 / CAPTCHA / IP block) and its ToS/robots.txt disallow automated use | Reliability, legitimacy | Pace 1 request per 3–5 s + jitter, backoff on 429. Document the ToS caveat in the README. Decision needed | Research (Prompt 35) |
+| I11 | Google News has no official API. The RSS feed has undocumented rate limits (429 / CAPTCHA / IP block) and its ToS/robots.txt disallow automated use | Reliability, legitimacy | Pace: fixed 1 request/second + jitter (D42, revised from 3–5 s), backoff on 429. ToS caveat documented in the README | Research (Prompt 35) |
 | I12 | ~100 results per query, no pagination | Completeness (FR2) | Adaptive date windows (`after:`/`before:`), split when ≥95 items. Very big names can hit 100/day: accepted ceiling | Research (Prompt 35); resolves I4 |
 | I13 | RSS links are encoded Google redirects, not publisher URLs; there's no real snippet (title + publisher only) | Dedup key (D14/D18), link quality (FR4), LLM input (I6) | Open: dedup on `guid`/Google link; decode lazily or not at all. The LLM sees the title only | Research (Prompt 35) |
 | I15 | Real article URLs need 2 extra undocumented Google requests per article | Link quality (FR4), rate limits | Decode relevant articles only, paced; fall back to the Google link if decoding fails (D31) | Prompt 48 |
 | I16 | guid stability isn't documented by Google | Duplicates on the dashboard | Tested: stable for the same query (100/100) and mostly across queries (16/17). Backup check on company + publisher + title (D33) | Prompt 52 |
 | I14 | Irrelevant rows are deleted, so the same irrelevant article can be re-fetched and re-classified on later runs | LLM time, D9, precision measurement (NFR6) | Accepted (D25): the daily search covers ~24 h, so re-fetches are rare (window-edge overlap, crash reruns). Measure the irrelevant rate in Step 2 | Prompts 42–45 |
+| I17 | The orchestrator carries the whole throughput (DC, classification, DB), so a crash stops everything | Reliability | 3 independent services + a supervisor that restarts them; resume from the DB (D38, D39) | Prompt 64 |
+| I18 | A service that crashes on start, or a "poison" article, could cause an endless crash loop | Reliability, log noise | Supervisor stops after N crashes in a few minutes; `attempts` counted before processing, so a poison article ends up `failed` | Prompt 64 |
+| I19 | node-cron only fires while `npm start` is running; a PC that's off at the scheduled time misses the run | Freshness (G3) | On launch, if the last run is older than 24 h, start one right away. The search window overlaps, so nothing is lost | Prompt 63 |
+| I20 | 3 processes write to the same SQLite file | DB locking errors | WAL mode + busy timeout; writes are short transactions; clear write ownership per service (D38) | Prompt 66 |
+| I21 | Retrying a company "until done" can stall the run if Google blocks us for hours | Run time | Accepted (D40): the classifier keeps working meanwhile, and progress shows the wait. Backoff capped at ~10 min | Prompt 65 |
+| I22 | A crash while writing `data/` could leave a broken JSON file in the deliverable (and break the reviewer's auto-import) | Deliverable quality | Write to `.tmp`, then rename (all-or-nothing); the run isn't `done` until the export succeeds (D41) | Prompt 68 |
+| I23 | 1 request/second is faster than the pace reported as safe (3–5 s); a block can be IP-wide and last hours, stalling the collector (D40) and URL decoding | Reliability, run time | Accepted (D42, user decision): fixed 1 s. Backoff on 429/CAPTCHA still applies. In backfill the LLM is the bottleneck, so the gain is mainly in daily runs | Prompt 69, 71 |
+| I24 | On thinking models, `think:false` together with `format` made Ollama drop the JSON constraint and return plain text. This was fixed for qwen3.5 (PR #15901, v0.32.7); the Gemma 4 report (#15260) still shows as open | Classification reliability | Check this on our Ollama version during the model test. Validate every response against the schema anyway, and treat bad output as a failure (D27) | Model research (2026-09-27) |
+| I25 | No public benchmark matches our task, so the model can't be chosen from the literature | Model choice confidence | Own test on ~400–600 hand-labeled real headlines. Pick the fastest model with ≥ 95% relevance precision | Model research (2026-09-27) |
+| I26 | The section assignment is a best guess: some companies have little public information, generic names (Peak, Wave, Near, Shield, Launchpad) or two plausible sectors (e.g. SpaceX: aerospace or telecom). 15 went to section 13; all were later identified by an agent (Prompt 74), so section 13 is empty. Some sections are tiny (Materials 2, Utilities 3) | Query quality for those companies | Section 13 gets a generic query shape (to design in Step 2). Measure the irrelevant rate per section in the test run and move companies if needed | Prompt 72 |
+| I27 | Some generic names (Launchpad, Shield, Wave, Near, Peak) need a distinguishing hint to be searchable. Some companies were acquired or shut down (Peak, Wave, Near, Mentad, Appforma, Powwow), so their news may appear under the new owner's name or not at all | Relevance and recall for those companies | Use the agent's hints in the queries (Step 2). "No coverage found" is the correct result for companies that no longer operate. Document this under the README's known limitations | Prompt 74 |
+| I28 | Long Google News queries silently drop their last words, including `when:90d`, so results escape the date window | Wrong data (old articles) | Put `when:90d` first. Keep queries to about 30 words or fewer and warn when a built query is longer | Query test (Prompt 73) |
+| I29 | Generic section templates can't fix every ambiguous name: Island is still about 54% noise and Ro about 69%. Health barely beats the baseline | Precision, LLM load | The LLM relevance check stays the real filter; the query only has to get more real articles into the 100 results. Hints for hard names (D44), researched by an agent (Prompt 84) | Query test (Prompt 73) |
+| I30 | The query test covered only 6 companies, all hand-picked hard cases, so it doesn't show that the section queries work across all 258. Most of the portfolio is AI companies or startups, so the shared words (startup, funding, AI, raised) do most of the filtering, and the section split may add little | Confidence in the query design | Don't claim coverage beyond what was tested. Next test: the same queries on randomly picked, ordinary companies from each section, compared with a single "startup words" query for everyone | User challenge (Prompt 80) |
+| I31 | Many portfolio companies were acquired, renamed or closed: about 50 are marked in `company_hints.json`, e.g. CyberX → Microsoft, Zebra Medical → Nanox, Virgin Hyperloop One shut down. Their news may be under the new name or not exist. Some hints are low-confidence (Spot AI, Bites, Neura, Silo, Parko, Orchard, Guild) and a few identities are unsure (NetOp, Neura, Air EV) | Recall; "no coverage found" for many companies | Hints use the new name where one exists. "No coverage" is a correct result for closed companies. List the affected companies under the README's known limitations. Status notes for easy names are from the agent's memory and not verified | Hint agent (Prompt 84) |
+| I32 | Small companies may have **no news at all** in the window. Spot check of ItsMine (Prompt 88): 0 results in 90 days and 0 in a year; 6 results all-time, of which only 1–2 are real (2023 CrowdStrike partnership, 2018 list). Without quotes, `ITsMine` matches "its mine" (mining news). Google's regular search (News tab) does the same without quotes: "ItsMine high tech company" returned mining articles (BHP, rare earths, a uranium town), none of them about the company | Expectations: many "no coverage found" rows | That's a correct result, not a bug. Always quote the name or hint. Don't widen the window to find something, because the dashboard is per quarter | Prompt 88 |
+| I33 | Parallel LLM requests (D45) share one GPU (8 GB on the dev machine). Each extra request needs more memory, the speed-up is usually well below linear, and too many can push the model partly onto the CPU and make it slower. Several workers could also pick the same article | Throughput, correctness | Measure N = 1, 2, 4 and keep the best stable value. Rows are claimed in a transaction before processing; a claimed row whose worker died is released after a timeout | Prompt 97 |
+| I34 | Section words cost real articles for **well-known, unique names**: Freightos lost 19 of 66, Klook about 22, with no junk to remove. They clearly help **confusing names**: Clinch lost 15 sports headlines, Skillz golf gear, H2Pro mop reviews. Real Estate, Materials and Utilities have almost no news, so their words are barely tested | Recall for unique names | **Open (user decision):** add section words only for companies that have a hint or a common-word name (agent's suggestion), or for all companies (D44 as written). Google's results also shift a little between runs | Section-words agent (Prompt 94) |
+| I35 | The model-choice rule (fastest with ≥ 95% relevance precision) ignores recall and sentiment. It would pick llama3.2:3b, which misses 12% of real mentions and has 62% sentiment accuracy | Model choice | Choose by precision, recall and sentiment together. Recommended: qwen3:4b (97.7 / 97.7 / 82.2) | Model test (Prompt 107) |
+| I36 | The reference labels in the model test are AI-made (Claude), not human | Trust in the scores | Stated in the README and `summary.md`. A human spot-check of some labels is advised | Model test |
+| I37 | `score.mjs` rewrites `summary.md` completely, so re-running it drops the hand-added "Excluded" section. Astra's junk was first wrongly described as "mostly AstraZeneca"; the README agent checked and found 79 of 93 were about OpenAI's GPT-6 "Astra" (corrected in the page and README) | Accuracy of the research docs | The README says to back up `summary.md` before re-scoring. The Astra wording is fixed. Lesson: check claims about the data against the data | README agent (Prompt 110) |
+| I38 | With a 5-minute heartbeat, a hung process (alive but stuck) blocks a new run for up to 15 minutes | Recovery time | Accepted (D48). Crashes release the lock at once through the emergency heartbeat (D48a). Dead processes are detected at once through `owner_pid`. Only a stuck-but-alive process waits for the timeout | Prompt 116–117 |
 | I10 | Multi-hour runs are opaque | Operability, reviewer experience | Progress bar with %, current company, companies left, LLM rate (user input, to review) | Prompt 34 |
 
 ## Remaining to Discuss (gap check, Prompt 46)
 
 Must settle before building:
-1. ~~What the 12 sections are~~ (done, D28). Still open: how each company gets assigned (by hand, or by Ollama, since any text-understanding must use the local model), and what the queries look like.
+1. ~~What the 12 sections are~~ (done, D28). ~~How each company gets assigned~~ (done, D43). ~~How the query is built~~ (D44: hint + section). Still open: the exact context words per section (the words journalists write, not the section label). Section 13 is empty now.
 2. ~~Article link + dedup key~~ → decided: decode relevant only (D31), dedup on guid (D32).
 3. **Model research + validation (Prompt 30):** run the research. Define how we validate quality for the README (e.g. a hand-labeled sample of real articles, with the accuracy reported).
 4. ~~LLM output format~~ → strict JSON, retry → `failed` (D27).
@@ -587,7 +848,7 @@ Must settle before building:
 
 Smaller, can come later:
 - ~~The `data/` folder format~~ → JSON + auto-import (D35); exact file names in Step 4.
-- Failure handling: Ollama down, Google 429/CAPTCHA, the job running while the PC is off (node-cron only fires if the process is running).
+- ~~Failure handling: Ollama down, Google 429/CAPTCHA, the job running while the PC is off~~ → decided: D37–D40, I17–I21.
 - Security: escape article titles in the UI (XSS); secrets like SMTP credentials or a webhook URL go in `.env`, never in the repo.
 - Design-process sections not written up yet: 1.6 data flow, 1.12 trade-offs summary, 1.13 MVP vs production, 1.14 implementation plan. Most of the content already exists in this file.
 - Company list mismatch (the brief says "name + domain/sector"; the file has names only): consider asking OurCrowd.

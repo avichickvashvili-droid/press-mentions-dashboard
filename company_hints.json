@@ -1,0 +1,779 @@
+{
+  "_about": "Search hints for hard company names (agent, Prompt 84, 2026-09-27). 'hint' replaces the bare name in the Google News query (D44). Companies not listed, or with hint null, are searched by their plain name. 'why': W = common word, P = person's name, Pl = place, Co = another company/product, Alias = the press uses another name, Formerly/Renamed = renamed, Acronym, Small = little press. 'status': acquired / renamed / closed notes.",
+  "companies": {
+    "AEYE Health": {
+      "hint": "\"AEYE Health\"",
+      "why": "Co",
+      "confidence": "high",
+      "status": null
+    },
+    "Abes Market": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "closed (from memory, unverified)"
+    },
+    "Air EV": {
+      "hint": "\"AIR ONE\" eVTOL",
+      "why": "W",
+      "confidence": "medium",
+      "status": "identity unsure"
+    },
+    "Airobotics": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Ondas (from memory, unverified)"
+    },
+    "Alpha Tau": {
+      "hint": "(\"Alpha Tau Medical\" OR \"Alpha DaRT\")",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Appforma": {
+      "hint": "Appforma Maverick",
+      "why": "W",
+      "confidence": "medium",
+      "status": "acquired by GIX (~2016)"
+    },
+    "Arbe Robotics": {
+      "hint": "Arbe radar",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "Arrow Global": {
+      "hint": "\"Arrow Global Group\"",
+      "why": "W",
+      "confidence": "high",
+      "status": "fund / asset manager, not a startup"
+    },
+    "Astra": {
+      "hint": "\"Astra Space\"",
+      "why": "Co",
+      "confidence": "high",
+      "status": null
+    },
+    "Barcode Nanotech": {
+      "hint": "\"Barcode Nanotech\" \"lipid nanoparticle\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "BillGuard": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Prosper (from memory, unverified)"
+    },
+    "Binah.ai": {
+      "hint": "\"Binah.ai\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Bites": {
+      "hint": "\"Bites\" \"Erran Heffetz\"",
+      "why": "W",
+      "confidence": "low",
+      "status": "almost no press"
+    },
+    "BlueCircle (formerly Trellis)": {
+      "hint": "(\"BlueCircle\" OR \"trellis.ai\")",
+      "why": "Formerly",
+      "confidence": "medium",
+      "status": "renamed"
+    },
+    "BlueTree Technologies": {
+      "hint": "BlueTree sugar",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "BriefCam": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Canon (from memory, unverified)"
+    },
+    "CB4": {
+      "hint": "CB4 Gap",
+      "why": "Co",
+      "confidence": "low",
+      "status": "acquired by Gap (2020)"
+    },
+    "Casper": {
+      "hint": "Casper mattress",
+      "why": "P",
+      "confidence": "high",
+      "status": "taken private"
+    },
+    "Celeno": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Renesas (from memory, unverified)"
+    },
+    "Cimagine": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Snap (from memory, unverified)"
+    },
+    "Clinch": {
+      "hint": "Clinch (\"ad tech\" OR creative)",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Cognigo": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by NetApp (from memory, unverified)"
+    },
+    "Connected Energy": {
+      "hint": "\"Connected Energy\" battery",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Consumer Physics": {
+      "hint": "SCiO",
+      "why": "Alias",
+      "confidence": "medium",
+      "status": null
+    },
+    "Corephotonics": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Samsung (from memory, unverified)"
+    },
+    "Crosswise": {
+      "hint": "Crosswise Oracle",
+      "why": "W",
+      "confidence": "low",
+      "status": "acquired by Oracle (2016)"
+    },
+    "CyberMDX": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Forescout (from memory, unverified)"
+    },
+    "CyberX": {
+      "hint": "CyberX Microsoft",
+      "why": "W",
+      "confidence": "medium",
+      "status": "acquired by Microsoft (2020)"
+    },
+    "Cycuity (formerly Tortuga Logic)": {
+      "hint": "(Cycuity OR \"Tortuga Logic\")",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed"
+    },
+    "Dandelion Energy": {
+      "hint": "\"Dandelion Energy\" geothermal",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Eko Health": {
+      "hint": "\"Eko Health\" stethoscope",
+      "why": "Alias",
+      "confidence": "medium",
+      "status": "\"Eko\" also means Lagos; keep \"stethoscope\""
+    },
+    "Fireblade": {
+      "hint": "Fireblade StackPath",
+      "why": "Co",
+      "confidence": "low",
+      "status": "acquired by StackPath (2016)"
+    },
+    "Firefly Neuroscience (formerly ElMindA)": {
+      "hint": "\"Firefly Neuroscience\"",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed"
+    },
+    "Frontier Car Group": {
+      "hint": "\"OLX Autos\"",
+      "why": "Renamed",
+      "confidence": "low",
+      "status": "became OLX Autos; wound down about 2023"
+    },
+    "Future Family": {
+      "hint": "\"Future Family\" fertility",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Genopore": {
+      "hint": "Genopore (\"protein sequencing\" OR imec)",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Glean": {
+      "hint": "Glean \"enterprise AI\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Global Kinetics": {
+      "hint": "\"Global Kinetics\" Parkinson's",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Greenlight": {
+      "hint": "Greenlight \"debit card\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Guild": {
+      "hint": "(\"Guild Education\" OR Guild \"Career Choice\")",
+      "why": "W",
+      "confidence": "low",
+      "status": null
+    },
+    "HEQA Security (formerly QuantLR)": {
+      "hint": "(\"HEQA Security\" OR QuantLR)",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed"
+    },
+    "Hailo": {
+      "hint": "\"Hailo\" AI",
+      "why": "Co",
+      "confidence": "high",
+      "status": "acquired by Microchip (2026)"
+    },
+    "Harbinger Motors": {
+      "hint": "(\"Harbinger Motors\" OR Harbinger truck)",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Harvey": {
+      "hint": "\"Harvey AI\"",
+      "why": "P",
+      "confidence": "high",
+      "status": null
+    },
+    "Hub Security": {
+      "hint": "\"HUB Cyber Security\"",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "IQM": {
+      "hint": "\"IQM Quantum\"",
+      "why": "Acronym",
+      "confidence": "high",
+      "status": null
+    },
+    "Incredo (formerly known as DouxMatok)": {
+      "hint": "(\"Incredo Sugar\" OR DouxMatok)",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed"
+    },
+    "Intuition Robotics": {
+      "hint": "(\"Intuition Robotics\" OR ElliQ)",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "Island": {
+      "hint": "Island \"enterprise browser\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "ItsMine": {
+      "hint": "\"ITsMine\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "JUMP Bikes": {
+      "hint": "\"Jump bikes\"",
+      "why": "W",
+      "confidence": "low",
+      "status": "Uber, then Lime; brand gone"
+    },
+    "Juganu": {
+      "hint": "Juganu lighting",
+      "why": "Small",
+      "confidence": "medium",
+      "status": null
+    },
+    "Kando": {
+      "hint": "Kando wastewater",
+      "why": "Co",
+      "confidence": "medium",
+      "status": null
+    },
+    "Kemtai": {
+      "hint": "Kemtai physiotherapy",
+      "why": "Small",
+      "confidence": "medium",
+      "status": null
+    },
+    "Kenna Security": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Cisco (from memory, unverified)"
+    },
+    "Kini": {
+      "hint": "(kini.id OR Kini \"on-demand pay\")",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Kodiak Robotics": {
+      "hint": "(\"Kodiak AI\" OR \"Kodiak Robotics\")",
+      "why": "Renamed",
+      "confidence": "high",
+      "status": "renamed Kodiak AI (Nasdaq: KDK)"
+    },
+    "Kryon Systems": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Nintex (from memory, unverified)"
+    },
+    "Lambda (lambda.ai)": {
+      "hint": "Lambda \"GPU\"",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "Lano": {
+      "hint": "Lano payroll",
+      "why": "P",
+      "confidence": "medium",
+      "status": null
+    },
+    "Launchpad": {
+      "hint": "\"Launchpad Build AI\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Lemonade": {
+      "hint": "Lemonade insurance",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Lifeward (formerly known as ReWalk)": {
+      "hint": "(Lifeward OR ReWalk)",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed (2024)"
+    },
+    "Ludeo (formerly Edge)": {
+      "hint": "Ludeo",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed"
+    },
+    "MST": {
+      "hint": "\"Medical Surgery Technologies\"",
+      "why": "Acronym",
+      "confidence": "medium",
+      "status": "acquired by TransEnterix (2018)"
+    },
+    "Magisto": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Vimeo (from memory, unverified)"
+    },
+    "MasterClass": {
+      "hint": "\"MasterClass\" \"David Rogier\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Mentad": {
+      "hint": "\"MentAd\"",
+      "why": "W",
+      "confidence": "high",
+      "status": "acquired by SocialCode (2017)"
+    },
+    "Momentis Surgical (formerly Memic)": {
+      "hint": "(\"Momentis Surgical\" OR Memic)",
+      "why": "Formerly",
+      "confidence": "high",
+      "status": "renamed"
+    },
+    "Moodify": {
+      "hint": "Moodify scent",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Nanorep": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by LogMeIn (from memory, unverified)"
+    },
+    "Near": {
+      "hint": "\"Near Intelligence\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": "bankrupt (2023); fraud case"
+    },
+    "NetOp": {
+      "hint": "Netop Impero",
+      "why": "W",
+      "confidence": "low",
+      "status": "possibly acquired by Impero; identity unsure"
+    },
+    "Neura": {
+      "hint": "\"Neura\" \"Gilad Meiri\"",
+      "why": "Co",
+      "confidence": "low",
+      "status": "seems inactive; identity unsure"
+    },
+    "Neverware": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Google (from memory, unverified)"
+    },
+    "NooBaa": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Red Hat (from memory, unverified)"
+    },
+    "One Zero Digital Bank Ltd.": {
+      "hint": "\"One Zero\" bank",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "OneAI": {
+      "hint": "\"OneAI\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Orchard": {
+      "hint": "Orchard \"home buying\"",
+      "why": "W",
+      "confidence": "low",
+      "status": null
+    },
+    "Oriient": {
+      "hint": "Oriient \"indoor navigation\"",
+      "why": "Co",
+      "confidence": "medium",
+      "status": null
+    },
+    "Oshi (formerly Plantish)": {
+      "hint": "(Oshi \"plant-based\" OR \"vegan salmon\" OR Plantish)",
+      "why": "Co",
+      "confidence": "high",
+      "status": "renamed (2023)"
+    },
+    "Ossio": {
+      "hint": "(OSSIO orthopedic OR OSSIOfiber)",
+      "why": "P",
+      "confidence": "medium",
+      "status": null
+    },
+    "Overtime": {
+      "hint": "(\"Overtime Elite\" OR \"Overtime Sports\")",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Parko": {
+      "hint": "Parko parking",
+      "why": "P",
+      "confidence": "low",
+      "status": null
+    },
+    "Peak": {
+      "hint": "\"Peak AI\"",
+      "why": "W",
+      "confidence": "high",
+      "status": "acquired by UiPath (2025)"
+    },
+    "Perception Point": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Fortra (from memory, unverified)"
+    },
+    "Polaris Quantum Biotech": {
+      "hint": "POLARISqb",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "Powwow": {
+      "hint": "\"PowWow Mobile\"",
+      "why": "W",
+      "confidence": "high",
+      "status": "acquired (buyer unverified)"
+    },
+    "Privateer": {
+      "hint": "\"Privateer Space\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "ProFuse": {
+      "hint": "\"ProFuse Technology\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Quai.MD": {
+      "hint": "\"Quai.MD\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Replay Technologies": {
+      "hint": "\"Replay Technologies\" Intel",
+      "why": "W",
+      "confidence": "low",
+      "status": "acquired by Intel (2016)"
+    },
+    "Rewire": {
+      "hint": "Rewire Remitly",
+      "why": "W",
+      "confidence": "medium",
+      "status": "acquired by Remitly (2023)"
+    },
+    "Ro": {
+      "hint": "Ro telehealth",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "SSI (Safe Superintelligence)": {
+      "hint": "\"Safe Superintelligence\"",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "Sayata": {
+      "hint": "Sayata \"cyber insurance\"",
+      "why": "Small",
+      "confidence": "medium",
+      "status": null
+    },
+    "Scale AI": {
+      "hint": "\"Scale AI\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Shield": {
+      "hint": "(shieldfc OR \"Shield\" \"communications compliance\")",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Shopial": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Magento (2017)"
+    },
+    "Silo": {
+      "hint": "Silo \"vacuum\" food",
+      "why": "W",
+      "confidence": "low",
+      "status": null
+    },
+    "Skillz": {
+      "hint": "(\"Skillz Inc\" OR SKLZ)",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Spectrum Labs": {
+      "hint": "\"Spectrum Labs\" ActiveFence",
+      "why": "W",
+      "confidence": "medium",
+      "status": "acquired by ActiveFence (2023)"
+    },
+    "Spot AI": {
+      "hint": "(\"Spot AI\" \"video AI agents\" OR spot.ai)",
+      "why": "W",
+      "confidence": "low",
+      "status": null
+    },
+    "StackIQ": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Teradata (from memory, unverified)"
+    },
+    "Stringify": {
+      "hint": "Stringify Comcast",
+      "why": "W",
+      "confidence": "medium",
+      "status": "acquired by Comcast (2017); app closed"
+    },
+    "Sufresca": {
+      "hint": "Sufresca \"edible coating\"",
+      "why": "Small",
+      "confidence": "medium",
+      "status": null
+    },
+    "Tala": {
+      "hint": "Tala \"digital lending\"",
+      "why": "P",
+      "confidence": "high",
+      "status": null
+    },
+    "Tamar Robotics": {
+      "hint": "\"Tamar Robotics\" neurosurgery",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Taranis": {
+      "hint": "Taranis (crop OR agtech)",
+      "why": "Co",
+      "confidence": "medium",
+      "status": null
+    },
+    "Tevel": {
+      "hint": "(\"Tevel Aerobotics\" OR Tevel fruit)",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "The Bouqs": {
+      "hint": "Bouqs",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "The EVERY Company": {
+      "hint": "(\"EVERY Co\" OR \"The EVERY Company\")",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "The Trendlines Group": {
+      "hint": "Trendlines",
+      "why": "Alias",
+      "confidence": "high",
+      "status": null
+    },
+    "Together AI": {
+      "hint": "\"Together AI\"",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "Tovala": {
+      "hint": "Tovala oven",
+      "why": "Small",
+      "confidence": "medium",
+      "status": null
+    },
+    "Treedom": {
+      "hint": "Treedom trees",
+      "why": "W",
+      "confidence": "medium",
+      "status": "little press"
+    },
+    "TubiTV": {
+      "hint": "Tubi",
+      "why": "Alias",
+      "confidence": "high",
+      "status": "owned by Fox"
+    },
+    "Ubimo": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by Quotient (from memory, unverified)"
+    },
+    "Ukko": {
+      "hint": "Ukko allergy",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Ursa Major": {
+      "hint": "\"Ursa Major\" rocket",
+      "why": "W",
+      "confidence": "high",
+      "status": null
+    },
+    "VAYAVISION": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "acquired by LeddarTech (from memory, unverified)"
+    },
+    "Verse.ai": {
+      "hint": "\"Verse.ai\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    },
+    "Virgin Hyperloop One": {
+      "hint": "\"Hyperloop One\"",
+      "why": "Alias",
+      "confidence": "high",
+      "status": "shut down (2023)"
+    },
+    "Wave": {
+      "hint": "(\"Wave Financial\" OR waveapps)",
+      "why": "W",
+      "confidence": "high",
+      "status": "acquired by H&R Block (2019)"
+    },
+    "Wayup": {
+      "hint": "\"WayUp\"",
+      "why": "W",
+      "confidence": "medium",
+      "status": "acquired by Yello (2021)"
+    },
+    "Xsense (formerly BT9)": {
+      "hint": "(Xsense \"cold chain\" OR BT9)",
+      "why": "Formerly",
+      "confidence": "medium",
+      "status": "renamed"
+    },
+    "Ynsect": {
+      "hint": null,
+      "why": null,
+      "confidence": null,
+      "status": "in liquidation (2025) (from memory, unverified)"
+    },
+    "Zebra Medical Vision": {
+      "hint": "(\"Nanox AI\" OR \"Zebra Medical\")",
+      "why": "Co",
+      "confidence": "medium",
+      "status": "acquired by Nanox (2021)"
+    },
+    "Zippin": {
+      "hint": "Zippin checkout",
+      "why": "W",
+      "confidence": "medium",
+      "status": null
+    }
+  }
+}

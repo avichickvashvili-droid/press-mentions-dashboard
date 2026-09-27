@@ -1,0 +1,289 @@
+# The 258 companies from ourcrowd_companies.txt, sorted into sections (Prompt 72).
+# Each "## N. Name" line starts a section. Every line below it, up to the next
+# section, is one company, spelled exactly as in ourcrowd_companies.txt.
+# Section 13 holds companies whose line of business we couldn't confirm.
+
+## 1. High-Tech (Information Technology)
+ZutaCore
+Morphisec
+Harvey
+Cerebras
+Together AI
+TensorWave
+Glean
+DeepKeep
+Lambda (lambda.ai)
+SSI (Safe Superintelligence)
+xAI
+Island
+Velotix
+Databricks
+Ayar Labs
+Kardome
+Scale AI
+Spot AI
+Groq
+Anthropic
+Bites
+OneAI
+Cyfirma
+Lightico
+IQM
+Liquid Instruments
+Sotero
+Workspot
+Spectrum Labs
+Anodot
+Xage Security
+IronVest
+Cycuity (formerly Tortuga Logic)
+Oriient
+Tabnine
+InZiv
+Tailor Brands
+Quantum Machines
+Sfara
+Zippin
+Entangled Networks
+People.ai
+JumpCloud
+Ordergroove
+Classiq
+Dataloop
+Cyabra
+C2A Security
+Argus Cyber Security
+HEQA Security (formerly QuantLR)
+CyberX
+Celeno
+Kenna Security
+Wayup
+Nanorep
+TechSee
+NooBaa
+Verse.ai
+Corephotonics
+Fireblade
+eVigilo
+Appdome
+Bizzabo
+Neverware
+BioCatch
+Consumer Physics
+StackIQ
+Cimagine
+Stringify
+BriefCam
+NeuReality
+Hub Security
+Ravin AI
+Kryon Systems
+NetOp
+CorrActions
+Stellar Cyber
+SeeTrue
+Perception Point
+Signals Analytics
+EduNav
+Autobrains
+CB4
+Foretellix
+Neura
+Trusona
+HoneyBook
+CyberMDX
+ThetaRay
+VAYAVISION
+Cognigo
+Arbe Robotics
+Hailo
+Sense Education
+Unispectral
+Innoviz
+Edgybees
+Magisto
+Intuition Robotics
+Peak
+Shield
+Wave
+Powwow
+ItsMine
+
+## 2. Health (Healthcare & Biotechnology)
+Biolojic Design
+OncoHost
+OpenEvidence
+Omnix Medical
+Ukko
+Edity Therapeutics
+Quai.MD
+AEYE Health
+InsideTracker
+Binah.ai
+Eko Health
+Cordio Medical
+Polaris Quantum Biotech
+Alloy Therapeutics
+BrightInsight
+Sequentify
+Future Family
+Diagnostic Robotics
+CytoReason
+Ro
+MigVax
+Momentis Surgical (formerly Memic)
+Sweetch
+Firefly Neuroscience (formerly ElMindA)
+Syqe
+Global Kinetics
+Zebra Medical Vision
+UPnRIDE
+PulmOne
+Surgical Theater
+MST
+Sight Diagnostics
+Apploi
+Lifeward (formerly known as ReWalk)
+Medisafe
+SaNOtize
+Innovalve
+Nanomedic
+RealView Imaging
+Alpha Tau
+Insightec
+Ossio
+MeMed
+DreaMed Diabetes
+Scopio Labs
+BrainQ Technologies
+Genopore
+Tamar Robotics
+Barcode Nanotech
+
+## 3. Sports, Fitness & Entertainment
+Ludeo (formerly Edge)
+Overtime
+Skillz
+Replay Technologies
+Nextpeer
+Kemtai
+TubiTV
+PlaySight
+
+## 4. Financials (Banking & Insurance)
+Stripe
+Lano
+One Zero Digital Bank Ltd.
+wefox
+Greenlight
+The Trendlines Group
+BillGuard
+Tala
+DailyPay
+Sayata
+Lemonade
+Rewire
+YuLife
+Arrow Global
+Kini
+
+## 5. Consumer Staples (Essential Goods)
+Maolac
+SeeTree
+Neolithics
+BetterSeeds
+Oshi (formerly Plantish)
+Mermade Seafoods
+ProFuse
+The EVERY Company
+BlueTree Technologies
+BioLumic
+Sufresca
+Moodify
+Ynsect
+Remilk
+Taranis
+Abes Market
+CropX
+BlueNalu
+Incredo (formerly known as DouxMatok)
+Tevel
+Beyond Meat
+BlueCircle (formerly Trellis)
+
+## 6. Consumer Discretionary (Luxury & Leisure)
+Carrar
+CarDekho
+Guild
+Treedom
+Tovala
+The Bouqs
+Zoomcar
+JUMP Bikes
+Parko
+Boatsetter
+Ride Vision
+Frontier Car Group
+Casper
+Klook
+Silo
+
+## 7. Industrials (Manufacturing & Logistics)
+Harbinger Motors
+SpaceX
+Kodiak Robotics
+Stoke Space
+Air EV
+Ursa Major
+3d Signals
+Flytrex
+Privateer
+mPrest
+Freightos
+enVerid
+Xsense (formerly BT9)
+Astra
+EquipmentShare
+Juganu
+Virgin Hyperloop One
+Airobotics
+Launchpad
+
+## 8. Communication Services
+Atlas Obscura
+Clinch
+MasterClass
+Ubimo
+BIScience
+Shopial
+Viewbix
+Crosswise
+BeetleSat
+Near
+Appforma
+Mentad
+
+## 9. Energy
+RepAir Carbon
+Quidnet Energy
+NT-Tao
+Connected Energy
+Dandelion Energy
+H2Pro
+
+## 10. Utilities
+Kando
+BlueGreen Water Technologies
+Locusview
+
+## 11. Materials
+Flash Forest
+MaterialsZone
+
+## 12. Real Estate
+Siteaware
+Orchard
+Amitree
+
+## 13. Unsorted (line of business not confirmed)
+# Empty: all 15 were identified (Prompt 74). Kept for future companies.

@@ -1,0 +1,33 @@
+You check news headlines for a press-mentions monitor.
+
+Company: {{company}}
+Section: {{section}}
+What the company does: {{description}}
+
+Headline: {{title}}
+Publisher: {{publisher}}
+
+Task:
+1. relevant: is this headline really about the company above?
+   - true if the company is a subject of the headline (its news, its products, its deals, its stock, a comparison or list that names it).
+   - true if the publisher is the company itself.
+   - false if the name probably means another person, product, place, thing or company with the same or a similar name.
+   - false if the headline does not mention the company at all.
+2. sentiment: only if relevant is true, the tone of the headline toward the company.
+   - positive: funding, growth, launch, partnership, award, good results, stock up.
+   - negative: lawsuit, layoffs, breach, loss, failure, missed targets, stock down, criticism.
+   - neutral: plain mention, list, review, guide, promo, open question.
+   If relevant is false, sentiment must be null.
+
+Answer with JSON only, matching this schema:
+{"relevant": boolean, "sentiment": "positive" | "neutral" | "negative" | null}
+
+---- JSON schema passed to Ollama's `format` field ----
+{
+  "type": "object",
+  "properties": {
+    "relevant": { "type": "boolean" },
+    "sentiment": { "type": ["string", "null"], "enum": ["positive", "neutral", "negative", null] }
+  },
+  "required": ["relevant", "sentiment"]
+}

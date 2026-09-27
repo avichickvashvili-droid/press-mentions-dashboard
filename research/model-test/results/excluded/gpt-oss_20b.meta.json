@@ -1,0 +1,28 @@
+{
+ "model": "gpt-oss:20b",
+ "segments": [
+  {
+   "started": "2026-09-27T06:51:01.163Z",
+   "load_wall_s": 35.969,
+   "load_duration_s": 0,
+   "ollama_ps": "NAME           ID              SIZE     PROCESSOR          CONTEXT    UNTIL               \ngpt-oss:20b    17052f91a42e    14 GB    56%/44% CPU/GPU    4096       59 minutes from now    \n",
+   "items": 0
+  }
+ ],
+ "capabilities": [
+  "completion",
+  "tools",
+  "thinking"
+ ],
+ "think": "low",
+ "details": {
+  "parent_model": "",
+  "format": "gguf",
+  "family": "gptoss",
+  "families": [
+   "gptoss"
+  ],
+  "parameter_size": "20.9B",
+  "quantization_level": "MXFP4"
+ }
+}

@@ -1066,3 +1066,549 @@ with relevent to avoid adding .env and etc
 ```
 can merge to main
 ```
+
+---
+
+## Prompt 62 — "compact"
+
+```
+compact
+```
+
+---
+
+## Prompt 63 — How does the orchestrator run?
+
+```
+so explain to me the orchastrator 
+is it going to be a seprarate command we need to run?
+```
+
+---
+
+## Prompt 64 — Orchestrator crash handling and relaunch
+
+```
+im trying to think in case of a crash the orchastrator if it crashes it can be very bad 
+we need a really good 
+crash handling here and relaunch 
+you see where im going with it?
+and the orchastrator is responsible for the whole thrughput of the system
+in the DC classification and DB
+```
+
+---
+
+## Prompt 65 — Retry until the company is done; one command or several?
+
+```
+One company's search fails (no internet, 429): retry with backoff, then move to the next company.
+i want to keep going until company is done, 
+
+so in high level 
+npm start - starts the supervisor
+and than DC will start via other command, and classifier via another?
+```
+
+---
+
+## Prompt 66 — Separate like services; do we need a DB service?
+
+```
+[quoted: "You're right that DC and the classifier should be separate processes, because then a DC crash can't kill the classifier and vice versa. But you don't start them yourself. The supervisor starts all of them:"]
+
+ok but i want them to be seperate just like services you see what i mean?
+i dont 1 crashing effecting the other
+and do we need another "service" fro the db? or will that live on the classifier
+```
+
+---
+
+## Prompt 67 — Agree; walk through the whole flow
+
+```
+agree
+lets go over the whole thing:
+DC -> divide into the 12 questions -> use the pre tailord querys we made for eqch section yet to do ->fetchs data untip CAP -> 1 company at a time -> stop when reaching the cap -> db manages what compaines are done? do we upload the companies to a temp db table?
+CLASSIFIER -> start processing articles end to end 1. relevance 2. sentiment 
+DB -> buffer queue -> write to the DB in chunks 
+what else
+```
+
+---
+
+## Prompt 68 — The data folder is missing from the walkthrough
+
+```
+im not satisifed you didnt mention the data folder
+```
+
+---
+
+## Prompt 69 — DC fetch pace: every 1 second
+
+```
+also i want the DC to fetch data every second and not every 3-5 seconds
+```
+
+---
+
+## Prompt 70 — Move on to the LLM research
+
+```
+ok we are ready to move on to the research
+pull up what we agreed on
+```
+
+---
+
+## Prompt 71 — Fixed 1 s pace; ignore my machine; send the research agent
+
+```
+[quoted: "I took your "ok" as agreeing to the adaptive pace: start at 1 request/second, and drop to 3–5 s after the first block. It's recorded as D42, with the risk as I23. If you wanted a fixed 1 s, tell me. / Here's what we agreed for the research (Prompt 30):"]
+no i always want it to be 1 second. 
+
+dont mind my machine, no one asked for that
+send an agent to do the research
+```
+
+---
+
+## Prompt 72 — Sort the companies into the 12 sections (+ section 13)
+
+```
+ok lets start with the 12 sections:
+divide the companies in to 12 sections those who cant be filterd put into section 13
+and call it: filtered_ourcrowd_companies
+```
+
+---
+
+## Prompt 73 — Agent: find and test a strong query per section (3 sections)
+
+```
+ok send an agent to add a very potent query to every section so that the DC can pick when picking a company
+
+i want the agent to test out the results itself which ever yields him the most relevant results 
+only look for 1 serach meaning 100 results
+and test it on 2 companies from section
+i want to find a really good query that filters garbage
+do it for 3 sections only
+```
+
+---
+
+## Prompt 74 — Agent: identify and tag the 15 unsorted companies
+
+```
+## 13. Unsorted (line of business not confirmed)
+Arrow Global
+Kini
+Genopore
+Peak
+Launchpad
+Tamar Robotics
+Shield
+BlueCircle (formerly Trellis)
+Near
+Wave
+Appforma
+Mentad
+Powwow
+Barcode Nanotech
+ItsMine
+
+send another agent to find the unsorted companies and tag them 
+when he does i want you to give me the report
+```
+
+---
+
+## Prompt 75 — TLDR
+
+```
+give me a tldr
+```
+
+---
+
+## Prompt 76 — Acknowledged
+
+```
+ok
+```
+
+---
+
+## Prompt 77 — Status of the query agent
+
+```
+how is the other agent doing
+```
+
+---
+
+## Prompt 78 — Unclear, simplify
+
+```
+i dont get what ur writing
+```
+
+---
+
+## Prompt 79 — Tailored per company vs generic per section
+
+```
+but that works only for harvey
+we can either do a tailord query per company
+or a generic per section
+```
+
+---
+
+## Prompt 80 — Challenge: most companies are AI/startups, is the claim misleading?
+
+```
+sure but we have 60 something companies and all of them are ai or startups? what are you misleading
+```
+
+---
+
+## Prompt 81 — Want a query proven on a whole section
+
+```
+i just want a real query that worked best for a whole section and not just for harvey or island
+```
+
+---
+
+## Prompt 81 — Want a query proven on a whole section
+
+```
+i just want a real query that worked best for a whole section and not just for harvey or island
+```
+
+---
+
+## Prompt 82 — Simplify: name + hint + section name
+
+```
+i think we are over complicating it
+if the company name has an hint use it, and just add to the search the section name
+for example Flash Forest "Materials company"
+or Cerebras High-Tech company
+```
+
+---
+
+## Prompt 83 — How long for an agent to find hints for hard companies
+
+```
+how long will an agent take to go over the filtered list and find a good hint for the hard companies?
+```
+
+---
+
+## Prompt 84 — Send the hint agent
+
+```
+send him to it
+```
+
+---
+
+## Prompt 85 — Document hints for hard companies
+
+```
+add to the docs , in addition to sections we did add hint's for the hard companies to reduce throughput
+```
+
+---
+
+## Prompt 86 — Agent: run the model test (6 sections × 100 articles, every model, runtimes)
+
+```
+and now i want you to send another agent to start the research
+want us to finishe the research on the model: for that i want you to pick 1 company from our 6 largest sections for each company i want to have 100 articles and i want you to test on every model also i want you to note the data size in the docs. we are going to add the results into the README under research 
+get to it , dont skip models just because ur thinking they are not good enough
+
+oh and also mention in the run what was the runtime of each model
+```
+
+---
+
+## Prompt 87 — Document that DC uses hint + section; status of the model agent
+
+```
+add to the DOCS that DC should take into account the hint + section if we didnt alreday
+and tell me how the other agent does
+```
+
+---
+
+## Prompt 88 — Check ItsMine yourself (100 results with our search)
+
+```
+ok go check urself:
+itsmine and tell me what you found 100results with our search
+```
+
+---
+
+## Prompt 89 — Found non-relevant posts; how did you get 0?
+
+```
+i found non relevant posts how did u get 0?
+```
+
+---
+
+## Prompt 90 — Screenshot: Google News tab, "ItsMine high tech company"
+
+```
+[screenshot: Google search, News tab, query: ItsMine high tech company — results: Northern Rare Earth ... Its Mine-to-Manufacturing Strategy; How BHP Has Made its Mine in Chile Fully Autonomous; Mary Kathleen's uranium town ... its mine closed in 1982; Cutting edge tech added to RFA Lyme Bay ... minehunting mothership]
+thats defently not 0
+```
+
+---
+
+## Prompt 91 — So this company has no data?
+
+```
+so this company just dont have data?
+```
+
+---
+
+## Prompt 92 — TLDR: are sections, query and hints ready?
+
+```
+ok so tldr our section and query and hints are ready?
+```
+
+---
+
+## Prompt 93 — Explain the missing step
+
+```
+i dont understand the missing step
+```
+
+---
+
+## Prompt 94 — Agent: write and test the section words
+
+```
+yes ofc send an agent to finish the job
+```
+
+---
+
+## Prompt 95 — Status of the LLM research agent
+
+```
+hows the llm research agent doing
+```
+
+---
+
+## Prompt 96 — What does "1.8 min, about 5.5 articles/s" mean
+
+```
+1.8 min, about 5.5 articles/s
+what that mean
+```
+
+---
+
+## Prompt 97 — Document: optimize the LLM by running 2+ in parallel
+
+```
+add to the docs, we are going to optimize the LLM by maybe running 2 in parllel or even more
+```
+
+---
+
+## Prompt 98 — Update on agents
+
+```
+ok give an update on agents
+```
+
+---
+
+## Prompt 99 — Did the agent keep queries under 30 words (when:90d)?
+
+```
+did he make sure the query dont go over 30 words since we need that 90d in the query
+```
+
+---
+
+## Prompt 100 — How will the DC use the list and the JSON files?
+
+```
+ok now how are we going to use that the DC will go over the filtered list and look for the keywords in the json file?
+```
+
+---
+
+## Prompt 101 — Document the seed-loader query build
+
+```
+sure doc that
+```
+
+---
+
+## Prompt 102 — How long until the LLM agent finishes?
+
+```
+how long will it take to the LLM agent to finish?
+```
+
+---
+
+## Prompt 103 — Why so long for only 600 articles?
+
+```
+how its only 600 articles why so long????????
+```
+
+---
+
+## Prompt 104 — Drop models that do not fit the system
+
+```
+ok those who dont fit, remove from the research and mention do not fit the system
+```
+
+---
+
+## Prompt 105 — So when?
+
+```
+so when
+```
+
+---
+
+## Prompt 106 — What is taking so long?
+
+```
+whats taking so long
+```
+
+---
+
+## Prompt 107 — Wake the agent up
+
+```
+what does that even mean when it waked up 
+wake it up
+```
+
+---
+
+## Prompt 108 — Show the research results in a pleasant, pretty way
+
+```
+ok work on the research results and display them to me in a pleasent pretty way
+```
+
+---
+
+## Prompt 109 — Did you clean the half-downloaded files?
+
+```
+and did you clean the half downloaded files ?
+```
+
+---
+
+## Prompt 110 — Agent: complete the README research section with screenshots, for newcomers
+
+```
+send an agent to complete the README research and explain everything we did including screenshots from the site you gave me and explaining the results as per person who dont understand the projcet can pick up on it
+```
+
+---
+
+## Prompt 111 — Small data flow: how the list, hints and keywords come together at DC start
+
+```
+OK i want you to give me a small data flow 
+how the hints, keywords and the list coexist at the begining of the DC
+whats the steps
+```
+
+---
+
+## Prompt 112 — Is it documented?
+
+```
+is it documented?
+```
+
+---
+
+## Prompt 113 — Is it saved right away into the Company table?
+
+```
+and is it saved right away as the company table?
+```
+
+---
+
+## Prompt 114 — Is it the Company table from Core Entities?
+
+```
+no you didnt understand 
+in core entity we have company table
+
+is it this table?
+```
+
+---
+
+## Prompt 115 — Emphasize REAL DATA; quick view of the DB tables
+
+```
+make sure to mention REAL DATA
+and give me than an qucik view of the DB tables we are going to have
+including the buffer queue
+```
+
+---
+
+## Prompt 116 — Heartbeat every 5 minutes to reduce DB writes
+
+```
+last_heartbeat	updated every few seconds; if it goes stale, the run crashed and gets taken over
+
+make an heart beat per 5min to reduce writed to the db
+```
+
+---
+
+## Prompt 117 — Emergency heartbeat on crash
+
+```
+and emergancy heartbeat when crashed ofcourse
+```
+
+---
+
+## Prompt 118 — Prepare a commit to develop with a commit note
+
+```
+ok i wan you to prapre me a commit to develop, give me the commitnote
+```
+
+---
+
+## Prompt 119 — Commit to develop
+
+```
+no, can commit to develop
+```

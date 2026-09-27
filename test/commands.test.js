@@ -8,16 +8,17 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { TEST_KEYWORDS, makeTempDb, makeTempDir, writeDataFiles } from './helpers.js';
+import { TEST_KEYWORDS, makeTempDb, makeTempDir, testLogsDir, writeDataFiles } from './helpers.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RUN_COLLECT = path.join(ROOT, 'src', 'collector', 'runCollect.js');
 const RUN_SEED = path.join(ROOT, 'src', 'seed', 'runSeed.js');
 const OFFLINE_COLLECT = pathToFileURL(path.join(ROOT, 'test', 'fixtures', 'offline-collect.mjs')).href;
 
-// Runs one of the programs with DB_PATH pointing to the test database.
+// Runs one of the programs with DB_PATH pointing to the test database (and the log files next
+// to it, never in the project's logs/ folder).
 function runProgram(script, dbPath) {
-  return spawnSync(process.execPath, [script], { encoding: 'utf8', env: { ...process.env, DB_PATH: dbPath }, timeout: 30000 });
+  return spawnSync(process.execPath, [script], { encoding: 'utf8', env: { ...process.env, DB_PATH: dbPath, LOGS_DIR: testLogsDir(dbPath) }, timeout: 30000 });
 }
 
 // Runs the real collect program offline (fake feed, the given small data files). `extraEnv`
@@ -29,6 +30,7 @@ function runCollectOffline(dbPath, files, extraEnv = {}) {
     env: {
       ...process.env,
       DB_PATH: dbPath,
+      LOGS_DIR: testLogsDir(dbPath),
       TEST_COMPANY_LIST: files.listFile,
       TEST_HINTS: files.hintsFile,
       TEST_KEYWORDS: files.keywordsFile,

@@ -33,6 +33,12 @@ function removeTempDir(dir) {
   }
 }
 
+// The logs folder for a program started by a test: next to the test database, inside the test's
+// temporary folder, so the project's own logs/ folder is never touched.
+export function testLogsDir(dbPath) {
+  return path.join(path.dirname(dbPath), 'logs');
+}
+
 // Creates a temporary folder that is removed when the test ends.
 export function makeTempDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'press-dc-test-'));
@@ -132,13 +138,14 @@ export function makeFakeSleep() {
 
 // A progress display that prints nothing but records messages (for checking warnings).
 export function makeSilentProgress() {
-  const messages = { info: [], warn: [], error: [], updates: [] };
+  const messages = { info: [], warn: [], error: [], updates: [], records: [] };
   return {
     messages,
     update: (fields) => messages.updates.push({ ...fields }),
     info: (text) => messages.info.push(text),
     warn: (text) => messages.warn.push(text),
     error: (text) => messages.error.push(text),
+    record: (text) => messages.records.push(text),
     finish: () => {},
   };
 }

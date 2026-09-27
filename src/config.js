@@ -3,7 +3,7 @@
 //
 // Where it sits: read by every other file (database, seed loader, Google News client, queue
 // writer, lock, company loop, classifier, orchestrator). Nothing else holds a "magic number".
-// Reads: the DB_PATH, OLLAMA_URL, OLLAMA_MODEL and LLM_CONCURRENCY environment variables
+// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL and LLM_CONCURRENCY environment variables
 // (all optional, from .env if present).
 // Writes: nothing.
 //
@@ -60,6 +60,23 @@ export const config = {
   // The extra context words added to every company's search, per section. Read by the seed
   // loader; the classifier reads the full section names from it for the prompt (D58).
   SECTION_KEYWORDS_FILE: path.join(PROJECT_ROOT, 'section_keywords.json'),
+
+  // ---------- Log files (D92) ----------
+
+  // The folder for the log files. Inside it: one folder per run (logs/run-5/), with one file per
+  // process: orchestrator.log, collector.log, classifier.log, group-1.log, group-2.log, ...
+  // Can be changed with the LOGS_DIR setting in .env. It is never committed to git.
+  LOGS_DIR: process.env.LOGS_DIR
+    ? path.resolve(PROJECT_ROOT, process.env.LOGS_DIR)
+    : path.join(PROJECT_ROOT, 'logs'),
+
+  // The folder (inside LOGS_DIR) for lines written while no run exists yet at all (a fresh
+  // database), e.g. logs/no-run/classifier.log.
+  LOG_NO_RUN_FOLDER: 'no-run',
+
+  // Lines written before a process knows its run folder are held in memory and written once it
+  // knows it. At most this many are held; older ones are dropped (with a note in the file).
+  LOG_HELD_LINES_MAX: 1000,
 
   // ---------- Database ----------
 
@@ -150,6 +167,42 @@ export const config = {
   // Any successful answer from Google starts the count again from 0.
   FORBIDDEN_FIXED_RETRIES: 3,
 
+  // When Google answers "400 Bad Request" for a company's search, the same search is tried this
+  // many times in total, BAD_REQUEST_WAIT_MS apart. After the last 400 the company is marked
+  // 'failed' with the reason, and its group goes on with the next company (D85).
+  BAD_REQUEST_RETRIES: 3,
+
+  // The wait before trying a search again after a "400 Bad Request": 1 minute (D85).
+  BAD_REQUEST_WAIT_MS: 60000,
+
+  // ---------- Groups (D83, D84) ----------
+
+  // About how many companies go in one group when a run starts (D83). The number of groups is
+  // the number of companies divided by this, rounded to the nearest whole number, and at least 1;
+  // the groups are then made as equal as possible, in list order (the first groups get one extra
+  // company when it doesn't divide evenly). 258 companies -> 10 groups (8 of 26, 2 of 25);
+  // 40 -> 2 groups of 20; fewer than 38 -> 1 group. Groups run one after another, each in its
+  // own process.
+  GROUP_TARGET_SIZE: 25,
+
+  // A group process that crashes this many times in a row, with no company finished or failed in
+  // between, is given up: the group is marked 'failed' and the next group starts (D84).
+  GROUP_MAX_CRASHES_IN_A_ROW: 5,
+
+  // Waits before the group runner starts a crashed group process again: 1 s, 2 s, 5 s, 10 s,
+  // 30 s, then every 30 s (D84). The wait grows so a broken group doesn't restart in a tight loop.
+  GROUP_RESTART_WAITS_MS: [1000, 2000, 5000, 10000, 30000],
+
+  // A group process tells the runner "still alive" whenever it works: before each Google request,
+  // on every queue check while the queue is full, and every 30 s while it waits to retry Google.
+  // If the runner hears nothing for this long (5 minutes), the group process is stuck: the runner
+  // kills it and counts a crash (D90). Waiting for the queue or for Google is never "stuck".
+  GROUP_STUCK_AFTER_MS: 300000,
+
+  // While a group process waits to try Google again (one wait can last up to 10 min), it tells
+  // the runner "still fetching" this often: every 30 s (D90).
+  GROUP_ALIVE_EVERY_MS: 30000,
+
   // ---------- Date windows ----------
 
   // How many days back the collection covers (see COLLECTION_DAYS above the list).
@@ -222,6 +275,10 @@ export const config = {
 
   // How often the classifier prints its progress line.
   PROGRESS_EVERY_MS: 30000,
+
+  // How often that progress line (the speed line) is also written to classifier.log (D93): the
+  // terminal shows it every 30 s, the log file only every 10 min, to keep the file short.
+  CLASSIFIER_FILE_STATUS_EVERY_MS: 10 * 60 * 1000,
 
   // ---------- Section names for the prompt (D58) ----------
 

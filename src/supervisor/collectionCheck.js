@@ -10,10 +10,38 @@
 // Reads: the JobRun table, READ-ONLY (it never creates or changes anything). If the database
 // file does not exist yet, nothing was ever collected.
 // Writes: nothing.
+//
+// checkGroupsRequest (`npm start -- --groups 2,5`, D87): before anything starts, checks that a run
+// exists and that each chosen group exists in the latest run (e.g. no group 12 when the run has
+// 10). Whether that run is 'done' is checked by the collector itself (it refuses with exit 3).
 
 import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { config } from '../config.js';
+
+// Checks the chosen groups of `--groups` against the latest run, READ-ONLY.
+// Returns { ok: true } or { ok: false, reason: text for a person }.
+// Throws if the database exists but cannot be read; the caller logs that.
+export function checkGroupsRequest(groups, { dbPath = config.DB_PATH } = {}) {
+  const noRun = { ok: false, reason: 'There is no run yet: --groups re-runs groups of a finished run. Start a normal run first (npm start).' };
+  if (!fs.existsSync(dbPath)) return noRun;
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    db.exec(`PRAGMA busy_timeout = ${Number(config.DB_BUSY_TIMEOUT_MS)};`);
+    const hasTables = db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name IN ('JobRun', 'JobRunGroup')").get().n === 2;
+    if (!hasTables) return noRun;
+    const latest = db.prepare('SELECT id FROM JobRun ORDER BY id DESC LIMIT 1').get();
+    if (!latest) return noRun;
+    const lastGroup = db.prepare('SELECT MAX(group_number) AS n FROM JobRunGroup WHERE run_id = ?').get(latest.id).n ?? 0;
+    const tooBig = groups.filter((number) => number > lastGroup);
+    if (tooBig.length > 0) {
+      return { ok: false, reason: `--groups: run ${latest.id} has groups 1 to ${lastGroup}; there is no group ${tooBig.join(', ')}.` };
+    }
+    return { ok: true };
+  } finally {
+    db.close();
+  }
+}
 
 // Looks at JobRun and returns { start: true/false, reason: text for the log }.
 // Throws if the database exists but cannot be read; the caller logs that.

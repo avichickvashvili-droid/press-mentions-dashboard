@@ -12,7 +12,9 @@
 //   3. ask Ollama about them, LLM_CONCURRENCY at a time (one end-to-end question each, D26)
 //   4. save the whole batch's answers in one transaction
 //   5. when ≥ MOVE_CHUNK relevant rows are waiting, move them to Mention
-//   6. when nothing is waiting: if a run is 'collected' and the queue is drained,
+//   6. while a run is still being collected: a group that has ended and whose articles are all
+//      classified gets its own data/ export (leftovers of that group → data/, D86)
+//   7. when nothing is waiting: if a run is 'collected' and the queue is drained,
 //      finish it (leftovers → data/ → 'done')
 // When a request to Ollama fails (D75), a quick version check decides what it means:
 //   - Ollama is down (not reachable): the articles are given back unchanged and the loop waits
@@ -23,16 +25,23 @@
 // retried after its own growing wait (D37), so the loop keeps going. The exception is a database
 // error that is not "busy" (D76): it can't fix itself, so it is thrown on and the classifier
 // crashes on purpose (emergency clean-up, exit 1, the orchestrator restarts it and shows why).
+//
+// Log lines (D92, D93): `log` / `warn` print on the terminal as before. The log file (`logFile`,
+// classifier.log) gets the same lines, warnings as "WARNING: …", except two: "Moved N relevant
+// articles to Mention." (after every pass; terminal only) and the speed line, which the file gets
+// only every CLASSIFIER_FILE_STATUS_EVERY_MS (10 min). `event(text)` sends the system-log lines
+// (orchestrator.log): Ollama ready / not ready (once per outage) / back, a group classified with
+// data/ written, a run done.
 
 import { config } from '../config.js';
 import { isDatabaseBusyError, isDatabaseError } from '../db/database.js';
 import { retryDbWrite, sleep as realSleep } from '../shared/retry.js';
 import { findCollectedRun, isProcessAlive } from '../shared/runLock.js';
-import { cleanForLog, formatCount } from '../shared/text.js';
+import { cleanForLog, describeDuration, formatCount } from '../shared/text.js';
 import { OllamaUnavailableError } from './ollamaClient.js';
 import { claimBatch, countQueue, giveBackClaims, isQueueDrained, releaseAbandonedClaims, saveBatchResults } from './queueStore.js';
 import { moveFullChunks } from './mover.js';
-import { finishHeldRun, takeOverRun } from './runFinisher.js';
+import { exportGroup, findGroupToExport, finishHeldRun, takeOverRun } from './runFinisher.js';
 
 // Creates the classifier. Everything it talks to can be replaced in tests (fake Ollama,
 // temp database, instant sleep, a small company list, a failing rename). Returns functions to
@@ -51,9 +60,25 @@ export function createClassifier({
   isAlive = isProcessAlive,
   sleep = realSleep,
   now = () => Date.now(),
-  log = console.log,
-  warn = console.warn,
+  log: printLine = console.log,
+  warn: printWarning = console.warn,
+  logFile = null,
+  event = () => {},
 }) {
+  // Writes a line to the log file, if there is one. Logging must never stop the classifier.
+  const toFile = (text) => {
+    if (!logFile) return;
+    try { logFile.write(text); } catch { /* only the file line is lost */ }
+  };
+  // A normal line: terminal and log file.
+  const log = (text) => { printLine(text); toFile(text); };
+  // A warning: terminal (as before) and log file (with "WARNING:" in front).
+  const warn = (text) => { printWarning(text); toFile(`WARNING: ${text}`); };
+  // A system-log line for the orchestrator (never throws).
+  const sendEvent = (text) => {
+    try { event(text); } catch { /* only the system-log line is lost */ }
+  };
+
   const state = {
     stopping: false,
     ollamaReady: false,     // true after the start-up check passed; false again after an outage
@@ -64,7 +89,28 @@ export function createClassifier({
     lastProgressAt: now(),
     articlesAtLastProgress: 0,
     note: 'starting',
+    lastFileStatusAt: null, // when the speed line was last written to the log file
+    ollamaDownSince: null,  // when the current Ollama outage started (system log), or null
+    ollamaAnnounced: false, // "Ollama ready" was sent once
   };
+
+  // Ollama could not be used: the first time of an outage sends one system-log line.
+  function noteOllamaDown(reason) {
+    if (state.ollamaDownSince !== null) return;
+    state.ollamaDownSince = now();
+    sendEvent(`Ollama not ready (${reason}) → classifier retrying`);
+  }
+
+  // Ollama works: "ready" the first time, "back after …" after an outage.
+  function noteOllamaReady() {
+    if (state.ollamaDownSince !== null) {
+      sendEvent(`Ollama back after ${describeDuration(now() - state.ollamaDownSince)} (${client.model})`);
+    } else if (!state.ollamaAnnounced) {
+      sendEvent(`Ollama ready (${client.model})`);
+    }
+    state.ollamaDownSince = null;
+    state.ollamaAnnounced = true;
+  }
 
   // Builds the article the prompt needs from a claimed queue row.
   function articleFor(row) {
@@ -142,10 +188,24 @@ export function createClassifier({
     }
     state.heldRunId = null;
     log(`Run ${run.id} is done: ${formatCount(result.moved)} mentions moved at the end, data/ written (${result.files.map((file) => file.split(/[\\/]/).pop()).join(', ')}).`);
+    let mentions = null;
+    try { mentions = db.prepare('SELECT COUNT(*) AS n FROM Mention').get().n; } catch { /* the count is only for the log */ }
+    sendEvent(`Run ${run.id} done, data/ written${mentions === null ? '' : `: ${formatCount(mentions)} mentions`}`);
     return true;
   }
 
-  // Runs one pass of the loop (steps 1–6 at the top of this file).
+  // Writes data/ after a group whose articles are all classified (D86), one group per call.
+  // Returns true if a group was exported.
+  async function tryExportGroup() {
+    const group = findGroupToExport(db);
+    if (!group) return false;
+    const result = await exportGroup(db, group, { now: now(), dataDir, companyListFile, writeOptions: exportWriteOptions });
+    log(`Run ${group.runId}, group ${group.groupNumber}: all its articles are classified. ${formatCount(result.moved)} mentions moved, data/ written.`);
+    sendEvent(`Run ${group.runId}, group ${group.groupNumber} classified, data/ written`);
+    return true;
+  }
+
+  // Runs one pass of the loop (steps 1–7 at the top of this file).
   // Returns { kind: 'worked' | 'idle' | 'ollama-down', ... }.
   async function runOnePass() {
     releaseAbandonedClaims(db, { now: now(), isAlive });
@@ -153,6 +213,7 @@ export function createClassifier({
 
     if (rows.length === 0) {
       moveFullChunks(db, { chunk: moveChunk });
+      await tryExportGroup();
       const finished = await tryFinishRun();
       return { kind: 'idle', finished };
     }
@@ -164,7 +225,8 @@ export function createClassifier({
     if (giveBackIds.length) await retryDbWrite(() => giveBackClaims(db, giveBackIds, { pid }), { label: 'give articles back', warn, wait: sleep });
     state.articlesDone += saved.relevant + saved.irrelevant + saved.failed;
     const moved = moveFullChunks(db, { chunk: moveChunk });
-    if (moved.moved) log(`Moved ${formatCount(moved.moved)} relevant articles to Mention.`);
+    if (moved.moved) printLine(`Moved ${formatCount(moved.moved)} relevant articles to Mention.`); // terminal only (D93)
+    await tryExportGroup();
 
     if (ollamaError) return { kind: 'ollama-down', error: ollamaError, saved, gaveBack: giveBackIds.length };
     return { kind: 'worked', saved, gaveBack: giveBackIds.length };
@@ -196,12 +258,15 @@ export function createClassifier({
       const check = await client.selfCheck();
       if (!check.ok) {
         warn(`Ollama self-check failed: ${check.detail}. The model's answers can't be trusted; retrying.`);
+        noteOllamaDown(`self-check failed: ${check.detail}`);
         return false;
       }
       log(`Ollama ${version} is ready with ${client.model} (${check.detail}).`);
+      noteOllamaReady();
       return true;
     } catch (error) {
       warn(`${error.message}.`);
+      noteOllamaDown(error.message);
       return false;
     }
   }
@@ -222,7 +287,12 @@ export function createClassifier({
     }
     parts.push(run ? `run ${run.id} ${run.status}` : 'no open run');
     parts.push(state.note);
-    log(parts.join(' · '));
+    const line = parts.join(' · ');
+    printLine(line);
+    if (state.lastFileStatusAt === null || nowMs - state.lastFileStatusAt >= config.CLASSIFIER_FILE_STATUS_EVERY_MS) {
+      toFile(line);
+      state.lastFileStatusAt = nowMs;
+    }
     state.lastProgressAt = nowMs;
     state.articlesAtLastProgress = state.articlesDone;
   }
@@ -251,6 +321,7 @@ export function createClassifier({
           const wait = nextOllamaWait();
           state.note = `Ollama unavailable, retry in ${Math.round(wait / 1000)} s`;
           warn(`${pass.error.message}. ${pass.gaveBack} articles given back; retrying in ${Math.round(wait / 1000)} s.`);
+          noteOllamaDown(pass.error.message);
           await sleep(wait);
         } else if (pass.kind === 'idle') {
           state.ollamaRetryIndex = 0;

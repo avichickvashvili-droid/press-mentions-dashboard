@@ -1,11 +1,13 @@
 // googleNews.test.js — tests of the Google News client (src/collector/googleNews.js) with a
-// fake fetch: how each kind of answer is handled (including repeated 403s, D77), the pace, and
-// feed parsing. No real requests.
+// fake fetch: how each kind of answer is handled (repeated 403s D77; broken XML, 400 and other 4xx
+// D85/D90; the "still fetching" signal D90), the pace, and feed parsing. No real requests.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { config } from '../src/config.js';
-import { PermanentFetchError, buildSearchUrl, createGoogleNewsClient, forbiddenWait, parseFeed } from '../src/collector/googleNews.js';
+import {
+  BrokenFeedError, PermanentFetchError, buildSearchUrl, classifyHttpStatus, createGoogleNewsClient, forbiddenWait, parseFeed,
+} from '../src/collector/googleNews.js';
 import { makeFakeFetch, makeFakeSleep, readFixture } from './helpers.js';
 
 // Builds a client around a fake fetch that gives the listed answers in order (the last one repeats).
@@ -87,10 +89,11 @@ test('403 again and again (D77): 3 fixed 5 s waits, then the growing waits; a su
 
 test('the 403 count goes on across searches until Google answers normally (a block is not per search)', async () => {
   const forbidden = { status: 403 };
-  const { client, retries } = clientWithAnswers([forbidden, forbidden, { status: 400 }, forbidden, forbidden, GOOD]);
-  await assert.rejects(client.search('q1'), PermanentFetchError); // 403, 403, then a permanent 400
+  const bad = { status: 400 };
+  const { client, retries } = clientWithAnswers([forbidden, forbidden, bad, bad, bad, forbidden, forbidden, GOOD]);
+  await assert.rejects(client.search('q1'), PermanentFetchError); // 403, 403, then 400 three times
   await client.search('q2'); // 403, 403, then OK
-  assert.deepEqual(retries.map((r) => r.waitMs), [5000, 5000, 5000, 5000], '4 403s in a row: the 4th uses the first growing wait (5 s)');
+  assert.deepEqual(retries.map((r) => r.waitMs), [5000, 5000, 60000, 60000, 5000, 5000], '4 403s in a row: the 4th uses the first growing wait (5 s)');
   assert.equal(forbiddenWait(5), 10000);
   assert.equal(forbiddenWait(3 + config.RETRY_BACKOFF_MS.length + 5), 600000, 'never more than 10 min');
 });
@@ -122,23 +125,66 @@ test('an HTML page (CAPTCHA) instead of RSS counts as temporary', async () => {
   assert.equal(retries[0].waitMs, 5000);
 });
 
-test('broken XML is permanent', async () => {
-  const { client, fetchImpl } = clientWithAnswers([{ status: 200, body: readFixture('broken.xml') }]);
-  await assert.rejects(client.search('q'), (error) => error instanceof PermanentFetchError && /cannot be read/.test(error.message));
-  assert.equal(fetchImpl.calls.length, 1);
+test('D85: broken XML is temporary: growing waits, then a good answer is used', async () => {
+  const broken = { status: 200, body: readFixture('broken.xml') };
+  const { client, fetchImpl, retries } = clientWithAnswers([broken, broken, GOOD]);
+  const result = await client.search('q', { companyName: 'Harvey' });
+  assert.equal(result.itemCount, 3);
+  assert.equal(fetchImpl.calls.length, 3);
+  assert.deepEqual(retries.map((r) => r.waitMs), [5000, 10000]);
+  assert.match(retries[0].reason, /cannot be read.*\(HTTP 200\)/);
+  assert.deepEqual([retries[0].status, retries[0].companyName], [200, 'Harvey']);
 });
 
-test('XML without a <channel> is permanent', async () => {
-  const { client } = clientWithAnswers([{ status: 200, body: readFixture('no-channel.xml') }]);
-  await assert.rejects(client.search('q'), (error) => error instanceof PermanentFetchError && /channel/.test(error.message));
+test('D85: XML without a <channel> is temporary too', async () => {
+  const { client, retries } = clientWithAnswers([{ status: 200, body: readFixture('no-channel.xml') }, GOOD]);
+  assert.equal((await client.search('q')).itemCount, 3);
+  assert.match(retries[0].reason, /channel/);
 });
 
-test('other 4xx (400, 404) are permanent', async () => {
-  for (const status of [400, 404]) {
-    const { client, fetchImpl } = clientWithAnswers([{ status }]);
+test('parseFeed throws BrokenFeedError (not a permanent error) for broken XML', () => {
+  assert.throws(() => parseFeed(readFixture('broken.xml')), (error) => error instanceof BrokenFeedError && !(error instanceof PermanentFetchError));
+});
+
+test('D85: three 400s, 1 minute apart -> PermanentFetchError with the reason; every try is reported', async () => {
+  const { client, fetchImpl, retries } = clientWithAnswers([{ status: 400 }]);
+  await assert.rejects(client.search('q', { companyName: 'Acme Bio' }),
+    (error) => error instanceof PermanentFetchError && error.message === 'Google rejected the search (HTTP 400), 3 tries 1 min apart');
+  assert.equal(fetchImpl.calls.length, 3);
+  assert.deepEqual(retries.map((r) => [r.waitMs, r.status, r.companyName, r.tryNumber, r.tries]),
+    [[60000, 400, 'Acme Bio', 1, 3], [60000, 400, 'Acme Bio', 2, 3]]);
+});
+
+test('D85: 400, 400, then success -> the items are returned', async () => {
+  const { client, fetchImpl } = clientWithAnswers([{ status: 400 }, { status: 400 }, GOOD]);
+  assert.equal((await client.search('q')).itemCount, 3);
+  assert.equal(fetchImpl.calls.length, 3);
+});
+
+test('D90: other 4xx (404, 410) are handled like 400; 403, 408 and 429 keep their own handling', async () => {
+  for (const status of [404, 410]) {
+    const { client, fetchImpl, retries } = clientWithAnswers([{ status }]);
     await assert.rejects(client.search('q'), (error) => error instanceof PermanentFetchError && error.message.includes(String(status)));
-    assert.equal(fetchImpl.calls.length, 1);
+    assert.equal(fetchImpl.calls.length, 3);
+    assert.deepEqual(retries.map((r) => r.waitMs), [60000, 60000]);
   }
+  const { client, retries } = clientWithAnswers([{ status: 403 }, { status: 408 }, { status: 429 }, GOOD]);
+  await client.search('q');
+  assert.deepEqual(retries.map((r) => [r.status, r.waitMs, r.tryNumber]), [[403, 5000, undefined], [408, 5000, undefined], [429, 10000, undefined]]);
+});
+
+test('D90: "still fetching" before each request and every 30 s of a retry wait', async () => {
+  const fetchImpl = makeFakeFetch((url, callNumber) => (callNumber === 1 ? { status: 400 } : GOOD));
+  const alive = [];
+  const waits = [];
+  let clock = 0;
+  const client = createGoogleNewsClient({
+    fetchImpl, sleep: async (ms) => { waits.push(ms); clock += ms; }, now: () => clock, random: () => 0, onAlive: (state) => alive.push(state),
+  });
+  await client.search('q');
+  assert.deepEqual(waits, [30000, 30000], 'the 1-minute wait is cut in 30 s pieces');
+  assert.deepEqual(alive, ['fetching', 'fetching', 'fetching', 'fetching'], 'request 1, two wait pieces, request 2');
+  assert.deepEqual(classifyHttpStatus(302).kind, 'temporary', 'an unexpected non-4xx answer is not a rejection');
 });
 
 test('pace: at least 1 s (+ jitter) between two requests', async () => {

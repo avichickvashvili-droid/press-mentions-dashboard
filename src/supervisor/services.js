@@ -12,6 +12,11 @@
 //   policy     'once'   = a one-shot job: exit 0 means "done", do not restart
 //              'always' = always on: any exit the orchestrator did not ask for is a crash
 //   checkBeforeStart (optional) decides at start-up whether to launch it at all
+//   args       (optional) extra command-line words for the service, e.g. ['--groups', '2,5']
+//
+// `npm start -- --groups 2,5` (D87): servicesFor({ groups: [2, 5] }) gives the same list, but the
+// collector gets `--groups 2,5` and is started even though the collection is complete (the only
+// change to D67). Every restart of the collector gets the same words.
 
 import { checkCollectionNeeded } from './collectionCheck.js';
 
@@ -33,3 +38,15 @@ export const SERVICES = [
   },
   // Later: { name: 'api', entry: 'src/api/runApi.js', npmScript: 'api', policy: 'always' },
 ];
+
+// The services to run for this start. `groups` = the chosen groups of `--groups` (already
+// checked), or null for a normal start (then it is exactly SERVICES).
+export function servicesFor({ groups = null } = {}) {
+  if (!groups) return SERVICES;
+  const list = groups.join(',');
+  return SERVICES.map((service) => (service.name !== 'collector' ? service : {
+    ...service,
+    args: ['--groups', list],
+    checkBeforeStart: () => ({ start: true, reason: `Re-running group(s) ${list} of the last run (--groups).` }),
+  }));
+}

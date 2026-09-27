@@ -1,21 +1,26 @@
-// exporter.js — writes the end-of-run snapshot to the data/ folder (D20, D35, D41, D64, D79).
+// exporter.js — writes the snapshot of the results to the data/ folder (D20, D35, D41, D64, D79, D86).
 //
-// Where it sits: the last step of a run, after the queue is drained and the leftovers are moved
-// to Mention, and before the run is marked 'done'. The api imports these files when its database
-// is empty, and a reviewer can read them on GitHub.
-// Reads: Company, Mention, JobRun, JobRunCompany, BufferQueue (articles that failed for good),
-// and the company list file (which companies are in the list now).
+// Where it sits: written after each group of the collection has ended and its articles are
+// classified (D86), and once more as the last step of a run, after the queue is drained and the
+// leftovers are moved to Mention, before the run is marked 'done'. The api imports these files
+// when its database is empty, and a reviewer can read them on GitHub.
+// Reads: Company, Mention, JobRun, JobRunCompany, JobRunGroup, BufferQueue (articles that failed
+// for good), and the company list file (which companies are in the list now).
 // Writes: data/companies.json, data/mentions.json, data/run.json.
 //
 // A full snapshot every time, not an append. Only companies that are in the company list NOW
 // are exported, with their mentions (D79): a company removed from the list (or renamed) keeps
 // its rows in the database (nothing is ever deleted, D46) but is no longer in data/.
 // "daysAgo" is a snapshot as of `asOf`; the live dashboard recomputes it.
+// run.json also shows the groups (D86): { total, complete: [numbers], failed: [numbers],
+// exported: how many groups' results are in this snapshot }, and failedCompanies: [names].
+// After a group (the run is still being collected) `finishedAt` is null; at the end of the run it
+// is the time the run becomes 'done'. `asOf` is always the time of this snapshot.
 //
 // Crash safety (D41): every file is first written as "<name>.tmp", then each one is renamed over
 // the old file; a rename is all-or-nothing, so a crash never leaves half a file. The renames go
 // in a fixed order with run.json LAST: companies.json and mentions.json carry `asOf` and run.json
-// carries the same time as `finishedAt`, so a run.json from this export means the other two
+// carries the same time as `asOf`, so a run.json from this export means the other two
 // files are from it too. On Windows a rename can fail for a moment while another program
 // (antivirus, OneDrive, an editor) has the file open; it is tried EXPORT_RENAME_TRIES times,
 // EXPORT_RENAME_RETRY_MS apart. If it still fails, the export throws and the run is not 'done'
@@ -38,12 +43,16 @@ function daysBetween(fromIso, toMs) {
 }
 
 // Builds the three files' contents from the database. Read-only.
-// `run` is the JobRun row being finished; `now` is the time the run becomes 'done'.
+// `run` is the JobRun row being exported; `now` is the snapshot time (at the end of the run: the
+// time the run becomes 'done').
 // `companyNames` = the names in the company list now (default: read from COMPANY_LIST_FILE);
 // only those companies and their mentions are exported (D79).
+// `exportingGroup` = the number of the group this snapshot follows (after-group export, D86), or
+// null for the end-of-run export, which covers every group.
 export function buildExport(db, {
   run,
   now = Date.now(),
+  exportingGroup = null,
   windowDays = config.EXPORT_WINDOW_DAYS,
   model = config.OLLAMA_MODEL,
   maxAttempts = config.MAX_ATTEMPTS,
@@ -105,12 +114,24 @@ export function buildExport(db, {
   const failedArticles = db.prepare(`SELECT b.company_id, b.guid, b.title, b.publisher, b.attempts FROM BufferQueue b
                                      WHERE b.status = 'failed' AND b.attempts >= ? ORDER BY b.id`).all(maxAttempts)
     .map((row) => ({ companyId: row.company_id, guid: row.guid, title: row.title, publisher: row.publisher, attempts: row.attempts }));
+  const groupRows = db.prepare('SELECT group_number, status, exported_at FROM JobRunGroup WHERE run_id = ? ORDER BY group_number').all(run.id);
+  const groups = {
+    total: groupRows.length,
+    complete: groupRows.filter((row) => row.status === 'complete').map((row) => row.group_number),
+    failed: groupRows.filter((row) => row.status === 'failed').map((row) => row.group_number),
+    exported: exportingGroup === null
+      ? groupRows.length
+      : groupRows.filter((row) => row.exported_at !== null || row.group_number === exportingGroup).length,
+  };
   const runSummary = {
     runId: run.id,
+    asOf,
     startedAt: run.started_at,
     collectedAt: run.finished_at ?? null,
-    finishedAt: asOf,
+    finishedAt: exportingGroup === null ? asOf : null,
     model,
+    groups,
+    failedCompanies: checklist.filter((row) => row.status === 'failed').map((row) => row.name),
     companies: {
       total: checklist.length,
       finished: checklist.filter((row) => row.status === 'finished').length,

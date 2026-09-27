@@ -1,48 +1,79 @@
-// runCollect.js — the `npm run collect` command: the 90-day collection of every company.
+// runCollect.js — the `npm run collect` command: the collector's main process, the GROUP RUNNER.
 //
-// Where it sits: the entry point of the data collection (DC). It ends when every company of
-// the run is 'finished' or 'failed'; the run is then 'collected' (D52). The classifier, the
-// data/ export and the alert are separate steps.
-// Reads/writes: the SQLite database (Company, JobRun, JobRunCompany, BufferQueue) and
-// Google News over the internet.
+// Where it sits: the entry point of the data collection (DC). It holds the run lock and the
+// heartbeat, but fetches nothing itself: it runs the run's groups one after another, each in its
+// own process (groupRunner.js -> runGroup.js, D83). When no group is left it prints the end log
+// (D86) and the run becomes 'collected' (D89). The classifier and the data/ export are separate.
+// Reads/writes: the SQLite database (Company through the seed, JobRun, JobRunCompany, JobRunGroup);
+// the group processes write BufferQueue and talk to Google News.
 //
-// Order at start-up:
+// Order at start-up (a normal start):
 //   (a) read-only lock check: refuse if a live collection is running, or if no run is
 //       'running' but an earlier run is still 'collected' (being classified);
 //   (b) seed the Company table from the data files;
-//   (c) take the lock in one transaction (re-checked): resume the crashed/stopped run,
-//       or start a new one with a checklist of the companies just seeded;
-// then heartbeat every 5 min, run the company loop, and print the summary.
-// If the program crashes or is stopped, the emergency heartbeat releases the lock so the
-// next start resumes at once (D48a). If the heartbeat, or any write on the run, finds that
-// another process took the run over, this collector stops itself (D71).
-// A resumed run also collects the companies added to the list since it started (D79).
+//   (c) take the lock in one transaction (re-checked): resume the crashed/stopped run, or start
+//       a new one: its companies are split into groups of about 25 (D83) and fixed (D88).
+// With `--groups 2,5` (D87, D91; `npm start -- --groups 2,5` passes it on):
+//   (a) the option must be valid, and the latest run must be 'done', or 'running' with a free
+//       lock (its collector died, e.g. this is the orchestrator's restart of a --groups re-run);
+//       if a live collector holds it, or it is 'collected', refuse (exit 3): "A run is still in
+//       progress ...";
+//   (b) seed;
+//   (c) reopen / take over that run (same 90 days) with only the chosen groups set back to
+//       'pending' (again, on a take-over), then run the groups as usual.
+// Then: heartbeat every 5 min, run the groups, print the end log, mark the run 'collected'.
+// If the program crashes or is stopped, the emergency heartbeat releases the lock so the next
+// start resumes at once (D48a); on a stop, the running group process is stopped first (D70).
+// If the heartbeat, or any write on the run, finds that another process took the run over, this
+// collector (and its group process) stops itself (D71).
+//
+// Log file (D92, D93): logs/run-<id>/collector.log gets the runner's messages, warnings, errors
+// and the end log, with the date and time (not the progress line; each group process writes its
+// own group-N.log). Lines written before the run is known (seed, refusals) are held and written
+// once it is known; if the collector ends without a run of its own, they go to the latest run's
+// folder (or logs/no-run/). Once it has its run, it tells the orchestrator which run it is
+// ({ type: 'run', runId }) and sends the system-log lines of the run (orchestrator.log), e.g.
+// "Run 1 started: 258 companies in 10 groups, 2026-06-30 to 2026-09-27".
+// A NEW run (not a resume, take-over or --groups) cleans up first (D94): acquireRun has already
+// deleted the old runs' rows; before its first log line the collector deletes every old logs/
+// folder (and empties a stale folder with the new run's name), says so in collector.log and sends
+// "New run 2: removed 1 old run and its logs" to orchestrator.log. A folder that can't be removed
+// gives one warning; it is removed at the next new run.
 //
 // Exit codes (D68, src/shared/exitCodes.js), read by the orchestrator:
 //
 //   code | meaning
 //   -----+----------------------------------------------------------------------------------
-//     0  | finished: every company is finished or failed, the run is 'collected'
-//     3  | refused / stood down, nothing is wrong: another live collection holds the lock,
-//        | the previous run is still 'collected' (being classified), or another process
-//        | took this run over while it was running
+//     0  | finished: every group is 'complete' or 'failed', the run is 'collected'
+//     3  | refused / stood down, nothing is wrong: another live collection holds the lock, the
+//        | previous run is still 'collected' (being classified), another process took this run
+//        | over, a group process refused to work, or `--groups` can't be used now (bad value,
+//        | no such group, or the latest run is not 'done')
 //     1  | real failure: crashed (including a database error that is not "busy", D76),
 //        | cannot open the database, seed failed, cannot start the run
 //   130  | stopped by Ctrl+C (SIGINT)
-//   143  | stopped by SIGTERM
+//   143  | stopped by SIGTERM or the orchestrator's stop message
 
 import { openDatabase } from '../db/database.js';
 import { seedCompanies } from '../seed/seedLoader.js';
 import { EXIT_CODES } from '../shared/exitCodes.js';
-import { findCollectedRun, findLiveRun } from '../shared/runLock.js';
+import { readGroupsOption } from '../shared/groupsOption.js';
+import { findCollectedRun, findLiveRun, isRunLive } from '../shared/runLock.js';
+import { describeError } from '../shared/text.js';
 import {
-  acquireRun, CollectedRunPendingError, installEmergencyHandlers, LockHeldError, LostOwnershipError, startHeartbeat,
+  acquireRun, CollectedRunPendingError, GroupsRequestError, installEmergencyHandlers, LockHeldError, LostOwnershipError,
+  reopenRunForGroups, RUN_IN_PROGRESS_MESSAGE, startHeartbeat,
 } from './jobLock.js';
-import { createGoogleNewsClient } from './googleNews.js';
-import { buildSummary, createSessionStats, runCompanyLoop } from './companyLoop.js';
+import { finishCollection } from './companyLoop.js';
+import {
+  buildCollectionDoneEvent, buildEndLog, createGroupRunner, findNextGroup, formatGroupNumbers, GroupRefusedError,
+} from './groupRunner.js';
 import { createProgress } from './progress.js';
-import { describeWait } from '../shared/retry.js';
-import { connectToSupervisor } from '../supervisor/serviceLink.js';
+import { connectToSupervisor, sendEvent, sendToSupervisor } from '../supervisor/serviceLink.js';
+import { createLogFile, runFolderName } from '../shared/logFile.js';
+import { settleLogFolder } from '../shared/runLogs.js';
+import { describeCleanup, removeOldLogFolders } from '../shared/runCleanup.js';
+import { formatDay, runRange } from './dateWindows.js';
 
 // Puts the companies in run order: by section, and inside a section in file order.
 function companiesInRunOrder(companies) {
@@ -52,13 +83,47 @@ function companiesInRunOrder(companies) {
     .map(({ company }) => company.id);
 }
 
-// The whole collect command. Returns the exit code for the normal cases; crashes go through
-// the emergency handlers, which exit by themselves.
+// Read-only check for `--groups`: the latest run must exist and be 'done', or 'running' with a
+// free lock (the usual lock rules, isRunLive; D91). Returns an error text for a person, or null
+// when the re-run may go ahead. (reopenRunForGroups checks again, in its transaction.)
+function checkGroupsAllowed(db) {
+  const latest = db.prepare('SELECT * FROM JobRun ORDER BY id DESC LIMIT 1').get();
+  if (!latest) return 'There is no run yet: --groups re-runs groups of a finished run. Start a normal run first.';
+  if (latest.status === 'done') return null;
+  if (latest.status === 'running' && !isRunLive(latest)) return null;
+  return RUN_IN_PROGRESS_MESSAGE;
+}
+
+// The runner's log file (collector.log). Its folder is set once the run is known (see the top).
+const logFile = createLogFile('collector.log');
+
+// The system-log line for the run this collector has just taken (D93).
+function describeRunStart(db, run, chosenGroups) {
+  if (run.reopened) return `Run ${run.runId}: re-running group(s) ${formatGroupNumbers(chosenGroups)}`;
+  if (run.tookOver) {
+    const next = findNextGroup(db, run.runId);
+    return `Run ${run.runId} resumed${next ? ` at group ${next.groupNumber} of ${run.groupCount}` : ''}`;
+  }
+  const companies = db.prepare('SELECT COUNT(*) AS n FROM JobRunCompany WHERE run_id = ?').get(run.runId).n;
+  const range = runRange(run.startedAt);
+  return `Run ${run.runId} started: ${companies} companies in ${run.groupCount} groups, ${formatDay(range.start)} to ${formatDay(range.end)}`;
+}
+
+// The whole collect command. Returns the exit code for the normal cases; crashes and stops go
+// through the emergency handlers, which exit by themselves (main then returns null).
 async function main() {
   // Lets the orchestrator's "stop" message run our SIGTERM handler, so the emergency heartbeat
   // is written on every stop (D70). Does nothing when collect runs alone.
   connectToSupervisor();
-  const progress = createProgress();
+  const progress = createProgress({ logFile });
+
+  const option = readGroupsOption(process.argv.slice(2));
+  if (option.error) {
+    progress.error(option.error);
+    return EXIT_CODES.REFUSED;
+  }
+  const chosenGroups = option.groups;
+
   let db;
   try {
     db = openDatabase();
@@ -67,18 +132,27 @@ async function main() {
     return EXIT_CODES.CRASHED;
   }
 
-  // (a) Read-only lock check. A 'running' run that is not live will be resumed, so the
-  // 'collected' rule only applies when there is nothing to resume.
-  const liveRun = findLiveRun(db);
-  if (liveRun) {
-    progress.error(new LockHeldError(liveRun).message);
-    return EXIT_CODES.REFUSED;
-  }
-  const hasRunningRun = db.prepare("SELECT 1 FROM JobRun WHERE status = 'running' LIMIT 1").get();
-  const collectedRun = hasRunningRun ? null : findCollectedRun(db);
-  if (collectedRun) {
-    progress.error(new CollectedRunPendingError(collectedRun).message);
-    return EXIT_CODES.REFUSED;
+  // (a) Read-only checks.
+  if (chosenGroups) {
+    const refusal = checkGroupsAllowed(db);
+    if (refusal) {
+      progress.error(refusal);
+      return EXIT_CODES.REFUSED;
+    }
+  } else {
+    // A 'running' run that is not live will be resumed, so the 'collected' rule only applies
+    // when there is nothing to resume.
+    const liveRun = findLiveRun(db);
+    if (liveRun) {
+      progress.error(new LockHeldError(liveRun).message);
+      return EXIT_CODES.REFUSED;
+    }
+    const hasRunningRun = db.prepare("SELECT 1 FROM JobRun WHERE status = 'running' LIMIT 1").get();
+    const collectedRun = hasRunningRun ? null : findCollectedRun(db);
+    if (collectedRun) {
+      progress.error(new CollectedRunPendingError(collectedRun).message);
+      return EXIT_CODES.REFUSED;
+    }
   }
 
   // (b) Seed.
@@ -92,73 +166,134 @@ async function main() {
   for (const warning of seed.warnings) progress.warn(warning);
   progress.info(`Seed done: ${seed.companies.length} companies (${seed.inserted} added, ${seed.updated} updated).`);
 
-  // (c) Take the lock (new run or take-over).
+  // (c) Take the lock: new run, take-over, or reopen for --groups.
   let run;
   try {
-    run = acquireRun(db, companiesInRunOrder(seed.companies));
+    run = chosenGroups
+      ? { ...reopenRunForGroups(db, chosenGroups), reopened: true }
+      : acquireRun(db, companiesInRunOrder(seed.companies));
   } catch (error) {
-    if (error instanceof LockHeldError || error instanceof CollectedRunPendingError) {
+    if (error instanceof LockHeldError || error instanceof CollectedRunPendingError || error instanceof GroupsRequestError) {
       progress.error(error.message);
       return EXIT_CODES.REFUSED;
     }
     progress.error(`Could not start the run: ${error.message}`);
     return EXIT_CODES.CRASHED;
   }
-  progress.info(run.tookOver
-    ? `Resuming run ${run.runId} (started ${run.startedAt}).`
-    : `Started run ${run.runId}.`);
-  if (run.addedCompanies > 0) {
-    progress.info(`${run.addedCompanies} companies were added to the list after run ${run.runId} started; they are collected in this run too.`);
+  // A new run: remove the old runs' log folders before the first line goes to the new folder.
+  let cleanupText = null;
+  if (!run.reopened && !run.tookOver) {
+    const folders = removeOldLogFolders({ keepFolder: runFolderName(run.runId) });
+    if (folders.failed.length > 0) {
+      progress.warn(`Old log folder(s) could not be removed (${folders.failed.map(({ name, error }) => `${name}: ${error?.message ?? error}`).join('; ')}). ` +
+        'The run goes on; they are removed when the next new run starts.');
+    }
+    cleanupText = describeCleanup(run.runId, run.removedRuns ?? 0, folders);
+  }
+  // From now on the log lines go to this run's folder; the orchestrator is told which run it is.
+  logFile.setFolder(runFolderName(run.runId));
+  sendToSupervisor({ type: 'run', runId: run.runId });
+  try {
+    if (cleanupText) {
+      progress.info(`${cleanupText}.`);
+      sendEvent(cleanupText);
+    }
+    sendEvent(describeRunStart(db, run, chosenGroups));
+  } catch {
+    // only a log line is lost
+  }
+  if (run.reopened) {
+    progress.info(`Re-running group(s) ${formatGroupNumbers(chosenGroups)} of run ${run.runId} (same 90 days, started ${run.startedAt})` +
+      `${run.tookOver ? '; its collector had stopped, so those groups start again from the beginning' : ''}.`);
+  } else {
+    progress.info(run.tookOver
+      ? `Resuming run ${run.runId} (started ${run.startedAt}, ${run.groupCount} groups).`
+      : `Started run ${run.runId} (${run.groupCount} groups).`);
   }
 
-  const emergency = installEmergencyHandlers(db, run.runId, { log: (text) => progress.error(text) });
+  const runner = createGroupRunner({
+    db,
+    runId: run.runId,
+    log: (text) => progress.info(text),
+    warn: (text) => progress.warn(text),
+    event: sendEvent,
+  });
+  const emergency = installEmergencyHandlers(db, run.runId, {
+    log: (text) => progress.error(text),
+    beforeStop: () => runner.stop(), // stop the group process first (D70)
+  });
   const stopHeartbeat = startHeartbeat(db, run.runId, {
     warn: (text) => progress.warn(text),
-    // Another process owns the run now: stop at once, without the emergency write (the run is
-    // not ours any more), and exit as "refused", since nothing is broken (D71).
-    onLostOwnership: (message) => {
+    // Another process owns the run now: stop the group process, then stop at once, without the
+    // emergency write (the run is not ours any more), and exit as "refused" (D71).
+    onLostOwnership: async (message) => {
       emergency.uninstall();
       progress.error(message);
+      await runner.stop().catch(() => {});
       process.exit(EXIT_CODES.REFUSED);
     },
   });
 
-  const client = createGoogleNewsClient({
-    onRetry: ({ reason, waitMs }) => {
-      progress.warn(`${reason}; retrying the same search in ${describeWait(waitMs)}.`);
-      progress.update({ note: `${reason}, retry in ${describeWait(waitMs)}` });
-    },
-  });
-
-  const stats = createSessionStats();
+  let outcome;
   try {
-    await runCompanyLoop({ db, runId: run.runId, client, progress, stats, stopHeartbeat });
+    outcome = await runner.run();
   } catch (error) {
     stopHeartbeat();
     if (error instanceof LostOwnershipError) {
-      // Another process owns the run now (D71): stop without the emergency write (the run is
-      // not ours any more) and exit as "refused", since nothing is broken.
+      // Another process owns the run now (D71): stop without the emergency write.
       emergency.uninstall();
       progress.error(error.message);
       db.close();
       return EXIT_CODES.REFUSED;
     }
+    if (error instanceof GroupRefusedError) {
+      progress.error(error.message);
+      emergency.stopWith(`stopped: ${error.message}`, EXIT_CODES.REFUSED); // releases the lock and exits
+      return null;
+    }
     emergency.handleFatal(error); // writes the emergency heartbeat and exits
-    return EXIT_CODES.CRASHED;
+    return null;
   }
+  // 'stopped': the stop handler is writing the emergency heartbeat and ends the program.
+  if (outcome === 'stopped') return null;
 
-  emergency.uninstall(); // the heartbeat was already stopped when the run became 'collected'
+  try {
+    await finishCollection(db, run.runId, { stopHeartbeat, warn: (text) => progress.warn(text) });
+  } catch (error) {
+    if (error instanceof LostOwnershipError) {
+      emergency.uninstall();
+      progress.error(error.message);
+      db.close();
+      return EXIT_CODES.REFUSED;
+    }
+    emergency.handleFatal(error);
+    return null;
+  }
+  emergency.uninstall();
   progress.finish();
-  console.log(buildSummary(db, run.runId, stats));
+  const endLog = buildEndLog(db, run.runId);
+  console.log(endLog);
+  progress.record(endLog);
+  try {
+    sendEvent(buildCollectionDoneEvent(db, run.runId));
+  } catch {
+    // only a system-log line is lost
+  }
   db.close();
   return EXIT_CODES.FINISHED;
 }
 
 main().then(
-  (exitCode) => { process.exitCode = exitCode; },
+  (exitCode) => {
+    settleLogFolder(logFile); // ended without a run of its own: held lines go to the latest run's folder
+    if (exitCode !== null) process.exitCode = exitCode;
+  },
   (error) => {
     // Only reached by a bug before the run was taken; nothing to release.
-    console.error(`ERROR: ${error?.stack ?? error}`);
+    const text = `ERROR: ${describeError(error)}`;
+    logFile.write(text);
+    settleLogFolder(logFile);
+    console.error(text);
     process.exitCode = EXIT_CODES.CRASHED;
   },
 );

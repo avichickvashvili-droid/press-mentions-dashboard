@@ -1,7 +1,8 @@
-// companyLoop.test.js — tests of the whole collector loop (src/collector/companyLoop.js) with a
+// companyLoop.test.js — tests of the collector's company loop (src/collector/companyLoop.js) with a
 // fake Google News: window split order, permanent failures, bad items, crash + resume, a take-over by
-// another collector (D71: the old one writes nothing and stops), and the
-// end of the run ('collected', owner_pid released, heartbeat stopped).
+// another collector (D71: the old one writes nothing and stops), and the end of the collection
+// (finishCollection: 'collected', owner_pid released, heartbeat stopped). The 3 test companies
+// make one group, so "the whole run" here = runGroupLoop on group 1 + finishCollection.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +10,7 @@ import { seedCompanies } from '../src/seed/seedLoader.js';
 import { CollectedRunPendingError, LostOwnershipError, acquireRun } from '../src/collector/jobLock.js';
 import { writeEmergencyHeartbeat } from '../src/shared/runLock.js';
 import { createGoogleNewsClient } from '../src/collector/googleNews.js';
-import { buildSummary, createSessionStats, runCompanyLoop } from '../src/collector/companyLoop.js';
+import { buildGroupSummary, finishCollection, runGroupLoop } from '../src/collector/companyLoop.js';
 import { buildWindowQuery, formatDay, runRange, splitWindow } from '../src/collector/dateWindows.js';
 import {
   TEST_KEYWORDS, TEST_NOW, makeFakeFetch, makeFeed, makeItems, makeSilentProgress, makeTempDb, queryOf, readFixture, writeDataFiles,
@@ -26,6 +27,14 @@ function setUpRun(t) {
   const order = [...seed.companies].sort((a, b) => a.section - b.section).map((c) => c.id);
   const run = acquireRun(db, order, { now: TEST_NOW, pid: 1 });
   return { db, runId: run.runId };
+}
+
+// Collects the whole (one-group) run as pid `pid`, then ends the collection like the group runner
+// does. Returns the session counters.
+async function runCompanyLoop({ db, runId, pid, client, progress, wait, stopHeartbeat }) {
+  const { stats } = await runGroupLoop({ db, runId, groupNumber: 1, runnerPid: pid, client, progress, wait });
+  await finishCollection(db, runId, { pid, stopHeartbeat, warn: (text) => progress.warn(text), wait });
+  return stats;
 }
 
 // A real Google News client over a fake fetch; `answer(query)` gives { status, body }.
@@ -58,10 +67,10 @@ test('companies go in section order; a permanent error fails only that company; 
     },
   });
 
-  assert.deepEqual(queries().map((q) => q.match(/"(\w+)"/)[1]), ['Alpha', 'Beta', 'Gamma']);
+  assert.deepEqual(queries().map((q) => q.match(/"(\w+)"/)[1]), ['Alpha', 'Beta', 'Beta', 'Beta', 'Gamma'], 'Beta is tried 3 times (D85)');
   assert.deepEqual(checklist(db, runId), [
     ['alpha', 'finished', null],
-    ['beta', 'failed', 'Google rejected the search (HTTP 400)'],
+    ['beta', 'failed', 'Google rejected the search (HTTP 400), 3 tries 1 min apart'],
     ['gamma', 'finished', null],
   ]);
   assert.equal(stats.inserted, 3);
@@ -72,8 +81,8 @@ test('companies go in section order; a permanent error fails only that company; 
   assert.equal(run.owner_pid, null, 'released to the classifier');
   assert.equal(heartbeatStopped, true);
 
-  const summary = buildSummary(db, runId, stats);
-  assert.match(summary, /2 finished, 1 failed/);
+  const summary = buildGroupSummary(db, runId, 1, stats);
+  assert.match(summary, /Group 1 done: 2 finished, 1 failed/);
   assert.match(summary, /Beta — Google rejected the search \(HTTP 400/);
   assert.match(summary, /articles added to the queue: +3/);
 });

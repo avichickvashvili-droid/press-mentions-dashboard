@@ -19,7 +19,8 @@ For every company in `ourcrowd_companies.txt` (258 companies), the system:
 ourcrowd_companies.txt (258 companies) → filtered_ourcrowd_companies.txt (12 sections + 13 Unsorted) + company_hints.json (search hints for 108 hard names)
         │
         ▼
-1. DATA COLLECTION ◄──► Google News RSS  (one company at a time, paced;
+1. DATA COLLECTION ◄──► Google News RSS  (10 groups of ~25 companies, one group process
+        │                 at a time, one company at a time, paced;
         │                 search = company hint or name + section words)
         │  each search result = one chunk; waits while the queue is full
         ▼
@@ -30,7 +31,7 @@ ourcrowd_companies.txt (258 companies) → filtered_ourcrowd_companies.txt (12 s
         │  not about the company → deleted
         │  about the company     → sentiment → moved in chunks
         ▼
-4. MENTION TABLE (SQLite) ──► data/ (JSON export of the run)
+4. MENTION TABLE (SQLite) ──► data/ (JSON export: after each group, and at the end of the run)
         │
         ▼
 5. API (Express) ──► 6. DASHBOARD (React + Vite)
@@ -40,6 +41,8 @@ Collection (1), classification (3) and the API (5) are separate services, kept a
 ```
 
 ## How to run
+
+**Short version for the owner:** [GUIDE.md](GUIDE.md): set up, run, follow progress, and what to do when something fails.
 
 ### 1. What you need
 - **Node.js 24** or newer.
@@ -70,30 +73,133 @@ This starts the **orchestrator**, which runs two services side by side and resta
 
 | Service | What it does | How long (on the dev PC) |
 |---|---|---|
-| `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue | About 10–30 minutes of searching. It pauses whenever the queue is full (10,000), so on a big backfill it finishes close to the classifier |
+| `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue. The companies are split into **10 groups** of about 25 (in list order); the groups run one after another, **each in its own process**, which exits when its group is done | About 10–30 minutes of searching. It pauses whenever the queue is full (10,000), so on a big backfill it finishes close to the classifier |
 | `[classifier]` | Asks the local AI about each article: relevant? sentiment? Deletes the irrelevant ones, saves the rest as mentions | Keeps pace with the collector, then about 1–2 hours to finish the queue |
 
-When the queue is empty, the classifier writes the results to **`data/`** and the run is marked `done`:
+The progress lines say which group is running, e.g. `Group 2 of 10 (companies 27–52): 12/26 done`. When the last group has ended, the collector prints the **end log**:
+```
+Run 1 collected.
+Companies: 230 finished, 2 failed (of 258).
+Groups: complete 1, 3–10 · failed 2
+  group 2: 26 of 26 companies not collected; last error: exit 1: ERROR: Group process crashed: …
+Companies failed: [Acme Bio, Foo Labs]
+  Acme Bio — Google rejected the search (HTTP 400 Bad Request), 3 tries 1 min apart
+  Foo Labs — Google rejected the search (HTTP 404 Not Found), 3 tries 1 min apart
+```
+A **failed company** is one Google rejected 3 times (HTTP 400 or another 4xx); a **failed group** is one whose process crashed 5 times in a row without finishing a single company. Both can be collected again later with `--groups` (below).
+
+The classifier writes the results to **`data/`** after each group, once that group's articles are all classified (a full snapshot so far), and once more when the queue is empty at the end; then the run is marked `done`:
 - `data/companies.json`: every company with its status ("mentioned N days ago" or "no coverage").
 - `data/mentions.json`: every relevant mention: title, link, publisher, date, sentiment.
-- `data/run.json`: run summary (articles checked, relevant, deleted, failed companies).
+- `data/run.json`: run summary (articles checked, relevant, deleted; the groups: total, complete, failed, how many exported; the failed companies).
 
 The database itself is `db/press-mentions.sqlite` (never committed to git).
 
-**Stopping and resuming.** Press **Ctrl+C** to stop. Each service saves where it was first. Run `npm start` again and it continues from the same company, with no duplicates. The same happens after a crash or a power cut.
+**Log files.** Everything important is also written to **`logs/run-<id>/`** (one folder per run, never committed to git), so nothing is lost when the window closes: `orchestrator.log` (the story of the whole run), `collector.log`, one `group-N.log` per group, and `classifier.log`. The terminal output is the same as without them. See [Tracking progress](#tracking-progress).
 
-**Running again.** The 90-day collection runs **once**. After it has finished, `npm start` doesn't collect again (new articles will come from the daily job, not built yet). To force a new 90-day collection, run `npm run collect`.
+**Stopping and resuming.** Press **Ctrl+C** to stop. Each service saves where it was first. Run `npm start` again and it continues with the same group, from its first unfinished company, with no duplicates. The same happens after a crash or a power cut.
+
+**Running again.** The 90-day collection runs **once**. After it has finished, `npm start` doesn't collect again (new articles will come from the daily job, not built yet). To force a new 90-day collection, run `npm run collect` (it removes the previous run's rows and log folder; articles and mentions are kept).
+
+**Re-running chosen groups.** To collect some groups of the last run again (e.g. a failed group, or groups with a failed company):
+```
+npm start -- --groups 2,5
+```
+- Allowed when the last run is **`done`** (collected and classified). While a collector is really working on it, or while it is being classified, it is refused: `A run is still in progress (collector or classifier). Try again when it's done.`
+- If the collector of a re-run dies, the orchestrator restarts it with the same `--groups`. The run is still `running` but no live collector holds it any more (the same lock rules as any resume: the owner process is gone, or no heartbeat for 15 minutes), so the chosen groups are **reset and collected again from their start**, and the run then goes on as usual. Articles collected before are kept; repeats are skipped.
+- It also works to **force-restart groups of a run whose collector has died** (any `running` run, not only a re-run): the chosen groups are reset and collected again from their start, and the run's other unfinished groups continue as on a normal resume.
+- Only the chosen groups are searched again, with the **same 90 days** as the original run. Articles already stored are skipped; new ones go through the classifier as usual, and `data/` is written again. The other groups are not touched.
+- A wrong value (`--groups abc`, `--groups 0`, a group the run doesn't have) is refused with a clear message, and nothing is started.
+- Also works with the collector alone: `npm run collect -- --groups 2,5`.
 
 ### 4. Other commands
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 160 tests. Offline: Google News and Ollama are replaced with fakes |
-| `npm run collect` | Runs only the collector: one full 90-day collection (or resumes an unfinished one) |
+| `npm test` | Runs all 298 tests. Offline: Google News and Ollama are replaced with fakes |
+| `npm run collect` | Runs only the collector: one full 90-day collection (or resumes an unfinished one). `npm run collect -- --groups 2,5` re-runs groups of the last run |
 | `npm run classifier` | Runs only the classifier (always on; stop with Ctrl+C) |
 | `npm run seed` | Only loads or updates the company list in the database |
+| `npm run progress` | Shows the latest run's progress from the database (read-only) |
 
-Each service ends with an exit code that says why it stopped (0 finished, 3 refused because another run is active, 1 crashed); see [challenge 12](#12-crashes-and-failures).
+Each service ends with an exit code that says why it stopped (0 finished, 3 refused because another run is active or `--groups` can't be used now, 1 crashed); see [challenge 12](#12-crashes-and-failures).
+
+## Tracking progress
+
+You can follow a run from the database at any time, also while it is going. Both ways below only **read**; they never change anything.
+
+**In the terminal:** open a second terminal in the project folder and run
+```
+npm run progress
+```
+It prints a short dashboard of the latest run (times in UTC). Add `-- --all` (`npm run progress -- --all`) to also list every company. Example:
+```
+RUN
+  Run 1 · running · started 2026-09-27 08:00 · last heartbeat 2026-09-27 09:57 (3.0 min ago) · process 4242
+  AI step: 1,200 classified · 310 relevant · 870 irrelevant · 20 failed
+  Last error: none
+
+COMPANIES
+  75 finished · 1 failed · 1 fetching · 181 not started · 258 total
+
+GROUPS
+  2 complete · 0 failed · 1 in progress · 7 pending · 10 total
+  Group  Status       Done  Failed  Left  Total  Crashes  Started           Finished          Exported          Last error
+  -----  -----------  ----  ------  ----  -----  -------  ----------------  ----------------  ----------------  ----------
+      1  complete       26       0     0     26        0  2026-09-27 08:00  2026-09-27 08:40  2026-09-27 09:05  -
+      2  complete       25       1     0     26        0  2026-09-27 08:40  2026-09-27 09:20  -                 -
+      3  in_progress    24       0     2     26        0  2026-09-27 09:20  -                 -                 -
+      4  pending         0       0    26     26        0  -                 -                 -                 -
+  ...
+
+RUNNING NOW
+  Group 3 (Acme … Zeta Labs): 24 done · 0 failed · 2 left of 26 · crashes in a row: 0
+  (one line per company of the group, with its status)
+
+FAILED COMPANIES
+  Company  Group  Error
+  -------  -----  ---------------------------------------
+  Harvey       2  Google answered 400 Bad Request 3 times
+
+FAILED GROUPS
+  None.
+
+QUEUE (articles waiting for the AI step)
+  1,240 waiting · 16 being classified · 3 to retry · 2 failed for good · 50 relevant, waiting to be moved · 1,311 total
+
+MENTIONS
+  4,321 total · 1,200 positive · 300 negative · 2,821 neutral
+  180 companies with mentions · 78 with none
+```
+If no run has started yet, it prints `No database yet — start a run with npm start`.
+
+**Ready-made SQL queries:** [`queries/progress.sql`](queries/progress.sql) holds the same questions and more, each with a plain heading ("Which group is running now?", "Which companies failed, and why?", "Which companies have no mentions at all?") and an example of what it shows. They are plain SQLite and work in any database viewer.
+
+**In DB Browser for SQLite** (a free viewer):
+1. Download it from [sqlitebrowser.org](https://sqlitebrowser.org/dl/) and install it.
+2. **File → Open Database Read Only…** and choose `db/press-mentions.sqlite` in the project folder.
+3. Open the **Execute SQL** tab, paste one query from `queries/progress.sql`, and press the ▶ (Execute) button. Run it again to refresh.
+
+The database uses WAL mode, so reading it while a run is going is safe: a reader never blocks the collector or the classifier. Always open it **read-only** while a run is going, so nothing can be changed by accident.
+
+**Log files:** each run has its own folder, **`logs/run-<id>/`** (e.g. `logs/run-1/`), in the project folder. It is never committed to git. Every line starts with the date and time (`2026-09-27 14:03:11.482 …`). The files are short on purpose: no progress-line repeats, only what happened.
+
+| File | Written by | What is in it |
+|---|---|---|
+| `orchestrator.log` | the orchestrator (`npm start`) | **The story of the run**, a few lines per hour: services started / stopped / restarted / given up, run started or resumed, `Group 2 done (26/26 finished) → starting group 3 of 10 (companies 53–78)`, a group that crashed or failed, `Queue full (10,000): collector waiting for the LLM` / `Queue has room again …`, one line when Google problems start and one when Google answers again, a company that failed, Ollama not ready / back, a group's `data/` written, `Collection done: …`, `Run 1 done, data/ written: 1,234 mentions`. Start here |
+| `collector.log` | the collector's main process (the group runner) | Seed, run started / resumed, each group started / complete / crashed / failed, the end log |
+| `group-1.log`, `group-2.log`, … | each group's process | **One line per finished company** (`Company 5/26 Harvey: finished · 3 windows · 42 new, 7 duplicates · 1 min 12 s`), **every Google error and retry** with its HTTP code and company, failed companies, the group summary |
+| `classifier.log` | the classifier | Start, Ollama ready or not, AI answers that were invalid, each group's `data/` export, the end of the run, and the speed line once every 10 minutes |
+
+The classifier is always on, so its lines go to the latest run's folder (after run 1 is done they stay in `run-1` until run 2 starts). Lines written before any run exists go to `logs/no-run/`. A `--groups` re-run adds to the same run's folder. The files also exist when a service runs alone (`npm run collect`, `npm run classifier`), except `orchestrator.log`, which only `npm start` writes. The folder can be changed with `LOGS_DIR` in `.env`.
+
+**Old logs are removed when a new run starts.** Creating a new run deletes every older folder in `logs/` (including `no-run/`), and the older runs' rows in the database (`JobRun`, `JobRunCompany`, `JobRunGroup`). The articles, the mentions and the company list are kept. The new run's line `New run 2: removed 1 old run and its logs` appears in `collector.log` and `orchestrator.log`. Resuming a run or a `--groups` re-run removes nothing: its lines are added to the same folder. A folder that can't be removed (e.g. a file open in another program) gives one warning and is removed at the next new run. **Copy a run's folder elsewhere first if you want to keep it.**
+
+To follow a file live, open a second PowerShell window in the project folder:
+```
+Get-Content logs\run-1\orchestrator.log -Wait -Tail 20
+```
+If a log file can't be written (e.g. the disk is full), the program shows one warning and keeps working.
 
 ## Tech stack
 
@@ -136,6 +242,9 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - One request at a time, **1 second apart** with a little random jitter.
   - On 429 or CAPTCHA, **back off exponentially** (wait longer each time), then retry the same company until it's done.
   - On 403 (blocked), wait 5 s for the first 3 tries, then use the same growing waits (up to 10 min), so a real block isn't hammered.
+  - A broken or cut-off XML answer is treated like a 429: growing waits, then the same search again.
+  - On **400** (or another 4xx such as 404 or 410, but not 403, 408 or 429): wait 1 minute and try again, **3 tries in total**. After the 3rd, that company is marked `failed` with the reason and its group goes on with the next company. Nothing else fails a company.
+  - **Every** Google error is logged with its HTTP code and the company name, e.g. `Google error for Acme Bio: Google rejected the search (HTTP 400 Bad Request) (try 1 of 3); retrying the same search in 1 min.`, so the real run's logs show exactly what Google answered.
   - Companies are fetched **one at a time**.
 - **Trade-offs:**
   - 1 second is faster than the 3–5 seconds commonly reported as safe, so a block is more likely. We accept that risk for faster daily runs (a few minutes of collection instead of ~15–20), and the backoff handles blocks when they happen.
@@ -201,6 +310,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
 - **Solution:**
   - The queue lives **in the database, not in RAM**. The queue size is simply the number of rows in BufferQueue.
   - Collection runs **one company at a time** (no parallel fetches).
+  - The companies are split into **10 groups of ~25**, and each group is collected by **its own process**, which exits when its group is done, so whatever memory it used is freed before the next group starts.
 - **Trade-off:** a DB count before each chunk, which is cheap with an index and happens once every few seconds.
 
 ### 7. Database write load
@@ -258,21 +368,26 @@ Each design choice solves a specific problem. For each one: the problem, what we
   ```
   npm start
     └─ orchestrator  (restarts any service that dies)
-         ├─ collector    → 90-day search → BufferQueue
+         ├─ collector    → group runner: group 1 process → group 2 process → … (one at a time)
+         │                   each group: ~25 companies → Google News → BufferQueue
          ├─ classifier   → BufferQueue → Ollama → Mention → data/
          └─ api          → API + dashboard   (next step, not built yet)
   ```
-  1. **One item fails → retry it.** A temporary Google error (no internet, 429, timeout) is retried on the **same company until it's done**, with growing waits capped at ~10 minutes. A permanent error (e.g. a malformed query) marks that company `failed` and is reported. Invalid LLM JSON is retried, then marked `failed`.
+  1. **One item fails → retry it.** A temporary Google error (no internet, 429, 5xx, timeout, broken XML) is retried on the **same company until it's done**, with growing waits capped at ~10 minutes. Google 400 (or another 4xx except 403/408/429) is tried 3 times, 1 minute apart; then that company is marked `failed`, reported, and its group goes on. Invalid LLM JSON is retried, then marked `failed`.
   2. **A loop fails → only that loop restarts.**
   3. **A process dies → the supervisor restarts only that service.** The others keep running: if the internet drops, the collector waits **while the classifier keeps working through the queue**. A service that keeps crashing is stopped with a clear error instead of looping forever. An article that crashes the classifier is counted *before* processing; after a crash the articles are retried one at a time, so only the one that really causes it reaches 3 tries and is set aside as `failed`.
-  4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat) and a per-run company checklist (`JobRunCompany`, each company `not_started` → `fetching` → `finished`, or `failed`) record where we stopped. The collection job ends when every company is `finished` or `failed`. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
+  4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat), a per-run company checklist (`JobRunCompany`, each company `not_started` → `fetching` → `finished`, or `failed`) and a per-run group list (`JobRunGroup`, each group `pending` → `in_progress` → `complete`, or `failed`) record where we stopped. The companies and groups of a run are fixed when it starts; a company added to the list later waits for the next run. The collection ends when every group is `complete` or `failed`. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
+  - **Groups: a crash stays inside its group.** The collector's main process (the *group runner*) holds the lock and fetches nothing itself; it starts one **group process** at a time. Example: group 2 has finished 12 of its 26 companies and its process dies. The runner starts group 2 again (after 1 s, 2 s, 5 s, 10 s, 30 s …); it skips the 12 finished companies and goes on from company 13. Groups 1 and 3–10 are not touched.
+    - **5 crashes in a row with no progress** (no company finished or failed in between) → the group is `failed`, skipped, and the next group starts; it is listed in the end log. Progress resets the count. A crash of the runner itself doesn't count against the group.
+    - **Stuck, not just slow:** a group process tells the runner "still alive" before each Google request, every 30 s while it waits to retry Google, and every 5 s while the queue is full. **No signal for 5 minutes** = stuck: the runner kills it and counts a crash. Waiting for Google or for the queue is never "stuck".
+    - Stopping (Ctrl+C) first stops the group process (10 s, then a forced kill), then writes the runner's emergency heartbeat.
   - The services share only the SQLite file. There's **no database service**: SQLite is a file, not a server, so there's nothing to crash.
   - **Exit codes** tell the orchestrator why a service stopped, so it only restarts real crashes:
 
     | Code | Meaning | What the orchestrator does |
     |---|---|---|
     | `0` | Finished normally (e.g. the collection is done) | Doesn't restart it |
-    | `3` | Refused to start, nothing wrong (another live process holds the run, or the previous run is still being classified) | Logs the reason, doesn't restart it |
+    | `3` | Refused, nothing wrong (another live process holds the run, the previous run is still being classified, another process took the run over, or `--groups` can't be used now: a bad value, no such group, or the last run is being classified or a live collector is working on it) | Logs the reason, doesn't restart it |
     | `1` | Crashed | Restarts it: 1 s → 2 s → 5 s → 10 s → 30 s → 60 s; more than 5 crashes in 10 minutes → gives up on that service with a clear error |
     | `130` | Stopped with Ctrl+C | Expected during shutdown |
     | `143` | Stopped by a stop request | Expected during shutdown |
@@ -294,6 +409,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - the current company and how many are left
   - queue size and LLM rate
   - any retry state (e.g. "Google unreachable, retrying in 60 s · LLM still working: 1,240 in queue")
+- **Log files** (`logs/run-<id>/`): the same events are kept after the window is closed, one file per process and per group, each line with the date and time, and `orchestrator.log` tells the whole run in a few lines. This is where Google's errors are studied after a real run.
 
 ### 14. Keeping "N days ago" correct
 - **Problem:** a stored "3 days ago" is wrong tomorrow.
@@ -302,10 +418,10 @@ Each design choice solves a specific problem. For each one: the problem, what we
 ### 15. Reviewing results without re-running everything
 - **Problem:** the full pipeline needs Ollama, a GPU and hours of runtime.
 - **Solution:**
-  - At the end of each run, the classifier exports the results to **`data/` as JSON**, readable directly on GitHub:
+  - After each group of the collection (once its articles are classified) and at the end of each run, the classifier exports the results to **`data/` as JSON**, readable directly on GitHub:
     - `companies.json`: every company with its status (days since last mention, or "no coverage found")
     - `mentions.json`: every relevant mention from the last 90 days, with sentiment, publisher, date and link
-    - `run.json`: a run summary (counts fetched / relevant / deleted / failed)
+    - `run.json`: a run summary (counts fetched / relevant / deleted / failed; groups complete / failed / exported; failed companies)
   - Only relevant, classified mentions are exported. Each run rewrites a full snapshot, so `data/` always matches the database.
   - The export happens **before** the alert, and each file is written to a temp file and then renamed, so a crash can never leave a half-written file.
   - When the API starts on an empty database, it **imports `data/` automatically**, so the dashboard works right away from the committed results.

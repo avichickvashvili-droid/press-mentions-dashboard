@@ -6,7 +6,9 @@
 //     connectToSupervisor();
 // When the service runs alone (`npm run collect`), there is no orchestrator and this does nothing.
 // Reads: messages from the orchestrator over the private channel Node opens between the two.
-// Writes: nothing itself; it triggers the service's own stop handler.
+// Writes: nothing itself; it triggers the service's own stop handler. sendToSupervisor() and
+// sendEvent() send messages the other way: which run the collector works on, and the lines of
+// the orchestrator's system log (orchestrator.log, D92/D93).
 //
 // Why it is needed: on Windows the orchestrator cannot send a "please stop" signal to one
 // process — killing it is a hard kill, and a hard kill can't write anything. So the orchestrator
@@ -55,4 +57,25 @@ export function connectToSupervisor({ proc = process } = {}) {
     // older runtimes without unref: the service still works, it just relies on its own work
   }
   return true;
+}
+
+// Sends one message to the process that started this one (the orchestrator for a service, the
+// group runner for a group process). Does nothing when there is none (the program runs alone) or
+// the channel is already closed. Never throws: a lost message only loses a log line.
+// Returns true when the message was handed over.
+export function sendToSupervisor(message, { proc = process } = {}) {
+  if (typeof proc.send !== 'function' || !proc.connected) return false;
+  try {
+    proc.send(message, () => {}); // a send error only means the other side is gone
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Sends one line for the orchestrator's system log (orchestrator.log, D92/D93), e.g.
+// "Group 2 done (26/26) → starting group 3". A group process sends it to the runner, which
+// passes it on. Does nothing when the program runs alone.
+export function sendEvent(text, { proc = process } = {}) {
+  return sendToSupervisor({ type: 'event', text: String(text) }, { proc });
 }

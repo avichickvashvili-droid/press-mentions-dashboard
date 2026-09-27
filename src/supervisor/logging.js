@@ -2,7 +2,9 @@
 //
 // Where it sits: used by serviceProcess.js (a service's output, e.g. "[collector] ...") and by
 // runSupervisor.js (the orchestrator's own lines, "[orchestrator] 10:15:03 ...").
-// Reads: the output of the service processes. Writes: the terminal only (no log files).
+// Reads: the output of the service processes. Writes: the terminal; the orchestrator's own lines
+// also go to its log file, orchestrator.log (D92, D93), when one is given. The services write
+// their own log files themselves (src/shared/logFile.js).
 
 import { StringDecoder } from 'node:string_decoder';
 
@@ -38,7 +40,21 @@ function clockTime(date) {
 // Creates the orchestrator's own logger: info() goes to standard output, error() to the error
 // output, both as "[orchestrator] HH:MM:SS text". A failed write is ignored: logging must never
 // crash the orchestrator.
-export function createOrchestratorLog({ out = process.stdout, err = process.stderr, now = () => new Date() } = {}) {
+// `file` (optional) = orchestrator.log (src/shared/logFile.js), the system log of the run (D93):
+// info() and error() lines also go there ("ERROR: " in front of errors, no label: the file date
+// and time replace the clock), and event() writes a line to the file ONLY, e.g. the services'
+// "Group 2 done (26/26 finished) → starting group 3". The terminal is not changed.
+export function createOrchestratorLog({ out = process.stdout, err = process.stderr, now = () => new Date(), file = null } = {}) {
+  // Writes one line to the log file, if there is one (never throws).
+  function toFile(text) {
+    if (!file) return;
+    try {
+      file.write(text);
+    } catch {
+      // logging must never crash the orchestrator
+    }
+  }
+
   // Writes one labelled line to the given stream.
   function write(stream, text) {
     try {
@@ -48,7 +64,8 @@ export function createOrchestratorLog({ out = process.stdout, err = process.stde
     }
   }
   return {
-    info: (text) => write(out, text),
-    error: (text) => write(err, `ERROR: ${text}`),
+    info: (text) => { toFile(text); write(out, text); },
+    error: (text) => { toFile(`ERROR: ${text}`); write(err, `ERROR: ${text}`); },
+    event: (text) => toFile(text),
   };
 }

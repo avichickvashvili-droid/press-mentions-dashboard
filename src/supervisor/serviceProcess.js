@@ -2,7 +2,8 @@
 //
 // Where it sits: used by supervisor.js each time it starts (or restarts) a service.
 // The service is started as `node --env-file-if-exists=.env <entry>` in the project folder,
-// the same command its npm script runs, with a private message channel so the orchestrator can
+// the same command its npm script runs (plus the service's `args`, if any, e.g. the collector's
+// `--groups 2,5`, D87), with a private message channel so the orchestrator can
 // ask it to stop cleanly (see serviceLink.js).
 // Reads: the service's output. Writes: that output to the terminal, each line labelled
 // "[collector] ..." (errors stay on the error output).
@@ -31,7 +32,10 @@ function isNoiseLine(line) {
 // Starts the service and returns a handle:
 //   pid                   the process id
 //   onExit(callback)      callback({ code, signal, error }) runs ONCE when the process has ended
-//                         (or could not be started) and all its output has been shown
+//                         (or could not be started) and all its output has been shown; several
+//                         callbacks can be added (the orchestrator's log file also listens)
+//   onMessage(callback)   callback(message) for every message the service sends, e.g.
+//                         { type: 'run', runId } or { type: 'event', text } (D93)
 //   requestStop()         sends { type: 'stop' }; returns false if the message could not be sent
 //   forceKill()           hard kill (no emergency heartbeat can be written): the last resort
 //   recentErrorLines()    its last few error lines, shown when the orchestrator gives up on it
@@ -46,7 +50,8 @@ export function startServiceProcess(service, {
   const label = `[${service.name}]`;
   const recentErrors = [];
   let exitResult = null;
-  let exitCallback = null;
+  const exitCallbacks = [];
+  const messageCallbacks = [];
 
   const outLines = createLineSplitter((line) => safeWrite(out, `${label} ${line}\n`));
   const errLines = createLineSplitter((line) => {
@@ -62,12 +67,12 @@ export function startServiceProcess(service, {
     outLines.flush();
     errLines.flush();
     exitResult = result;
-    if (exitCallback) exitCallback(result);
+    for (const callback of exitCallbacks) callback(result);
   }
 
   let child;
   try {
-    child = spawn(nodePath, ['--env-file-if-exists=.env', entryFile], {
+    child = spawn(nodePath, ['--env-file-if-exists=.env', entryFile, ...(service.args ?? [])], {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
@@ -82,6 +87,15 @@ export function startServiceProcess(service, {
     child.stderr.on('data', (piece) => errLines.push(piece));
     child.stdout.on('error', () => {}); // a broken pipe only loses output; the exit is still reported
     child.stderr.on('error', () => {});
+    child.on('message', (message) => {
+      for (const callback of messageCallbacks) {
+        try {
+          callback(message);
+        } catch {
+          // a message the orchestrator can't handle must not stop it
+        }
+      }
+    });
     child.on('error', (error) => {
       // No pid = the process never started. Otherwise it is a message-channel or kill problem
       // on a running process; the process end is still reported through 'close'.
@@ -94,8 +108,11 @@ export function startServiceProcess(service, {
   return {
     pid: child?.pid,
     onExit(callback) {
-      exitCallback = callback;
       if (exitResult) callback(exitResult);
+      else exitCallbacks.push(callback);
+    },
+    onMessage(callback) {
+      messageCallbacks.push(callback);
     },
     requestStop() {
       if (!child || !child.connected) return false;

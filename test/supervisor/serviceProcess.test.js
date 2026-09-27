@@ -71,6 +71,21 @@ test('output is shown line by line with the service label; errors stay on the er
   assert.deepEqual(withoutEnvNote(handle.recentErrorLines()), ['an error line']);
 });
 
+test('D93: messages from the service reach every onMessage listener, and every onExit listener hears the end', async () => {
+  const { handle, out } = startFake('send-messages.mjs');
+  const messages = [];
+  handle.onMessage((message) => messages.push(message));
+  handle.onMessage(() => { throw new Error('a broken listener does not stop the others'); });
+  const second = new Promise((resolve) => handle.onExit(resolve));
+  const [first, again] = await Promise.all([waitForExit(handle), second]);
+  assert.equal(first.code, 0);
+  assert.equal(again.code, 0);
+  assert.deepEqual(messages, [{ type: 'run', runId: 7 }, { type: 'event', text: 'Run 7 started: 6 companies in 3 groups' }]);
+  assert.match(out.text(), /\[fake\] sent/);
+  const late = await waitForExit(handle); // a listener added after the end hears it at once
+  assert.equal(late.code, 0);
+});
+
 test('exit codes reach the orchestrator unchanged: 0, 3, crash = 1', async () => {
   assert.equal((await waitForExit(startFake('exit-0.mjs').handle)).code, 0);
   assert.equal((await waitForExit(startFake('exit-3.mjs').handle)).code, 3);

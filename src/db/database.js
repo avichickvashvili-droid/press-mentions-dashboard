@@ -1,4 +1,4 @@
-// database.js — opens the SQLite database and creates its 5 tables.
+// database.js — opens the SQLite database and creates its 6 tables.
 //
 // Where it sits: the first thing every command does (seed, collect, tests) is open the
 // database through this file. All services share this one SQLite file.
@@ -9,12 +9,15 @@
 //   BufferQueue    articles waiting for the AI step (the queue between collector and classifier)
 //   Mention        final relevant, classified mentions (written by the classifier, read by the dashboard)
 //   JobRun         one row per collection run; also the lock ("only one run at a time")
-//   JobRunCompany  the per-run checklist of companies
+//   JobRunCompany  the per-run checklist of companies (each with its group number)
+//   JobRunGroup    the groups of a run (D83-D89): status, crashes in a row, export time
 //
 // All dates are stored as ISO-8601 text in UTC, e.g. "2026-09-27T10:15:00.000Z".
 //
 // Columns added after the first version are added to an existing database file on open
-// (addMissingColumns), so an older database keeps working: BufferQueue.suspect (D78).
+// (addMissingColumns), so an older database keeps working: BufferQueue.suspect (D78) and
+// JobRunCompany.group_number (D89). Indexes on such columns are created after that step
+// (INDEXES_AFTER_COLUMNS_SQL), because an older file doesn't have the column before it.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -80,12 +83,27 @@ CREATE TABLE IF NOT EXISTS JobRun (
 );
 
 CREATE TABLE IF NOT EXISTS JobRunCompany (
-  run_id     INTEGER NOT NULL REFERENCES JobRun(id),
-  company_id TEXT NOT NULL REFERENCES Company(id),
-  status     TEXT NOT NULL DEFAULT 'not_started'
-             CHECK (status IN ('not_started', 'fetching', 'finished', 'failed')),
-  error      TEXT,
+  run_id       INTEGER NOT NULL REFERENCES JobRun(id),
+  company_id   TEXT NOT NULL REFERENCES Company(id),
+  status       TEXT NOT NULL DEFAULT 'not_started'
+               CHECK (status IN ('not_started', 'fetching', 'finished', 'failed')),
+  error        TEXT,
+  group_number INTEGER,                         -- the group the company is in (D83), set when the run starts
   PRIMARY KEY (run_id, company_id)
+);
+
+-- One row per group per run (D83-D89): the groups run one after another, each in its own process.
+CREATE TABLE IF NOT EXISTS JobRunGroup (
+  run_id           INTEGER NOT NULL REFERENCES JobRun(id),
+  group_number     INTEGER NOT NULL CHECK (group_number >= 1),
+  status           TEXT NOT NULL DEFAULT 'pending'
+                   CHECK (status IN ('pending', 'in_progress', 'complete', 'failed')),
+  crashes_in_a_row INTEGER NOT NULL DEFAULT 0,  -- group-process crashes with no progress in between (D84)
+  started_at       TEXT,
+  finished_at      TEXT,
+  last_error       TEXT,                        -- why the group process last crashed
+  exported_at      TEXT,                        -- when data/ was written after this group (D86)
+  PRIMARY KEY (run_id, group_number)
 );
 
 -- Classifier: oldest pending/failed rows; move step: relevant rows.
@@ -104,7 +122,14 @@ CREATE INDEX IF NOT EXISTS idx_jobruncompany_run_status ON JobRunCompany(run_id,
 // file created before a column existed gets it added on open (existing rows get the default).
 const ADDED_COLUMNS = [
   ['BufferQueue', 'suspect', 'INTEGER NOT NULL DEFAULT 0'],
+  ['JobRunCompany', 'group_number', 'INTEGER'],
 ];
+
+// Indexes that use a column from ADDED_COLUMNS: created only after those columns exist.
+const INDEXES_AFTER_COLUMNS_SQL = `
+-- Group process: the next not_started company of one group of a run.
+CREATE INDEX IF NOT EXISTS idx_jobruncompany_run_group_status ON JobRunCompany(run_id, group_number, status);
+`;
 
 // Adds every column of ADDED_COLUMNS that the database file doesn't have yet.
 function addMissingColumns(db) {
@@ -124,6 +149,7 @@ export function openDatabase(dbPath = config.DB_PATH) {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA_SQL);
   addMissingColumns(db);
+  db.exec(INDEXES_AFTER_COLUMNS_SQL);
   return db;
 }
 

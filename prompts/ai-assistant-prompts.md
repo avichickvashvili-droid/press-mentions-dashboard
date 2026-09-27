@@ -2094,3 +2094,364 @@ prapre a commit with code review notes
 can push to develop , 4 at once 
 rerun just to makre sure
 ```
+
+---
+
+## Prompt 170 — Design change: plan first, then PLAN, then implement
+
+```
+I have a design change, we are going to first plan it out. end to end only than change the PLAN
+and only than we implement it and give it to an agent todo
+```
+
+---
+
+## Prompt 171 — Idea: split the collector into company groups
+
+```
+ok so im thinking of DC instead of 1 process that can fail anytime 
+split the companies into batch jobs, and every time run differnt group
+for example group A is - company 1-12
+group B is company 13-25
+...
+than if a group failed , we can rerun that group only 
+dont do anychange yet we are just thinking
+```
+
+---
+
+## Prompt 172 — Answers on the company-groups idea
+
+```
+Is the problem you want to solve "the process can crash" (already handled) or "failed companies can't be retried" (the real gap)? Or is it something else, like wanting to see progress in smaller parts?
+i want to make sure that we can handle that process properly and by dividing into groups the process will be more stable and clear
+2. can make its groups of 20, not by sections
+3. always one after another, memory will explode if together.
+4. process dies, if we get group b failed, we should be able to pick up from where it stopeed cause in the db this companies will have complete, in progress , pending
+that should be obvious
+5. why not during a group, i dont see a reason to wait with data the process should be able to pick up from where it failed
+6. yes. its from the moment collect started running
+```
+
+---
+
+## Prompt 173 — Groups: crash scope, failed companies, data/ after each group
+
+```
+a. "Group failed": when exactly? The orchestrator already restarts a crashed collector at once, and that restart continues the group. I suggest:
+that way the collector shouldnt crash its just the group no?
+b. its unaccaptable, there is no case like that. why will that happen? 
+c. after each group is fine than
+```
+
+---
+
+## Prompt 174 — Group per process, 5 restarts, run failed groups alone
+
+```
+method 2
+Bonus for your memory concern: each group's memory is freed when its process ends, so it can never build up across 258 companies.
+its not bonus its an obvious.
+5 restarts, than skip the group and log at the end, which groups failed/succeded
+i should be able to run groups alone 
+
+lets say the collector finished 
+and i have group B failed i should be able to start the program with the failed groups to run only them
+```
+
+---
+
+## Prompt 175 — DB changes? Groups command, re-runs, restart rule
+
+```
+is there any db changes required?
+npm start -- --groups 2,5: only groups 2 and 5 
+B wont work since db will drop dupes. but yeah i should be able to run any group i want again if desired
+C 5 in a row, if we have progress made between crashs why stop?
+D 1. i dont understand whats broken xml
+2. no
+3. answered in C
+```
+
+---
+
+## Prompt 176 — Progress rule, broken XML, 400 retries, end log
+
+```
+Progress means at least 1 company finished since the last crash, and progress resets the count to 0.
+ yes
+just retry on broken xml
+2.1 wait a bit and retry, after x retries skip that company  group continues 
+end log should contain groups: failed/suceded, compaines failed: [names]
+```
+
+---
+
+## Prompt 177 — Final answers on the groups design
+
+```
+1. ok 
+2. ok 
+3. cant run another collect if there is a collect running.
+4. ok
+```
+
+---
+
+## Prompt 178 — No new companies mid-run; no new collect until the run is done
+
+```
+1. cant happen in this design cant add a company after the run started
+2. same for calssifier if the flow still runs cant start a new run
+```
+
+---
+
+## Prompt 179 — Write the build brief for the groups change (send later)
+
+```
+ok we dont have much tokens left,
+what i want you to do is to write the steps and the changes needed to be done like you explain as a team lead to your software developer 
+explain it as clear as possible and dont let him take any decisions alone. 
+without asking
+prapre the promt and we will send it once i have tokens again
+```
+
+---
+
+## Prompt 180 — Why is Ollama using so much memory?
+
+```n why is LLma draining all my memory from the pc is something running in the background?
+```
+
+
+---
+
+## Prompt 181 — Free the model memory
+
+```nfree it
+```
+
+
+---
+
+## Prompt 182 — Groups: 10 groups in total
+
+```
+i want you to pull up the promt i asked from you about splitting the companies into groups, i want to have total of 10 groups
+give me the steps
+```
+
+---
+
+## Prompt 183 — Send the build agent for the groups change
+
+```
+ok send an agent to do the changes
+```
+
+---
+
+## Prompt 184 — Show the open questions for the groups build
+
+```
+ok give me the questions
+```
+
+---
+
+## Prompt 185 — Answers to the groups questions
+
+```
+1. a
+2. a
+3. yes, if we made progress reset the crash count
+4. no
+5. if its stuck because its waiting for the queue to free up before continue its fine, need to define between stuck and waiting
+if really stuck which is not waiting and not fetching ,yes that will count as a crash and kill give it 5min
+6. explain to me again
+```
+
+---
+
+## Prompt 186 — Stuck vs waiting OK; group size about 25
+
+```
+5, fine
+6. make a group always about size of ~25, if less than that its 1 group
+```
+
+---
+
+## Prompt 187 — Answers to the agent's Step 1–4 questions
+
+```
+I suggest 1: the progress reset it to 0, and this crash adds 1.
+ we answered that stop giving me same questions
+ 1b. yes
+2. we need to analyze the logs for that.
+3. ofcourse that shouldnt happen and the db should shot its completed so we wont run it code should support that aswell ofc.
+4. remove old databse, i want a fresh one
+5. ok.
+6. i just want 3 stages. waiting (for queue), fetching data, if its not doing 1 of this its stuck
+```
+
+---
+
+## Prompt 188 — Agent: a file of ready-made progress queries
+
+```
+ok mean while i want you to send another agent that what he will do make me a nice pretty file with premade queries:
+to see the progress in the tables
+like which group runs now
+failed succeded, how many companies left in the group
+you see what i mean we have that do we have such table that can i track
+```
+
+---
+
+## Prompt 189 — How to run the progress queries (answer to a multiple-choice question)
+
+```
+Both, plus viewer setup
+```
+
+---
+
+## Prompt 190 — Answers to the progress agent's questions
+
+```
+Should npm run progress also get a row in the README's "Other commands" table? I was told to add only one section, so I didn't. I suggest yes.
+ yes
+2 yes
+3 what are you asking
+```
+
+---
+
+## Prompt 191 — How to open a SQL UI
+
+```
+help me to open a sql ui so i can run the queries how do i do that
+```
+
+---
+
+## Prompt 192 — Open DB Browser and connect it
+
+```
+i run winget install -e --id DBBrowserForSQLite.DBBrowserForSQLite
+now do it for me connect it until i see i can run queries
+```
+
+---
+
+## Prompt 193 — Status of the groups agent
+
+```
+ok whats up with the other agent
+```
+
+---
+
+## Prompt 194 — Agent: a run guide; collector crash during a --groups re-run
+
+```
+send an agent to : i want a written guide now in guide file on how to run the system myself 
+with all the command without overwhelming with data
+and how to track progress which queries to run to track each progress and 
+if something fails what to do
+
+for 1. need to wipe the group data in the db and retry
+there is no wayt we crashed and the process still running its the orcastrator to tell if this happend and handle that
+```
+
+---
+
+## Prompt 195 — OK to suggestions; where are the logs?
+
+```
+ok did you mention in the guide where the logs will be and where to find a log for every process how to find them
+```
+
+---
+
+## Prompt 196 — Log files: per run, one file per group, delete old logs on a new run
+
+```
+1.a
+2. every group in a seperate file
+3. we can delete old logs on new run
+```
+
+---
+
+## Prompt 197 — Log files: answers (orchestrator system log, cleanup of old run tables)
+
+```
+each process writes itself with the orcastarotr writes the whole system progress for example: group a done, moving to group B , queue is full. waiting for LLM , etc...
+2. do as above orcastrator should have a log file to himself
+3. orcastrator before starting, should do clean up of old db tables, like jobrun, jobruncompany, etc..
+4. yes
+5. sure
+6. yes try to write less unnecasry logs. keep them lean and concrete
+```
+
+---
+
+## Prompt 198 — Log events by message; OK to all suggestions and the cleanup rule
+
+```
+option 1
+ok
+```
+
+---
+
+## Prompt 199 — Cleanup as a job at the end of the whole process (then interrupted)
+
+```
+add a clean up job at the end of the whole process than
+```
+
+---
+
+## Prompt 200 — Rephrased: the cleanup should clear the DB tables so a run can start
+
+```
+let me rephrase the lcean up should clear the db tables so a run can start if needed
+is that enough?
+```
+
+---
+
+## Prompt 201 — Agreed: the run tables can't be cleared (resume depends on them)
+
+```
+ur right we cant do that since we relay on the db if something went wrong to know where to pick up
+```
+
+---
+
+## Prompt 202 — Cleanup option A
+
+```
+A
+```
+
+---
+
+## Prompt 203 — TL;DR since the last commit
+
+```
+give me a tldr what we did since last commit
+```
+
+---
+
+## Prompt 204 — Commit note, then a code review of the changes since the last commit
+
+```
+good prapre a commit note
+and than send an agent to do a code review only on the cahnges made since last commit
+```

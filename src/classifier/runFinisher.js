@@ -9,7 +9,15 @@
 //   4. marks the run 'done' (finished_at = now, owner_pid = NULL).
 // There is no alert here (D61): the daily job sends it later from Mention.alerted_at.
 // If a step fails, the run stays 'collected' and the classifier tries again on its next pass.
-// Reads/writes: JobRun (take over, done), BufferQueue + Mention (via mover.js), data/ (via
+//
+// data/ after each group (D86): while a run is still 'running' (being collected), a group that
+// has ended ('complete' or 'failed'), is not exported yet, and has no article left to classify
+// (pending, to retry, or being worked on; articles that failed for good don't count, D72) is
+// exported: its leftover relevant rows are moved to Mention, data/ is written (the full snapshot
+// so far) and the group's exported_at is set. This needs no hold on the run (the collector holds
+// it): it only reads the run and writes data/ and JobRunGroup.exported_at. When the run becomes
+// 'done', every group that has no exported_at yet gets one (the end export covers them all).
+// Reads/writes: JobRun (take over, done), JobRunGroup (exported_at), BufferQueue + Mention (via mover.js), data/ (via
 // exporter.js, which also reads the company list file: only listed companies are exported, D79).
 // Finding the 'collected' run is shared with the collector (findCollectedRun, src/shared/runLock.js).
 
@@ -35,10 +43,51 @@ export function takeOverRun(db, runId, { pid = process.pid, now = Date.now(), is
   });
 }
 
-// Marks the run 'done' and releases it, only while this process still holds it. Returns true if done.
+// Marks the run 'done' and releases it, only while this process still holds it. In the same
+// transaction, every group without exported_at gets it (the end export covers all groups).
+// Returns true if done.
 export function markRunDone(db, runId, { pid = process.pid, now = new Date().toISOString() } = {}) {
-  return inTransaction(db, () => db.prepare(`UPDATE JobRun SET status = 'done', finished_at = ?, owner_pid = NULL
-                                             WHERE id = ? AND status = 'collected' AND owner_pid = ?`).run(now, runId, pid).changes === 1);
+  return inTransaction(db, () => {
+    const done = db.prepare(`UPDATE JobRun SET status = 'done', finished_at = ?, owner_pid = NULL
+                             WHERE id = ? AND status = 'collected' AND owner_pid = ?`).run(now, runId, pid).changes === 1;
+    if (done) db.prepare('UPDATE JobRunGroup SET exported_at = ? WHERE run_id = ? AND exported_at IS NULL').run(now, runId);
+    return done;
+  });
+}
+
+// The first group that is ready for its after-group export (D86), or undefined: its run is
+// 'running', the group ended ('complete' or 'failed'), it has no exported_at, and none of its
+// companies has an article left to classify (pending, failed with attempts left, or claimed).
+// Returns { runId, groupNumber }. Read-only.
+export function findGroupToExport(db, { maxAttempts = config.MAX_ATTEMPTS } = {}) {
+  const row = db.prepare(`
+    SELECT g.run_id, g.group_number FROM JobRunGroup g JOIN JobRun r ON r.id = g.run_id
+    WHERE r.status = 'running' AND g.status IN ('complete', 'failed') AND g.exported_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM BufferQueue b JOIN JobRunCompany c ON c.company_id = b.company_id
+        WHERE c.run_id = g.run_id AND c.group_number = g.group_number
+          AND (b.status = 'pending' OR (b.status = 'failed' AND b.attempts < ?) OR b.claimed_at IS NOT NULL))
+    ORDER BY g.run_id, g.group_number LIMIT 1`).get(maxAttempts);
+  return row ? { runId: row.run_id, groupNumber: row.group_number } : undefined;
+}
+
+// The after-group export (D86) of one group: moves the group's leftover relevant rows to
+// Mention, writes data/ (the full snapshot so far), then sets the group's exported_at. Throws if
+// writing data/ fails (exported_at stays NULL, so it is tried again on a later pass).
+// Returns { moved, files }.
+export async function exportGroup(db, { runId, groupNumber }, {
+  now = Date.now(), dataDir, companyListFile = config.COMPANY_LIST_FILE, writeOptions = {},
+} = {}) {
+  const moveResult = moveAllRelevantRows(db, { group: { runId, groupNumber } });
+  const run = db.prepare('SELECT * FROM JobRun WHERE id = ?').get(runId);
+  const companyNames = readCompanyNames(companyListFile);
+  const files = await writeExportFiles(
+    buildExport(db, { run, now, companyNames, exportingGroup: groupNumber }),
+    { ...(dataDir ? { dataDir } : {}), ...writeOptions },
+  );
+  inTransaction(db, () => db.prepare('UPDATE JobRunGroup SET exported_at = ? WHERE run_id = ? AND group_number = ? AND exported_at IS NULL')
+    .run(new Date(now).toISOString(), runId, groupNumber));
+  return { moved: moveResult.moved, files };
 }
 
 // Steps 2–4 for a run this process already holds. Throws if a step fails (the run stays 'collected').

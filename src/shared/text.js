@@ -2,7 +2,8 @@
 //
 // Where it sits: used wherever a headline is compared or put in a prompt (stripPublisherSuffix),
 // a number is shown to a person (formatCount), an error is written to a log or to
-// JobRun.last_error (describeError), or text from the internet is printed in a log (cleanForLog).
+// JobRun.last_error (describeError), or text from the internet is printed in a log (cleanForLog), or a length of time is written
+// in a log line (describeDuration).
 // Reads/writes: nothing (pure functions).
 
 import { config } from '../config.js';
@@ -39,4 +40,14 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 export function cleanForLog(text, maxChars = config.LOG_TEXT_MAX_CHARS) {
   const clean = String(text ?? '').replace(CONTROL_CHARACTERS, '');
   return clean.length > maxChars ? `${clean.slice(0, maxChars)}…` : clean;
+}
+
+// A length of time for a log line: 12 s, 1 min 12 s, 2 h 5 min (rounded to whole seconds).
+export function describeDuration(ms) {
+  const seconds = Math.max(0, Math.round(Number(ms) / 1000) || 0);
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return seconds % 60 ? `${minutes} min ${seconds % 60} s` : `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
 }

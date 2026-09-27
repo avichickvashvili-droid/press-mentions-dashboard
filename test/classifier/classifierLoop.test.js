@@ -320,3 +320,82 @@ test('Ctrl+C exits with 130', (t) => {
   proc.emit('SIGINT');
   assert.deepEqual(exits, [130]);
 });
+
+// ---------- Log file and system log (D92, D93) ----------
+
+// A log file that keeps its lines in memory.
+function memoryFile() {
+  const lines = [];
+  return { lines, write: (text) => lines.push(text) };
+}
+
+test('D93: the log file gets the lines and warnings, but not the per-pass "Moved N" line; a finished run sends one system-log line', async (t) => {
+  const rows = Array.from({ length: 3 }, (_, index) => ({ companyId: 'harvey', guid: `g${index}`, title: `Harvey news ${index}` }));
+  rows.push({ companyId: 'harvey', guid: 'bad', title: 'bad answer' });
+  const { db, dataDir, companyListFile } = setup(t, rows);
+  const runId = addRun(db, { status: 'collected', companyIds: ['harvey'] });
+  const file = memoryFile();
+  const events = [];
+  const { classifier, logger } = makeClassifier(db, makeFakeClient(byTitle), {
+    moveChunk: 2, dataDir, companyListFile, logFile: file, event: (text) => events.push(text),
+  });
+  for (let pass = 0; pass < 10; pass += 1) {
+    const result = await classifier.runOnePass();
+    if (result.kind === 'idle' && result.finished) break;
+  }
+  assert.ok(logger.lines.log.some((line) => /^Moved 2 relevant articles to Mention\.$/.test(line)), 'still on the terminal');
+  assert.ok(!file.lines.some((line) => /^Moved \d/.test(line)), 'not in the file');
+  assert.ok(file.lines.some((line) => /^WARNING: Invalid AI answer for "bad answer"/.test(line)));
+  assert.ok(file.lines.some((line) => new RegExp(`^Run ${runId} is done: `).test(line)));
+  assert.deepEqual(events, [`Run ${runId} done, data/ written: 3 mentions`]);
+});
+
+test('D93: Ollama events: one "not ready" line per outage and one "back after" line; "ready" once on a normal start', async (t) => {
+  const { db } = setup(t, [{ companyId: 'harvey', guid: 'a', title: 'Harvey wins' }]);
+  let checks = 0;
+  const client = makeFakeClient(byTitle);
+  client.checkReady = async () => { checks += 1; if (checks < 3) throw new Error('Ollama is not reachable at http://fake (ECONNREFUSED)'); return { version: 'fake' }; };
+  let clock = NOW;
+  const events = [];
+  const { classifier } = makeClassifier(db, client, {
+    now: () => clock,
+    sleep: async (ms) => { clock += ms; await new Promise((resolve) => setImmediate(resolve)); },
+    event: (text) => events.push(text),
+  });
+  const run = classifier.runForever();
+  while (queueRows(db)[0].status !== 'relevant') await new Promise((resolve) => setImmediate(resolve));
+  classifier.stop();
+  await run;
+  assert.deepEqual(events, [
+    'Ollama not ready (Ollama is not reachable at http://fake (ECONNREFUSED)) → classifier retrying',
+    'Ollama back after 7 s (fake-model)', // waited 2 s + 5 s
+  ]);
+
+  const { db: db2 } = setup(t, []);
+  const readyEvents = [];
+  const second = makeClassifier(db2, makeFakeClient(byTitle), { event: (text) => readyEvents.push(text) });
+  assert.equal(await second.classifier.checkOllama(), true);
+  assert.equal(await second.classifier.checkOllama(), true);
+  assert.deepEqual(readyEvents, ['Ollama ready (fake-model)']);
+});
+
+test('D93: the speed line is on the terminal every 30 s but in the log file only every 10 min', async (t) => {
+  const { db } = setup(t, []);
+  let clock = NOW;
+  const file = memoryFile();
+  const { classifier, logger } = makeClassifier(db, makeFakeClient(byTitle), {
+    now: () => clock,
+    sleep: async () => { clock += 60_000; await new Promise((resolve) => setImmediate(resolve)); }, // each idle wait = 1 min
+    logFile: file,
+    event: () => { throw new Error('a broken event sender never stops the classifier'); },
+  });
+  const run = classifier.runForever();
+  const speedLines = (lines) => lines.filter((line) => line.startsWith('classifier · '));
+  while (speedLines(logger.lines.log).length < 25) await new Promise((resolve) => setImmediate(resolve));
+  classifier.stop();
+  await run;
+  const onTerminal = speedLines(logger.lines.log).length;
+  const inFile = speedLines(file.lines).length;
+  assert.ok(onTerminal >= 25);
+  assert.ok(inFile >= 2 && inFile <= Math.ceil(onTerminal / 10) + 1, `${inFile} speed lines in the file for ${onTerminal} on the terminal`);
+});

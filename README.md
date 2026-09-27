@@ -1,8 +1,7 @@
 # Press Mentions Monitoring & Dashboard
 
-> **Status: work in progress.** The system design is done; implementation hasn't started.
-> Setup and run commands, results and the LLM evaluation will be added as each part is built.
-> Full design notes and the decision log (D1–D37) are in [PLAN.md](PLAN.md).
+> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). Next: the API + dashboard, then the daily job and alert.
+> Full design notes and the decision log are in [PLAN.md](PLAN.md).
 
 ## What it does
 
@@ -39,6 +38,62 @@ ourcrowd_companies.txt (258 companies) → filtered_ourcrowd_companies.txt (12 s
 `npm run collect` runs the 90-day collection. The daily job (one alert with the new mentions) is a separate job, designed later.
 Collection (1), classification (3) and the API (5) are separate services, kept alive by a small supervisor.
 ```
+
+## How to run
+
+### 1. What you need
+- **Node.js 24** or newer.
+- **Ollama** (local AI), with the model downloaded once:
+  ```
+  ollama pull qwen3:4b
+  ```
+- **Ollama set to answer 4 requests at once** (measured to be the best speed, see [LLM research, section 7](#7-speeding-up-the-llm-parallel-requests)). Set it once, then restart the Ollama app:
+  - Windows (PowerShell): `[Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL','4','User')`, then quit Ollama from the tray icon and start it again.
+  - macOS / Linux: `export OLLAMA_NUM_PARALLEL=4` in the shell that starts `ollama serve`.
+  - GPU memory: with 4 at once the model uses about **5.1 GB** (62% of an 8 GB card). For less, use 3 (about 4.5 GB, 55%): set `OLLAMA_NUM_PARALLEL=3` **and** `LLM_CONCURRENCY=3` in `.env`. The two numbers must match.
+- An internet connection (Google News).
+
+### 2. Install
+```
+git clone https://github.com/avichickvashvili-droid/press-mentions-dashboard.git
+cd press-mentions-dashboard
+npm install
+```
+
+Optional: copy `.env.example` to `.env` to change a setting (database path, number of parallel AI requests, Ollama address or model). Without a `.env` file the defaults are used, and Node prints `.env not found. Continuing without it.`. That line is expected.
+
+### 3. Run
+```
+npm start
+```
+This starts the **orchestrator**, which runs two services side by side and restarts them if they crash:
+
+| Service | What it does | How long (on the dev PC) |
+|---|---|---|
+| `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue | About 10–30 minutes |
+| `[classifier]` | Asks the local AI about each article: relevant? sentiment? Deletes the irrelevant ones, saves the rest as mentions | Keeps pace with the collector, then about 1–2 hours to finish the queue |
+
+When the queue is empty, the classifier writes the results to **`data/`** and the run is marked `done`:
+- `data/companies.json`: every company with its status ("mentioned N days ago" or "no coverage").
+- `data/mentions.json`: every relevant mention: title, link, publisher, date, sentiment.
+- `data/run.json`: run summary (articles checked, relevant, deleted, failed companies).
+
+The database itself is `db/press-mentions.sqlite` (never committed to git).
+
+**Stopping and resuming.** Press **Ctrl+C** to stop. Each service saves where it was first. Run `npm start` again and it continues from the same company, with no duplicates. The same happens after a crash or a power cut.
+
+**Running again.** The 90-day collection runs **once**. After it has finished, `npm start` doesn't collect again (new articles will come from the daily job, not built yet). To force a new 90-day collection, run `npm run collect`.
+
+### 4. Other commands
+
+| Command | What it does |
+|---|---|
+| `npm test` | Runs all 160 tests. Offline: Google News and Ollama are replaced with fakes |
+| `npm run collect` | Runs only the collector: one full 90-day collection (or resumes an unfinished one) |
+| `npm run classifier` | Runs only the classifier (always on; stop with Ctrl+C) |
+| `npm run seed` | Only loads or updates the company list in the database |
+
+Each service ends with an exit code that says why it stopped (0 finished, 3 refused because another run is active, 1 crashed); see [challenge 12](#12-crashes-and-failures).
 
 ## Tech stack
 
@@ -483,7 +538,7 @@ qwen3:4b is slower (3.06 vs 5.54 articles/s), but it is better on every quality 
 ### 9. How to reproduce the test
 
 **You need:**
-- Node.js 24 (the scripts use only built-in modules, so there is no `npm install`).
+- Node.js 24. The research scripts in `research/model-test/` use only built-in modules, so they run without `npm install` (the app itself needs it, see [How to run](#how-to-run)).
 - [Ollama](https://ollama.com) installed and running on its default address, `http://127.0.0.1:11434`. The `ollama` command must be on your PATH (the runner calls `ollama ps` to record GPU vs CPU use).
 - A GPU with about 8 GB of VRAM to get similar speeds.
 

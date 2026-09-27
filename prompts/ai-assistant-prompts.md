@@ -1931,3 +1931,76 @@ man stop with testing harvey every time be creatie pick something else not from 
 ```
 classifier status
 ```
+
+---
+
+## Prompt 151 — Database cleanup
+
+```
+did u clean up the database aswell?
+```
+
+---
+
+## Prompt 152 — Ready for a real run?
+
+```
+ok heres what gonna happen 
+are we ready for a real run yet? whats missing?
+```
+
+---
+
+## Prompt 153 — Error and crash handling?
+
+```
+do we have error and or crash handling?
+```
+
+---
+
+## Prompt 154 — Set OLLAMA_NUM_PARALLEL, README how to run, no running
+
+```
+Turn on 4-at-once in Ollama (OLLAMA_NUM_PARALLEL=4). It isn't set on your PC right now. Without it Ollama answers one request at a time, and the AI step takes about 2.3 h instead of 1.4 h. This is a Windows setting plus an Ollama restart, so I need your OK to set it.
+DO it and make sure its in the README 
+2. i dont want you to run the program do not run it urself
+3. im not closing, i asked you to not use over 60% from the gpu im using the remainig 30, 10 room for error
+
+add to the current README how to run
+all the rest can be waited
+including push
+```
+
+---
+
+## Prompt 155 — Can I just run npm start?
+
+```
+so if i want to run it myself i can just do npm start?
+```
+
+---
+
+## Prompt 156 — Other commands? Commit notes
+
+```
+no other command is needed?
+show me the commit notes
+```
+
+---
+
+## Prompt 157 — Is npm install in How to run?
+
+```
+is it wrtiten in how to run , npm install?
+```
+
+---
+
+## Prompt 158 — Commit notes
+
+```
+ok commit notes
+```

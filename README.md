@@ -135,6 +135,7 @@ npm run dashboard
 ```
 Then open **http://localhost:3000**. The dashboard is its own command, separate from `npm start`, and needs neither Google News nor Ollama.
 - It shows every company in the list, also those with no coverage, **most mentions first** (no coverage last): status ("last mentioned 3 days ago" / "no coverage found"), number of mentions and how many are positive / negative / neutral. Click a company to see its mentions from the last 90 days, newest first, **20 per page** (« First ‹ Previous · Page 3 of 161 · Next › Last »), each with its date, sentiment, publisher and a link to the article.
+- **Search:** type in the box above the table and it narrows on every keystroke (no button, no Enter): company names containing the text, in any case. The text stays when the data reloads, and an open company stays open.
 - **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. A database that already has data is never changed.
 - **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads when you come back to its tab, when you press **Refresh**, and by itself at midnight (UTC). "Data as of …" at the top shows when it was loaded.
 - **Development:** `npm run dev` (the page with hot reload, http://localhost:5173) together with `npm run api` in a second terminal.
@@ -890,3 +891,5 @@ Notes:
 ## Known limitations
 
 See challenges 1, 2, 4, 9, 10, 11 and 16 above. This section will be finalized after the real run.
+
+- **The daily "last 24 hours" is really about 2 days.** Google News search takes dates, not hours, so the daily job searches yesterday + today. Articles already stored are skipped by the duplicate checks, so nothing is counted or alerted twice; the cost is a little extra search and AI work.

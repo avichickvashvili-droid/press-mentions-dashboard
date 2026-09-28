@@ -38,3 +38,8 @@
 .nameButton:hover {
   text-decoration: underline;
 }
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}

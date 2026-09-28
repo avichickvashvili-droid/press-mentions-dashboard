@@ -3080,3 +3080,85 @@ i want us to move on to the daily job
 and when we got time left we are going to do some QOL and nice to have in the dash board
 but for now i want you to log everything we did into a commit
 ```
+
+---
+
+## Prompt 268 — Daily job: how do we avoid adding the same data again?
+
+```
+we need to handle duplicate data in the daily job
+explain to me how we are not adding same data again
+```
+
+---
+
+## Prompt 269 — The same story from different publishers stays separate mentions
+
+```
+The same story from different publishers (a Reuters story copied by Yahoo, MSN…) counts as separate mentions. They have different ids and different publishers. Grouping them was marked optional in the plan. Is that okay, or do you want the daily job to handle it?
+ofc its different one can have different sentiment and thats exactly what the system is built for
+```
+
+---
+
+## Prompt 270 — Daily job answers: Discord webhook, node-cron, last 24 h, first alert = all 11,600, invalidate the dashboard queries
+
+```
+i want to get a notification into a discord webhook
+node-cron daily job
+last 24 hrs
+you can let the first alert me this 11600 mentions yes
+the daily job should send a querynotvalid something no?
+```
+
+---
+
+## Prompt 271 — Daily job: signal via the backend; no alert for the existing mentions; 3am IST; own command; date-only window as a design flaw
+
+```
+ok so let the daily job speak with our back end and that will notify the front whats the issue? 
+1. dont send 11600 mentions omg. so dont send for the first day meaning when the dashboard was built
+2. 3am ist
+3. exactly
+4. ok mention that in design flaws
+5. sure
+```
+
+---
+
+## Prompt 272 — Agent to design a pretty Discord digest; down at 03:00 / PC off → run when possible
+
+```
+send an agent to design us the webhook message i want something trendy and pretty
+and for it to be creative. maybe highlighted headlines just dont over load it too much
+2. run when possible. 
+3. run when possible
+```
+
+---
+
+## Prompt 273 — Agent to add search to the dashboard: filter as you type, no search button
+
+```
+I want you to send another agent to start adding the search feature in the react
+make sure to pay attention and filter as we type, and not press search and than it shows results my meaning is no search button is required
+```
+
+---
+
+## Prompt 274 — Here is the Discord webhook URL; send a dummy digest once the format is ready
+
+```
+https://discord.com/api/webhooks/[REDACTED: the webhook URL is a secret, saved only in .env]
+thats the webhook url when the webhook format is ready send a dummy one
+```
+
+---
+
+## Prompt 275 — Why is the Discord agent slow? Commit: stable dashboard, search, daily job design so far
+
+```
+why does it take the discord agent so long its just formatting a message
+prapre a commit for a stable version of dashboard, add search, start desginging of daily job
+and everything else we did
+```

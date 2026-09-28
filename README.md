@@ -117,7 +117,7 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 423 backend tests (pipeline + API + daily job). Offline: Google News, Ollama and Discord are replaced with fakes |
+| `npm test` | Runs all 434 backend tests (pipeline + API + daily job). Offline: Google News, Ollama and Discord are replaced with fakes |
 | `npm run test:web` | Runs the dashboard page's 64 tests (Vitest, in a simulated browser) |
 | `npm run daily` | Starts the daily job; it stays up and runs every day at 03:00 Israel time (see [the daily job](#6-the-daily-job)) |
 | `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
@@ -141,7 +141,7 @@ Then open **http://localhost:3000**. The dashboard is its own command, separate 
 - **Sort:** click the Company, Status or Mentions header to sort by it; click again to reverse (▲ / ▼ shows the active one). Companies with no coverage stay at the bottom (except when sorting by Company). The sentiment columns are not sortable.
 - **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. The data of a database that already has data is never changed (at start-up the api may only switch it to WAL mode and add missing tables or columns).
 - **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads when you come back to its tab, when you press **Refresh**, and by itself at midnight (UTC), and by itself when the daily job has added new data. "Data as of …" at the top shows when it was loaded.
-- **This computer only:** the API listens on 127.0.0.1, so nobody else on your network can open it.
+- **This computer only:** the API listens on 127.0.0.1, so nobody else on your network can open it, and it answers only requests addressed to `localhost` / `127.0.0.1` (anything else gets 403), so a web page on another site can't read it through your browser ("DNS rebinding").
 - **Development:** `npm run dev` (the page with hot reload, http://localhost:5173) together with `npm run api` in a second terminal.
 
 **API** (it never writes to the database):
@@ -184,8 +184,13 @@ It stays up (like the dashboard, in its own terminal) and runs **every day at 03
 - **Google or Ollama is down:** it waits and tries again until they are back ("run when possible").
 - **Discord is down, or the webhook was deleted:** the run still finishes; the mentions stay "new" and go out with the next message. The terminal and the log say why.
 - **A run fails** (an unexpected error): tried again after 30 min, at most 3 times, then at the next 03:00.
+- **Something stays wrong for hours:** Discord gets one "⚠️ Daily job problem" message (red) when a run has waited 3 hours (the 90-day collection is still open), has been going on for 3 hours (e.g. Ollama or Google is down; the message says the last problem), or gave up after its 3 retries. So a silent Discord never hides a problem.
 - **Stopped in the middle** (Ctrl+C, a crash, a closed window): the articles being classified go back to the queue, the run is marked failed, and the next start runs it again. An article left "being classified" by a program that is gone is given back, so it can never make a run wait forever.
 - **The database is busy** for a moment (another program is writing): the run's own writes wait and try again, so a message Discord already accepted is never sent twice.
+
+**Restarting it:** nothing restarts `npm run daily` by itself. After a crash, a closed window or a PC restart, just run `npm run daily` again: it runs the missed day right away (and searches every day since the last run).
+
+**With the 90-day collection:** `npm start` and `npm run collect` refuse to start (exit 3, with a clear message) while a daily run is going on; try again when it ends. The other way round, a daily run waits while a 90-day collection is open. Mentions found by a 90-day collection are marked as already alerted, so they never go to Discord (only what the daily job finds does).
 
 **Log:** the terminal (with the time of each line) and `db/logs/daily/daily.log`. The history of the runs:
 ```sql
@@ -930,4 +935,8 @@ Notes:
 
 See challenges 1, 2, 4, 9, 10, 11 and 16 above. This section will be finalized after the real run.
 
+- **The daily job re-checks yesterday's irrelevant articles.** The daily search covers 2 days, and articles the AI found irrelevant are deleted (not kept), so the next day finds and checks them again. They never become mentions; the cost is a few extra AI checks a day.
+- **`data/` is written only on days with new mentions.** On a quiet day `data/` keeps the last snapshot, so its "days ago" gets older. The dashboard is always correct (it reads the database and works the numbers out on every request).
+- **Many dashboard tabs:** each open tab keeps one live-updates connection. With 6 or more tabs open in the same browser, the browser's connection limit can make the page slow to load; close the extra tabs.
+- **No webhook set:** without `DISCORD_WEBHOOK_URL`, the daily job still runs, and the new mentions wait; they all go out in the first message once the webhook is set.
 - **The daily "last 24 hours" is really about 2 days.** Google News search takes dates, not hours, so the daily job searches yesterday + today. Articles already stored are skipped by the duplicate checks, so nothing is counted or alerted twice; the cost is a little extra search and AI work.

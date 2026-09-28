@@ -17,7 +17,7 @@ Port 3000 taken? Set `API_PORT=3001` in `.env`. More in [README](README.md#5-the
 
 ## Daily job
 
-`npm run daily` in its own terminal, with Ollama running and `DISCORD_WEBHOOK_URL` in `.env`. It stays up and runs every day at 03:00 Israel time (right away if a day was missed), then posts to Discord, also on a quiet day. Stop: Ctrl+C. More in [README](README.md#6-the-daily-job).
+`npm run daily` in its own terminal, with Ollama running and `DISCORD_WEBHOOK_URL` in `.env`. It stays up and runs every day at 03:00 Israel time (right away if a day was missed), then posts to Discord, also on a quiet day; a "⚠️ Daily job problem" message means something is stuck for hours. Stop: Ctrl+C. After a crash or a PC restart, just run `npm run daily` again (it catches up by itself). While a daily run is going on, `npm start` refuses to start: try again when it ends. More in [README](README.md#6-the-daily-job).
 
 ## Follow a run
 

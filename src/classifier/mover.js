@@ -11,6 +11,11 @@
 // Mention.url is the Google News link as fetched: there is no URL decoding (D60).
 // An article already in Mention (same company + guid) is never overwritten (D16): the copy in the
 // queue is simply removed.
+// alerted_at (Prompt 298, owner decision A): while a 90-day collection is open (a JobRun that is
+// 'running' or 'collected'), the moved mentions get alerted_at = now, so a new collection's
+// (up to 90 days old) mentions never go to the daily Discord message. Otherwise (the daily job)
+// alerted_at stays empty: the daily job alerts them. The two never overlap: the daily job waits
+// while a collection is open, and a collection does not start during a daily run.
 
 import { config } from '../config.js';
 import { inTransaction } from '../db/database.js';
@@ -18,8 +23,10 @@ import { inTransaction } from '../db/database.js';
 // Moves up to `limit` of the oldest relevant rows in one transaction. With `group`
 // ({ runId, groupNumber }), only rows of that group's companies are moved.
 // Returns { moved, alreadyInMention }.
-export function moveRelevantRows(db, { limit = config.MOVE_CHUNK, group = null } = {}) {
+export function moveRelevantRows(db, { limit = config.MOVE_CHUNK, group = null, now = new Date().toISOString() } = {}) {
   return inTransaction(db, () => {
+    const collectionOpen = Boolean(db.prepare("SELECT 1 FROM JobRun WHERE status IN ('running', 'collected') LIMIT 1").get());
+    const alertedAt = collectionOpen ? now : null;
     const rows = group
       ? db.prepare(`SELECT id, company_id, guid, url, title, publisher, published_at, first_seen_at, sentiment
                     FROM BufferQueue WHERE status = 'relevant'
@@ -27,14 +34,14 @@ export function moveRelevantRows(db, { limit = config.MOVE_CHUNK, group = null }
                     ORDER BY id LIMIT ?`).all(group.runId, group.groupNumber, limit)
       : db.prepare(`SELECT id, company_id, guid, url, title, publisher, published_at, first_seen_at, sentiment
                     FROM BufferQueue WHERE status = 'relevant' ORDER BY id LIMIT ?`).all(limit);
-    const insert = db.prepare(`INSERT INTO Mention (company_id, guid, url, title, publisher, published_at, first_seen_at, sentiment)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    const insert = db.prepare(`INSERT INTO Mention (company_id, guid, url, title, publisher, published_at, first_seen_at, sentiment, alerted_at)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                                ON CONFLICT (company_id, guid) DO NOTHING`);
     const remove = db.prepare('DELETE FROM BufferQueue WHERE id = ?');
     let moved = 0;
     let alreadyInMention = 0;
     for (const row of rows) {
-      const added = insert.run(row.company_id, row.guid, row.url, row.title, row.publisher, row.published_at, row.first_seen_at, row.sentiment).changes;
+      const added = insert.run(row.company_id, row.guid, row.url, row.title, row.publisher, row.published_at, row.first_seen_at, row.sentiment, alertedAt).changes;
       if (added) moved += 1; else alreadyInMention += 1;
       remove.run(row.id);
     }

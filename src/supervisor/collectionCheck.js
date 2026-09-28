@@ -11,6 +11,9 @@
 // file does not exist yet, nothing was ever collected.
 // Writes: nothing.
 //
+// checkNoDailyRun (Prompt 298, review #4): `npm start` refuses (exit 3) while a daily run is going
+// on (src/shared/dailyRunCheck.js).
+//
 // checkGroupsRequest (`npm start -- --groups 2,5`, D87): before anything starts, checks that a run
 // exists and that each chosen group exists in the latest run (e.g. no group 12 when the run has
 // 10). Whether that run is 'done' is checked by the collector itself (it refuses with exit 3).
@@ -18,6 +21,21 @@
 import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { config } from '../config.js';
+import { describeDailyRunGoingOn, findLiveDailyRun } from '../shared/dailyRunCheck.js';
+
+// Checks, READ-ONLY, that no daily run is going on. Returns { ok: true } or { ok: false, reason }.
+// Throws if the database exists but cannot be read; the caller logs that.
+export function checkNoDailyRun({ dbPath = config.DB_PATH, isAlive } = {}) {
+  if (!fs.existsSync(dbPath)) return { ok: true };
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    db.exec(`PRAGMA busy_timeout = ${Number(config.DB_BUSY_TIMEOUT_MS)};`);
+    const run = findLiveDailyRun(db, isAlive ? { isAlive } : {});
+    return run ? { ok: false, reason: describeDailyRunGoingOn(run) } : { ok: true };
+  } finally {
+    db.close();
+  }
+}
 
 // Checks the chosen groups of `--groups` against the latest run, READ-ONLY.
 // Returns { ok: true } or { ok: false, reason: text for a person }.

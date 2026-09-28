@@ -31,6 +31,9 @@
 // extension, e.g. /favicon.ico or an old /assets/index-OLD.js) gets a 404 instead. If the page
 // has not been built yet, a short message says how to build it.
 //
+// Only requests addressed to this computer are answered (the Host is localhost, 127.0.0.1 or
+// [::1], API_ALLOWED_HOSTS); anything else gets 403 (owner decision F, "DNS rebinding").
+//
 // Every answer carries a few security headers (no new library needed): the browser must not
 // guess file types, the page can't be shown inside another site's frame, no address is sent on
 // to other sites, and the page may only load its own files (CSP). The built page has no inline
@@ -64,6 +67,7 @@ const READ_FAILED_MESSAGE = 'The dashboard data could not be read from the datab
 //   webDistDir       the folder of the built page
 //   logError         where server-side errors are written
 //   events           the live-updates channel (events.js); runApi.js closes it when stopping
+//   allowedHosts     the Host names the api answers to (see the top)
 export function createApp({
   db,
   now = () => Date.now(),
@@ -73,6 +77,7 @@ export function createApp({
   webDistDir = config.WEB_DIST_DIR,
   logError = (text) => console.error(text),
   events = createEventHub(),
+  allowedHosts = config.API_ALLOWED_HOSTS,
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -81,6 +86,17 @@ export function createApp({
   app.use((req, res, next) => {
     res.set(SECURITY_HEADERS);
     next();
+  });
+
+  // Only requests addressed to this computer (see the top): blocks a web page on another site
+  // that points its own name at 127.0.0.1 to read the dashboard.
+  const hosts = new Set(allowedHosts.map((host) => host.toLowerCase()));
+  app.use((req, res, next) => {
+    if (hosts.has(String(req.hostname ?? '').toLowerCase())) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: `This dashboard only answers on this computer: open http://localhost:${config.API_PORT}` });
   });
 
   // Answers with a JSON error, and writes the details to the server log (never to the page).

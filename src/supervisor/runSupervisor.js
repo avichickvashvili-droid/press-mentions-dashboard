@@ -11,6 +11,8 @@
 // service writes its own log file itself (collector.log, group-N.log, classifier.log).
 //
 // What it does:
+//   - while a daily run (`npm run daily`) is going on, nothing is started: a clear message and
+//     exit 3 (Prompt 298, review #4), so the daily job never classifies a collection's articles;
 //   - the collector is launched only if the 90-day collection never completed (D67);
 //   - `npm start -- --groups 2,5` (D87): re-runs those groups of the latest run. The option is
 //     checked first (whole numbers from 1, and groups that exist in the latest run); if it is
@@ -28,11 +30,12 @@
 //   0 finished · 3 refused, nothing wrong · 1 crash · 130 Ctrl+C · 143 stop request
 // Exit code of the orchestrator itself:
 //   0 everything finished normally · 1 a service was given up / missing, or the orchestrator
-//   itself failed · 3 `--groups` was wrong, nothing was started · 130 stopped by Ctrl+C ·
+//   itself failed · 3 `--groups` was wrong or a daily run is going on, nothing was started ·
+//   130 stopped by Ctrl+C ·
 //   143 stopped by SIGTERM
 
 import { servicesFor } from './services.js';
-import { checkGroupsRequest } from './collectionCheck.js';
+import { checkGroupsRequest, checkNoDailyRun } from './collectionCheck.js';
 import { readGroupsOption } from '../shared/groupsOption.js';
 import { createSupervisor } from './supervisor.js';
 import { startServiceProcess } from './serviceProcess.js';
@@ -68,7 +71,20 @@ function readCheckedGroups() {
   return option.groups;
 }
 
-const groups = readCheckedGroups();
+// Refuses to start while a daily run is going on (see the top). Returns true when it may start.
+function noDailyRunGoingOn() {
+  let check;
+  try {
+    check = checkNoDailyRun();
+  } catch (error) {
+    log.error(`Could not check for a daily run: the database cannot be read (${error.message}).`);
+    return false;
+  }
+  if (!check.ok) log.error(check.reason);
+  return check.ok;
+}
+
+const groups = noDailyRunGoingOn() ? readCheckedGroups() : undefined;
 if (groups === undefined) {
   log.error('Nothing was started.');
   systemLog.settle();

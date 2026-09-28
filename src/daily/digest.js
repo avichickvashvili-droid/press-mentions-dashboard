@@ -14,6 +14,8 @@
 // carries the ids of the mentions it lists, so they are marked alerted only when THAT message
 // was accepted.
 // A day with nothing new still gets a short, friendly message, so you know the job ran.
+// A problem (buildProblemMessage, owner decision B): "⚠️ Daily job problem · Tue 29 Sep", what is
+// wrong, and whether it keeps trying or waits for the next scheduled run.
 // Company names come from our list, but they are escaped anyway, so a character like * or _
 // can't change the formatting, and `allowed_mentions` is empty, so nobody is ever pinged.
 
@@ -115,4 +117,24 @@ export function buildDigestMessages({
     const description = [DIVIDER, ...page.lines, last ? footer : DIVIDER].join('\n');
     return { payload: payload(`📰 New press mentions · ${day}${part}`, description, color), mentionIds: page.mentionIds };
   });
+}
+
+// The "Daily job problem" message (owner decision B, Prompt 298). `problem` = what is wrong, in
+// plain words (never the webhook address); `keepsTrying` = true while the job still retries,
+// false when it waits for the next scheduled run. Returns the webhook JSON body.
+export function buildProblemMessage({
+  problem,
+  keepsTrying,
+  sentAt = new Date(),
+  timeZone = config.DAILY_TIMEZONE,
+  color = config.DISCORD_PROBLEM_COLOR,
+  cron = config.DAILY_CRON,
+  maxTextChars = config.DISCORD_MAX_TEXT_CHARS,
+}) {
+  const time = describeCronTime(cron);
+  const next = keepsTrying
+    ? 'It keeps trying by itself; you get the normal message once it is through.'
+    : `It tries again at the next scheduled run${time ? ` (${time})` : ''}. Check the daily job's window or daily.log.`;
+  const text = String(problem).slice(0, maxTextChars - next.length - 10);
+  return payload(`⚠️ Daily job problem · ${formatTitleDate(new Date(sentAt), timeZone)}`, `${text}\n\n${next}`, color);
 }

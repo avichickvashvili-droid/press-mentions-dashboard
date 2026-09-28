@@ -352,6 +352,11 @@ export const config = {
   // Nobody else on the network can open the dashboard or send it the daily job's signal.
   API_HOST: '127.0.0.1',
 
+  // The only addresses the api answers to (a request's Host, without the port): this computer's
+  // names. Anything else gets 403. This blocks "DNS rebinding", where a web page on another site
+  // tricks the browser into reading the dashboard (owner decision F, Prompt 298).
+  API_ALLOWED_HOSTS: ['localhost', '127.0.0.1', '[::1]'],
+
   // While a dashboard page is open, the api sends it a small "still here" line this often over
   // the live-updates connection (GET /api/events), so the connection is not closed as idle.
   EVENTS_KEEP_ALIVE_MS: 25000,
@@ -395,6 +400,12 @@ export const config = {
   DAILY_FAILED_RETRY_MS: 30 * 60 * 1000,
   DAILY_FAILED_RETRIES: 3,
 
+  // "Daily job problem" message to Discord (Prompt 298, owner decision B): sent ONCE when a daily
+  // run has been waiting (the 90-day collection is open) or going on (e.g. Ollama or Google is
+  // down) for this long without finishing: 3 hours. Also sent when a run gave up after its
+  // failed retries. So a silent Discord never hides a problem.
+  DAILY_PROBLEM_AFTER_MS: 3 * 60 * 60 * 1000,
+
   // The daily job tells the api "new data" (POST /api/internal/data-updated). How long it waits
   // for the api to answer before it gives up (the api may simply not be running).
   DAILY_NOTIFY_TIMEOUT_MS: 5000,
@@ -410,6 +421,9 @@ export const config = {
 
   // The side color of the Discord message (Discord's blurple).
   DISCORD_COLOR: 5793266,
+
+  // The side color of the "Daily job problem" message (red).
+  DISCORD_PROBLEM_COLOR: 15548997,
 
   // Discord allows at most 4,096 characters in one message's text. Every company is listed
   // (Prompt 294); when the list is longer than this, it goes on in a next message ("2/3").

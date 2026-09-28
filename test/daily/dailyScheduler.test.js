@@ -95,7 +95,7 @@ test('failed: tried again every 30 min, at most 3 times, then waits for the next
   }
   assert.deepEqual(state.runs, ['missed', 'retry', 'retry', 'retry']);
   assert.equal(state.waitingRetries().length, 0);
-  assert.match(state.lines.at(-1), /failed 4 times in a row; the next try is the next scheduled run/);
+  assert.ok(state.lines.some((line) => /failed 4 times in a row; the next try is the next scheduled run/.test(line)));
   // The next 03:00 starts a fresh count.
   await state.scheduled.fn();
   assert.equal(state.runs.at(-1), 'scheduled');
@@ -144,7 +144,7 @@ test('a run that throws counts as failed (the scheduler keeps going)', async () 
   });
   const result = await scheduler.trigger('scheduled');
   assert.deepEqual(result, { status: 'failed', error: 'unexpected' });
-  assert.equal(state.timers.length, 1);
+  assert.equal(state.timers.filter((timer) => timer.ms === 30 * 60 * 1000).length, 1); // one retry (the other timer is the 3 h watch)
 });
 
 test('an invalid cron time is refused at start', () => {

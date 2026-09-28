@@ -14,6 +14,12 @@
 //   - again after DAILY_FAILED_RETRY_MS (30 min) when the run failed, at most
 //     DAILY_FAILED_RETRIES times in a row; then it waits for the next 03:00.
 // A retry is dropped when a successful run has started since the time it is retrying for.
+// Problems go to Discord too (owner decision B, Prompt 298), ONCE per need (a day's run and its
+// retries), through `onProblem(text, { keepsTrying })`:
+//   - the run has been waiting (blocked) for DAILY_PROBLEM_AFTER_MS (3 h) since it was due;
+//   - a run has been going on for DAILY_PROBLEM_AFTER_MS without finishing (e.g. Ollama or Google
+//     is down; the text includes `describeState()`, the last warning);
+//   - the failed retries are used up (it waits for the next 03:00).
 // A database error inside a timer is logged and the timer is planned again: it never crashes
 // the program.
 // Only one run at a time: a start while a run is going on is skipped (with a line).
@@ -25,6 +31,7 @@ import { describeDuration } from '../shared/text.js';
 
 // Creates the scheduler. Everything it uses can be replaced in tests (a fake cron, fake timers).
 // `runOnce(reason)` must resolve to { status: 'done' | 'failed' | 'blocked', ... }.
+// `onProblem(text, { keepsTrying })` sends the problem message; `describeState()` = the last warning.
 // Returns { start, stop, trigger, isBusy }.
 export function createDailyScheduler({
   runOnce,
@@ -41,6 +48,9 @@ export function createDailyScheduler({
   blockedRetryMs = config.DAILY_BLOCKED_RETRY_MS,
   failedRetryMs = config.DAILY_FAILED_RETRY_MS,
   failedRetries = config.DAILY_FAILED_RETRIES,
+  problemAfterMs = config.DAILY_PROBLEM_AFTER_MS,
+  onProblem = () => {},
+  describeState = () => null,
 }) {
   let task = null;
   let retryTimer = null;
@@ -48,6 +58,19 @@ export function createDailyScheduler({
   let busy = false;
   let failuresInARow = 0;
   let gaveUp = false; // the failed retries are used up: only the next 03:00 starts a run again
+  let problemSentFor = null; // the "need" (sinceMs) a problem message was already sent for
+
+  // Sends one problem message for the need that started at `sinceMs` (never twice). Never throws.
+  function reportProblem(sinceMs, text, keepsTrying) {
+    if (problemSentFor === sinceMs) return;
+    problemSentFor = sinceMs;
+    log(`Daily job problem (sent to Discord): ${text}`);
+    try {
+      Promise.resolve(onProblem(text, { keepsTrying })).catch((error) => log(`The problem message could not be sent: ${error?.message ?? error}`));
+    } catch (error) {
+      log(`The problem message could not be sent: ${error?.message ?? error}`);
+    }
+  }
 
   // True if a successful run has started at or after `sinceMs`.
   function doneSince(sinceMs) {
@@ -105,6 +128,12 @@ export function createDailyScheduler({
       return null;
     }
     busy = true;
+    // A run still going after DAILY_PROBLEM_AFTER_MS: one problem message (it keeps trying).
+    const watchdog = setTimer(() => {
+      if (!busy) return;
+      const state = describeState();
+      reportProblem(sinceMs, `The daily run started ${describeDuration(problemAfterMs)} ago and is not done yet.${state ? ` Last problem: ${state}` : ''}`, true);
+    }, problemAfterMs);
     if (reason !== 'retry') failuresInARow = 0; // a new day (or a missed run) starts a fresh count
     if (reason === 'scheduled') gaveUp = false;
     if (retryTimer !== null) { clearTimer(retryTimer); retryTimer = null; }
@@ -115,6 +144,7 @@ export function createDailyScheduler({
       result = { status: 'failed', error: error?.message ?? String(error) };
     } finally {
       busy = false;
+      clearTimer(watchdog);
     }
 
     if (result.status === 'done') {
@@ -123,6 +153,9 @@ export function createDailyScheduler({
     } else if (result.status === 'blocked') {
       log(`The daily run waits: ${result.reason}. Trying again in ${describeDuration(blockedRetryMs)}.`);
       planRetry(blockedRetryMs, sinceMs);
+      if (now() - sinceMs >= problemAfterMs) {
+        reportProblem(sinceMs, `The daily run has been waiting for ${describeDuration(now() - sinceMs)}: ${result.reason}.`, true);
+      }
     } else {
       failuresInARow += 1;
       if (failuresInARow <= failedRetries) {
@@ -131,6 +164,8 @@ export function createDailyScheduler({
       } else {
         gaveUp = true;
         log(`The daily run failed: ${result.error}. It failed ${failuresInARow} times in a row; the next try is the next scheduled run.`);
+        problemSentFor = null; // giving up always gets its own message
+        reportProblem(sinceMs, `The daily run failed ${failuresInARow} times in a row. Last error: ${result.error}`, false);
       }
     }
     return result;

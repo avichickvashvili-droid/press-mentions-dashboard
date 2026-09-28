@@ -17,6 +17,9 @@
 // says which process is already open and exits with 3 (refused), so no day gets two runs and two
 // Discord messages.
 //
+// Problems also go to Discord, once per day's run: "⚠️ Daily job problem" when a run has waited or
+// been going on for 3 hours, or gave up after its retries (owner decision B, dailyScheduler.js).
+//
 // Stopping: Ctrl+C (exit 130), a stop request (SIGTERM, 143) or closing the console window
 // (SIGHUP on Windows, 143): the articles being classified go back to the queue unchanged, a run
 // in progress is marked 'failed' ("stopped"), the next start runs it again (the missed-run
@@ -38,7 +41,8 @@ import { runDailyJob } from './dailyJob.js';
 import { createDailyScheduler } from './dailyScheduler.js';
 import { findLastDoneDailyRun, finishDailyRun } from './dailyStore.js';
 import { lockFilePath, releaseProcessLock, takeProcessLock } from './processLock.js';
-import { describeCronTime } from './digest.js';
+import { buildProblemMessage, describeCronTime } from './digest.js';
+import { sendDiscordMessage } from './discord.js';
 
 // The folder of daily.log inside the logs folder.
 const LOG_FOLDER = 'daily';
@@ -49,6 +53,7 @@ logFile.setFolder(LOG_FOLDER);
 let db = null;
 let scheduler = null;
 let currentRunId = null;
+let lastWarning = null; // the last warning line, for the "Daily job problem" message
 let lockTaken = false; // true once this process holds daily.lock (processLock.js)
 let stopping = false;
 
@@ -60,6 +65,7 @@ function log(text) {
 
 // A warning: on the terminal and in daily.log, with "WARNING:" in front.
 function warn(text) {
+  lastWarning = text;
   console.warn(`${formatLogTime(new Date()).slice(0, 19)}  WARNING: ${text}`);
   logFile.write(`WARNING: ${text}`);
 }
@@ -175,6 +181,12 @@ function main() {
     runOnce: (reason) => runOnce({ googleClient, classifier }, reason),
     readLastDoneStartedAt: () => findLastDoneDailyRun(db)?.started_at ?? null,
     log,
+    // A problem also goes to Discord (owner decision B): the webhook address is never in the text.
+    onProblem: async (text, { keepsTrying }) => {
+      const result = await sendDiscordMessage(buildProblemMessage({ problem: text, keepsTrying }), { log: warn });
+      if (!result.ok) warn(`The problem message was not sent to Discord: ${result.error}`);
+    },
+    describeState: () => lastWarning,
   });
 
   const time = describeCronTime(config.DAILY_CRON) ?? config.DAILY_CRON;

@@ -14,8 +14,8 @@
 // the alert went out, which companies could not be searched.
 // The collection's times are NOT the export time: when the current run.json describes the same
 // collection (same runId), its `collectedAt` and `finishedAt` are kept as they are. Otherwise
-// `finishedAt` is the collection's end (JobRun.finished_at) and `collectedAt` is null: once the
-// run is 'done', the database no longer knows when the collecting ended (the finish overwrote it).
+// both are the collection's end (JobRun.finished_at): once the run is 'done', the database no
+// longer knows when the collecting itself ended, so its finish time is used (owner, Prompt 298).
 // A database that was filled from data/ (a fresh clone, D35) has no collection row: then the
 // collection part of the current run.json is kept as it is.
 // The files are written crash-safely by the exporter (".tmp" first, then renamed, run.json last).
@@ -58,7 +58,7 @@ export function buildDailyExport(db, {
   } else if (current.runId === collection.id) {
     runJson = { ...files['run.json'], collectedAt: current.collectedAt ?? null, finishedAt: current.finishedAt ?? collection.finished_at };
   } else {
-    runJson = { ...files['run.json'], collectedAt: null, finishedAt: collection.finished_at };
+    runJson = { ...files['run.json'], collectedAt: collection.finished_at, finishedAt: collection.finished_at };
   }
   runJson.asOf = asOf; // the same time as the other two files (crash safety, see exporter.js)
   runJson.lastDailyRun = lastDailyRun;

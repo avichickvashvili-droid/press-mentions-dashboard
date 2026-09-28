@@ -3372,3 +3372,51 @@ ok so im going to instruct you now what to do:
 2. code fix from the review agent
 3. after those are done prapre a commit for me.
 ```
+
+---
+
+## Prompt 297 — Open decisions as multiple choice
+
+```
+give it to me as multi option and ill choose its too much to track
+```
+
+---
+
+## Prompt 298 — Answers to the multiple-choice questions (open decisions of the Step 6 review)
+
+```
+#4 npm start during a daily run: "npm start refuses"
+#9 catch-up run just before 03:00: "Always run at 03:00"
+A  a new 90-day collection's mentions: "Mark as alerted (Recommended)"
+B  failures: "Send a problem message (Recommended)"
+C  no restart after a crash: "Document it (Recommended)"
+F  DNS rebinding: "Add the check (Recommended)"
+D, E, G, H small side effects: "Accept, add to README (Recommended)"
+Build choices: search from the last run "Fri to Mon (Recommended)"; owner_pid "Keep it (Recommended)";
+  data/ order "After Discord (Recommended)"; collectedAt "Use the finish time"
+```
+
+---
+
+## Prompt 299 — No more questions
+
+```
+yo enough with the questions
+```
+
+---
+
+## Prompt 300 — Is the daily job ready for production?
+
+```
+is the daily job ready for production? yes or no answer
+```
+
+---
+
+## Prompt 301 — Commit
+
+```
+commit now
+```

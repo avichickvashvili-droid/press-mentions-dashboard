@@ -1,0 +1,319 @@
+<title>Headline Model Bake-off</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f3f5f4;
+    --surface: #ffffff;
+    --ink: #14211d;
+    --muted: #5b6b66;
+    --line: #d9e0dd;
+    --accent: #0f7a63;
+    --accent-soft: #dcefe9;
+    --good: #1c8a4a;
+    --warn: #b7791f;
+    --bad: #c2413b;
+    --bar-p: #0f7a63;
+    --bar-r: #4f8fc0;
+    --bar-s: #b98a2e;
+    --track: #e7ecea;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0f1614; --surface: #17211e; --ink: #e6eeeb; --muted: #97a8a2; --line: #2a3733;
+      --accent: #3cc3a0; --accent-soft: #173a31; --good: #4cc27a; --warn: #e0a64a; --bad: #ef6b63;
+      --bar-p: #3cc3a0; --bar-r: #6aaee0; --bar-s: #d9ac52; --track: #22302c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1614; --surface: #17211e; --ink: #e6eeeb; --muted: #97a8a2; --line: #2a3733;
+    --accent: #3cc3a0; --accent-soft: #173a31; --good: #4cc27a; --warn: #e0a64a; --bad: #ef6b63;
+    --bar-p: #3cc3a0; --bar-r: #6aaee0; --bar-s: #d9ac52; --track: #22302c;
+  }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); padding-inline: 16px; padding-block: 32px 64px; }
+  .wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 40px; }
+  h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.05; font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; font-weight: 700; }
+  p { margin: 0; max-width: 68ch; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  section { display: grid; gap: 16px; }
+  header { display: grid; gap: 12px; }
+
+  /* verdict */
+  .verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: grid; gap: 20px; grid-template-columns: 1.1fr 2fr; align-items: center; }
+  .verdict .pick { display: grid; gap: 6px; }
+  .verdict .model { font: 700 38px/1 var(--display); color: var(--accent); }
+  .chip { display: inline-block; font: 500 12px/1 var(--mono); padding: 6px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); width: fit-content; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat { display: grid; gap: 4px; padding-left: 12px; border-left: 2px solid var(--line); }
+  .stat b { font: 500 26px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 13px; color: var(--muted); }
+
+  /* model cards */
+  .models { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 14px; }
+  .card.pick { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .card-head h3 { margin: 0; font: 700 20px/1.2 var(--display); }
+  .tag { font: 500 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 5px 8px; border-radius: 6px; }
+  .tag.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .tag.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .tag.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .bars { display: grid; gap: 9px; }
+  .bar { display: grid; grid-template-columns: 118px 1fr 52px; align-items: center; gap: 10px; font-size: 13px; }
+  .bar .track { height: 10px; background: var(--track); border-radius: 5px; overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 5px; }
+  .bar .v { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .speed { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+  .speed b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+  .note { font-size: 13.5px; color: var(--muted); }
+
+  /* speed chart */
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .scroll { overflow-x: auto; }
+  svg text { fill: var(--muted); font: 12px var(--mono); }
+  svg .lbl { fill: var(--ink); font: 500 13px var(--body); }
+
+  /* heat table */
+  table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 620px; font-size: 13px; }
+  th { font: 500 12px var(--body); color: var(--muted); text-align: center; padding: 4px; }
+  th.row { text-align: left; color: var(--ink); font: 600 13px var(--mono); white-space: nowrap; }
+  td.h { text-align: center; padding: 10px 4px; border-radius: 6px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.h small { display: block; font-size: 11px; opacity: .8; }
+  .kind { font-size: 11px; font-weight: 400; display: block; }
+
+  /* dataset */
+  .ds { display: grid; gap: 10px; }
+  .ds-row { display: grid; grid-template-columns: 170px 1fr 70px; gap: 12px; align-items: center; font-size: 13px; }
+  .ds-row .co b { display: block; font-size: 14px; }
+  .ds-row .co span { color: var(--muted); font-size: 12px; }
+  .stack { display: flex; height: 18px; border-radius: 5px; overflow: hidden; background: var(--track); }
+  .stack i { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+  /* excluded */
+  .excl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .x { border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; background: color-mix(in srgb, var(--surface) 55%, transparent); }
+  .x b { font-family: var(--mono); font-weight: 500; }
+  .x span { font-size: 12.5px; color: var(--muted); }
+  .gauge { display: grid; gap: 6px; }
+  .gauge .track { height: 12px; border-radius: 6px; background: var(--track); position: relative; overflow: visible; }
+  .gauge .limit { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--bad); }
+
+  ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 72ch; }
+  footer { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+  @media (max-width: 760px) {
+    .verdict { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .models { grid-template-columns: 1fr; }
+    .excl { grid-template-columns: 1fr 1fr; }
+    .ds-row { grid-template-columns: 110px 1fr 56px; }
+  }
+  @media (max-width: 420px) {
+    .bar { grid-template-columns: 96px 1fr 46px; }
+    .excl { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Press Mentions Monitor · Step 3 research · 27 Sep 2026</div>
+    <h1>Which local model should read our headlines?</h1>
+    <p class="muted">We gave 4 Ollama models the same 598 real Google News headlines. For each one, the model answers two questions: is this headline really about the company, and if so, is the news positive, neutral or negative?</p>
+  </header>
+
+  <section>
+    <div class="verdict">
+      <div class="pick">
+        <span class="eyebrow">Recommended</span>
+        <div class="model">qwen3:4b</div>
+        <span class="chip">best balance · fits in 8 GB GPU</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>97.7%</b><span>of its “relevant” answers were right</span></div>
+        <div class="stat"><b>97.7%</b><span>of real articles caught</span></div>
+        <div class="stat"><b>82.2%</b><span>sentiment right</span></div>
+        <div class="stat"><b>~1.8 h</b><span>for the 20,000-article first run</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">The four models</div>
+    <h2>How each model scored</h2>
+    <div class="legend">
+      <span><i style="background:var(--bar-p)"></i>Relevant answers that were right (junk kept out)</span>
+      <span><i style="background:var(--bar-r)"></i>Real articles caught (nothing missed)</span>
+      <span><i style="background:var(--bar-s)"></i>Sentiment right</span>
+    </div>
+    <div class="models" id="models"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Speed</div>
+    <h2>How long the first 90-day run would take</h2>
+    <p class="muted">About 20,000 articles, one at a time on an RTX 4070 Laptop GPU. Daily runs are only a few minutes for any of these models. Running 2 or more at once (planned) should shorten this.</p>
+    <div class="panel scroll"><svg id="speed" viewBox="0 0 720 220" width="100%" role="img" aria-label="Estimated hours for a 20,000-article run per model"></svg></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Per company</div>
+    <h2>Where junk slipped through</h2>
+    <p class="muted">Share of “relevant” answers that were right, per company. The small number is how many junk headlines the model wrongly let in. Harvey, Astra and Lemonade have confusing names.</p>
+    <div class="panel scroll"><table id="heat"></table></div>
+    <p class="note">Astra tripped up every model: 93 of its 100 results were about other things, mostly OpenAI's new GPT-6 “Astra” model. In the real system the search hint <span class="num">"Astra Space"</span> keeps most of that out before the model ever sees it.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">The test data</div>
+    <h2>598 real headlines, 6 companies</h2>
+    <p class="muted">One company from each of our 6 largest sections, about 100 headlines each, from the last 90 days. 431 are about the company and 167 are not. The file is 583 KB.</p>
+    <div class="legend">
+      <span><i style="background:var(--good)"></i>Positive</span>
+      <span><i style="background:var(--muted)"></i>Neutral</span>
+      <span><i style="background:var(--bad)"></i>Negative</span>
+      <span><i style="background:var(--track);outline:1px solid var(--line)"></i>Not about the company</span>
+    </div>
+    <div class="panel ds" id="ds"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Excluded</div>
+    <h2>Does not fit the system</h2>
+    <p class="muted">These models are bigger than the 8 GB of GPU memory. Part of each model has to run on the CPU, which is far slower. gpt-oss:20b was measured before we stopped it: 0.42 articles per second, about 13 hours for the first run.</p>
+    <div class="panel gauge" id="gauge"></div>
+    <div class="excl" id="excl"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">How we tested</div>
+    <h2>Method and limits</h2>
+    <ul class="plain">
+      <li>The same prompt for every model, a strict JSON answer, temperature 0, and “thinking” turned off.</li>
+      <li>Every model returned valid JSON for all 598 headlines, with no retries needed.</li>
+      <li>The correct answers were written by an AI (Claude) before any model ran, not by a human. A human spot-check is still advised.</li>
+      <li>The model sees only the headline and the publisher. Google News gives no article text.</li>
+      <li>Our original rule, “the fastest model with at least 95% precision”, would pick llama3.2:3b. We recommend qwen3:4b because llama misses 1 in 8 real articles and gets sentiment wrong 4 times in 10.</li>
+    </ul>
+  </section>
+
+  <footer>Source files: <span class="num">research/model-test/</span> (dataset.json, prompt.txt, results per model, summary.md).</footer>
+</div>
+
+<script>
+  const models = [
+    { name: "qwen3:4b", size: 2.5, p: 97.7, r: 97.7, s: 82.2, rate: 3.06, runtime: "3.3 min", tag: ["good", "Recommended"], pick: true,
+      note: "Rarely lets junk in and rarely misses a real article. Solid sentiment." },
+    { name: "llama3.2:3b", size: 2.0, p: 96.2, r: 87.9, s: 62.3, rate: 5.54, runtime: "1.8 min", tag: ["warn", "Fast, misses a lot"],
+      note: "The fastest, but it misses 52 real articles and often gets the sentiment wrong." },
+    { name: "gemma3:4b", size: 3.3, p: 80.4, r: 99.8, s: 84.4, rate: 3.67, runtime: "2.7 min", tag: ["bad", "Too trusting"],
+      note: "Catches everything but says “relevant” to 105 junk headlines." },
+    { name: "qwen3.5:9b", size: 6.6, p: 86.2, r: 100, s: 83.8, rate: 1.57, runtime: "6.3 min", tag: ["bad", "Too trusting, slow"],
+      note: "Never misses, but lets 69 junk headlines in and is the slowest of the four." }
+  ];
+
+  // Model cards
+  const bar = (label, v, color) =>
+    `<div class="bar"><span>${label}</span><div class="track"><div class="fill" style="width:${v}%;background:${color}"></div></div><span class="v">${v.toFixed(1)}%</span></div>`;
+  document.getElementById("models").innerHTML = models.map(m => `
+    <article class="card${m.pick ? " pick" : ""}">
+      <div class="card-head"><h3 class="num">${m.name}</h3><span class="tag ${m.tag[0]}">${m.tag[1]}</span></div>
+      <div class="bars">
+        ${bar("Junk kept out", m.p, "var(--bar-p)")}
+        ${bar("Nothing missed", m.r, "var(--bar-r)")}
+        ${bar("Sentiment right", m.s, "var(--bar-s)")}
+      </div>
+      <p class="note">${m.note}</p>
+      <div class="speed"><span>Size <b>${m.size} GB</b></span><span>598 articles in <b>${m.runtime}</b></span><span><b>${m.rate.toFixed(1)}</b> articles/s</span></div>
+    </article>`).join("");
+
+  // Speed chart: hours for 20k articles, horizontal bars on one linear scale (0–4 h)
+  (() => {
+    const svg = document.getElementById("speed");
+    const rows = [...models].sort((a, b) => b.rate - a.rate).map(m => ({ name: m.name, h: 20000 / m.rate / 3600, pick: m.pick }));
+    const x0 = 120, x1 = 690, max = 4, rowH = 40, y0 = 18;
+    const sx = h => x0 + (h / max) * (x1 - x0);
+    let out = "";
+    for (let t = 0; t <= max; t++) {
+      const x = sx(t);
+      out += `<line x1="${x}" x2="${x}" y1="${y0 - 6}" y2="${y0 + rows.length * rowH}" stroke="var(--line)" stroke-width="1"/>`;
+      out += `<text x="${x}" y="${y0 + rows.length * rowH + 18}" text-anchor="middle">${t} h</text>`;
+    }
+    rows.forEach((r, i) => {
+      const y = y0 + i * rowH + 8;
+      const w = sx(r.h) - x0;
+      out += `<text class="lbl" x="${x0 - 12}" y="${y + 13}" text-anchor="end">${r.name}</text>`;
+      out += `<rect x="${x0}" y="${y}" width="${w}" height="18" rx="4" fill="${r.pick ? "var(--accent)" : "var(--muted)"}" opacity="${r.pick ? 1 : .45}"/>`;
+      const mins = Math.round(r.h * 60);
+      const label = mins < 90 ? `${mins} min` : `${r.h.toFixed(1)} h`;
+      out += `<text x="${x0 + w + 8}" y="${y + 13}" style="fill:var(--ink)">${label}</text>`;
+    });
+    svg.innerHTML = out;
+  })();
+
+  // Per-company precision heat table
+  (() => {
+    const cos = [["Harvey", "confusing"], ["OpenEvidence", "clean"], ["Beyond Meat", "clean"], ["Astra", "confusing"], ["Lemonade", "confusing"], ["Klook", "clean"]];
+    const data = {
+      "qwen3:4b":    [[100, 0], [96.7, 3], [97.9, 2], [58.3, 5], [100, 0], [100, 0]],
+      "llama3.2:3b": [[100, 0], [97.6, 2], [97.7, 2], [40.0, 9], [97.2, 2], [100, 0]],
+      "gemma3:4b":   [[93.5, 6], [90.9, 9], [94.9, 5], [11.5, 54], [85.1, 14], [80.9, 17]],
+      "qwen3.5:9b":  [[98.9, 1], [95.7, 4], [95.9, 4], [14.0, 43], [87.0, 12], [93.5, 5]]
+    };
+    const color = v => v >= 95 ? "var(--good)" : v >= 85 ? "var(--warn)" : "var(--bad)";
+    let h = `<tr><th></th>${cos.map(c => `<th>${c[0]}<span class="kind">${c[1]} name</span></th>`).join("")}</tr>`;
+    for (const [m, vals] of Object.entries(data)) {
+      h += `<tr><th class="row">${m}</th>${vals.map(([v, fp]) => {
+        const c = color(v);
+        return `<td class="h" style="background:color-mix(in srgb, ${c} 18%, transparent);color:${c}">${v.toFixed(1)}%<small>${fp} junk</small></td>`;
+      }).join("")}</tr>`;
+    }
+    document.getElementById("heat").innerHTML = h;
+  })();
+
+  // Dataset stacked bars
+  (() => {
+    const ds = [
+      ["Harvey", "High-Tech", 100, 64, 24, 0], ["OpenEvidence", "Health", 100, 76, 10, 4],
+      ["Beyond Meat", "Consumer Staples", 100, 36, 31, 27], ["Astra", "Industrials", 100, 4, 2, 1],
+      ["Lemonade", "Financials", 100, 39, 20, 21], ["Klook", "Consumer Discretionary", 98, 30, 41, 1]
+    ];
+    document.getElementById("ds").innerHTML = ds.map(([co, sec, n, pos, neu, neg]) => {
+      const rel = pos + neu + neg;
+      const pct = v => (v / 100 * 100) + "%";
+      return `<div class="ds-row"><div class="co"><b>${co}</b><span>${sec}</span></div>
+        <div class="stack" title="${rel} of ${n} about the company">
+          <i style="width:${pct(pos)};background:var(--good)"></i><i style="width:${pct(neu)};background:var(--muted)"></i><i style="width:${pct(neg)};background:var(--bad)"></i>
+        </div><span class="num muted">${rel}/${n}</span></div>`;
+    }).join("");
+  })();
+
+  // Excluded: size gauge vs the 8 GB limit, then cards
+  (() => {
+    const all = [
+      ...models.map(m => ({ name: m.name, size: m.size, fits: true })),
+      { name: "gpt-oss:20b", size: 13, why: "Measured: 56% on CPU, 0.42 articles/s" },
+      { name: "qwen3.6:27b", size: 18, why: "Not run" }, { name: "qwen3.8:27b", size: 18, why: "Not run" },
+      { name: "gemma4:26b", size: 18, why: "Not run" }, { name: "gemma4:31b", size: 20, why: "Not run" },
+      { name: "qwen3.5:35b-a3b", size: 24, why: "Not run" }
+    ];
+    const max = 25, pct = v => (v / max * 100) + "%";
+    const g = document.getElementById("gauge");
+    g.innerHTML = `<div class="eyebrow">Model size vs. GPU memory</div>` + all.map(m =>
+      `<div class="bar"><span class="num">${m.name}</span><div class="track" style="position:relative;overflow:visible"><div class="fill" style="width:${pct(m.size)};background:${m.fits ? "var(--accent)" : "var(--bad)"};opacity:${m.fits ? 1 : .55}"></div><div class="limit" style="left:${pct(8)}"></div></div><span class="v">${m.size} GB</span></div>`
+    ).join("") + `<p class="note">The red line marks the 8 GB of GPU memory. Everything past it spills onto the CPU.</p>`;
+    document.getElementById("excl").innerHTML = all.filter(m => !m.fits).map(m =>
+      `<div class="x"><b>${m.name}</b><span>${m.size} GB · ${m.why}</span></div>`).join("");
+  })();
+</script>

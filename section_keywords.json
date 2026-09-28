@@ -1,0 +1,17 @@
+{
+  "_about": "Section words for the Google News query (agent test, 2026-09-27, ~67 test requests). Query = when:90d <hint or \"name\"> <words>. 'words' is the exact bracketed text to append. Tested: the words cut junk for confusing names but also drop some real articles for well-known names (see report).",
+  "sections": {
+    "1":  { "name": "High-Tech (Information Technology)", "words": "(company OR startup OR AI OR software OR cybersecurity OR chip OR funding OR valuation)" },
+    "2":  { "name": "Health (Healthcare & Biotechnology)", "words": "(company OR health OR medical OR patients OR clinical OR FDA OR biotech OR startup)" },
+    "3":  { "name": "Sports, Fitness & Entertainment", "words": "(company OR shares OR gaming OR games OR sports OR streaming OR startup)" },
+    "4":  { "name": "Financials (Banking & Insurance)", "words": "(company OR shares OR fintech OR financial OR pay OR payments OR bank OR insurance OR loans)" },
+    "5":  { "name": "Consumer Staples (Essential Goods)", "words": "(company OR shares OR food OR foodtech OR \"plant-based\" OR agtech OR farmers OR startup)" },
+    "6":  { "name": "Consumer Discretionary (Luxury & Leisure)", "words": "(company OR travel OR brand OR retail OR consumer OR startup)" },
+    "7":  { "name": "Industrials (Manufacturing & Logistics)", "words": "(company OR shares OR logistics OR freight OR space OR defense OR startup OR funding)" },
+    "8":  { "name": "Communication Services", "words": "(company OR media OR advertising OR \"ad tech\" OR marketing OR startup)" },
+    "9":  { "name": "Energy", "words": "(company OR energy OR hydrogen OR geothermal OR storage OR climate OR startup)" },
+    "10": { "name": "Utilities", "words": "(company OR utility OR utilities OR water OR wastewater OR infrastructure OR startup)" },
+    "11": { "name": "Materials", "words": "(company OR startup OR climate OR materials OR carbon OR sustainability OR funding)" },
+    "12": { "name": "Real Estate", "words": "(company OR \"real estate\" OR construction OR mortgage OR homebuyers OR proptech OR startup)" }
+  }
+}

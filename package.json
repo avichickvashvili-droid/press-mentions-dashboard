@@ -1,0 +1,21 @@
+{
+  "name": "press-mentions-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Press Mentions Monitoring & Dashboard: collects Google News mentions of OurCrowd portfolio companies.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/supervisor/runSupervisor.js",
+    "seed": "node --env-file-if-exists=.env src/seed/runSeed.js",
+    "collect": "node --env-file-if-exists=.env src/collector/runCollect.js",
+    "classifier": "node --env-file-if-exists=.env src/classifier/runClassifier.js",
+    "progress": "node --env-file-if-exists=.env src/tools/progress.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.11.1"
+  }
+}

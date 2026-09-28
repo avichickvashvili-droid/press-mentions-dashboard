@@ -1,0 +1,42 @@
+{
+ "label": "n4-new",
+ "N": 4,
+ "variant": "new",
+ "model": "qwen3:4b",
+ "dataset": "research/model-test/dataset.json",
+ "items": 598,
+ "gpuIdleBeforeLoad": {
+  "samples": 8,
+  "utilAvg": 29.875,
+  "utilMax": 38,
+  "memAvgMiB": 2022,
+  "memMaxMiB": 2026
+ },
+ "ollamaVersion": "0.34.3",
+ "loadSeconds": 3.529,
+ "ollamaPsStart": "NAME        ID              SIZE      PROCESSOR    CONTEXT    UNTIL               \nqwen3:4b    359d7dd4bcda    5.1 GB    100% GPU     4096       29 minutes from now    \n",
+ "gpuIdleModelLoaded": {
+  "samples": 5,
+  "utilAvg": 23.4,
+  "utilMax": 32,
+  "memAvgMiB": 6994.2,
+  "memMaxMiB": 6995
+ },
+ "wallSeconds": 146.505,
+ "gpuDuringRun": {
+  "samples": 146,
+  "utilAvg": 75.46575342465754,
+  "utilMax": 100,
+  "memAvgMiB": 7022.164383561644,
+  "memMaxMiB": 7346
+ },
+ "ollamaPsEnd": "NAME        ID              SIZE      PROCESSOR    CONTEXT    UNTIL               \nqwen3:4b    359d7dd4bcda    5.1 GB    100% GPU     4096       29 minutes from now    \n",
+ "articlesPerSecond": 4.08177195317566,
+ "requestErrors": 0,
+ "invalidAfterRetry": 0,
+ "retriedItems": 0,
+ "thinkingItems": 0,
+ "latencyP50": 0.979,
+ "latencyP95": 1.092,
+ "finishedAt": "2026-09-27T08:43:07.167Z"
+}

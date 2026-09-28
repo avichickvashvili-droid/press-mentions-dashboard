@@ -18,11 +18,22 @@ build/
 *.db-journal
 *.db-wal
 *.db-shm
+# SQLite side files (write-ahead log, shared memory, rollback journal) of the .sqlite / .sqlite3 files
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Unfinished data/ export files (written first, then renamed over the real file)
+data/*.tmp
 
 # Test coverage
 coverage/
 
-# Logs
+# Logs (the default logs folder is db/logs/, next to the database; "logs/" matches it and any
+# other folder named logs)
 logs/
 *.log
 npm-debug.log*

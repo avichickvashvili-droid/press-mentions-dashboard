@@ -1,0 +1,3877 @@
+{
+  "asOf": "2026-09-28T07:01:06.451Z",
+  "windowStart": "2026-06-30T07:01:06.451Z",
+  "windowDays": 90,
+  "companies": [
+    {
+      "id": "3d-signals",
+      "name": "3d Signals",
+      "section": 7,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "abes-market",
+      "name": "Abes Market",
+      "section": 5,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "aeye-health",
+      "name": "AEYE Health",
+      "section": 2,
+      "hint": "\"AEYE Health\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-09T07:00:00.000Z",
+      "daysAgo": 19,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "air-ev",
+      "name": "Air EV",
+      "section": 7,
+      "hint": "\"AIR ONE\" eVTOL",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T12:12:51.000Z",
+      "daysAgo": 0,
+      "mentionCount": 6,
+      "sentimentCounts": {
+        "positive": 6,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "airobotics",
+      "name": "Airobotics",
+      "section": 7,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-29T07:00:00.000Z",
+      "daysAgo": 61,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "alloy-therapeutics",
+      "name": "Alloy Therapeutics",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-17T12:00:00.000Z",
+      "daysAgo": 10,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "alpha-tau",
+      "name": "Alpha Tau",
+      "section": 2,
+      "hint": "(\"Alpha Tau Medical\" OR \"Alpha DaRT\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T16:32:52.000Z",
+      "daysAgo": 2,
+      "mentionCount": 40,
+      "sentimentCounts": {
+        "positive": 20,
+        "neutral": 11,
+        "negative": 9
+      }
+    },
+    {
+      "id": "amitree",
+      "name": "Amitree",
+      "section": 12,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "anodot",
+      "name": "Anodot",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-27T07:00:00.000Z",
+      "daysAgo": 63,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-28T06:03:00.000Z",
+      "daysAgo": 0,
+      "mentionCount": 3212,
+      "sentimentCounts": {
+        "positive": 1328,
+        "neutral": 580,
+        "negative": 1304
+      }
+    },
+    {
+      "id": "appdome",
+      "name": "Appdome",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-10T07:00:00.000Z",
+      "daysAgo": 49,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "appforma",
+      "name": "Appforma",
+      "section": 8,
+      "hint": "Appforma Maverick",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "apploi",
+      "name": "Apploi",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "arbe-robotics",
+      "name": "Arbe Robotics",
+      "section": 1,
+      "hint": "Arbe radar",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T12:31:12.000Z",
+      "daysAgo": 2,
+      "mentionCount": 13,
+      "sentimentCounts": {
+        "positive": 12,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "argus-cyber-security",
+      "name": "Argus Cyber Security",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "arrow-global",
+      "name": "Arrow Global",
+      "section": 4,
+      "hint": "\"Arrow Global Group\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-10T07:00:00.000Z",
+      "daysAgo": 80,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "astra",
+      "name": "Astra",
+      "section": 7,
+      "hint": "\"Astra Space\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T13:44:31.000Z",
+      "daysAgo": 0,
+      "mentionCount": 12,
+      "sentimentCounts": {
+        "positive": 7,
+        "neutral": 3,
+        "negative": 2
+      }
+    },
+    {
+      "id": "atlas-obscura",
+      "name": "Atlas Obscura",
+      "section": 8,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-26T13:15:00.000Z",
+      "daysAgo": 1,
+      "mentionCount": 43,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 42,
+        "negative": 0
+      }
+    },
+    {
+      "id": "autobrains",
+      "name": "Autobrains",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-17T07:00:00.000Z",
+      "daysAgo": 11,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ayar-labs",
+      "name": "Ayar Labs",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T20:12:35.000Z",
+      "daysAgo": 2,
+      "mentionCount": 18,
+      "sentimentCounts": {
+        "positive": 16,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "barcode-nanotech",
+      "name": "Barcode Nanotech",
+      "section": 2,
+      "hint": "\"Barcode Nanotech\" \"lipid nanoparticle\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "beetlesat",
+      "name": "BeetleSat",
+      "section": 8,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "betterseeds",
+      "name": "BetterSeeds",
+      "section": 5,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-03T07:00:00.000Z",
+      "daysAgo": 56,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "beyond-meat",
+      "name": "Beyond Meat",
+      "section": 5,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T00:07:47.000Z",
+      "daysAgo": 1,
+      "mentionCount": 190,
+      "sentimentCounts": {
+        "positive": 70,
+        "neutral": 52,
+        "negative": 68
+      }
+    },
+    {
+      "id": "billguard",
+      "name": "BillGuard",
+      "section": 4,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "binah-ai",
+      "name": "Binah.ai",
+      "section": 2,
+      "hint": "\"Binah.ai\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "biocatch",
+      "name": "BioCatch",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T16:04:23.000Z",
+      "daysAgo": 3,
+      "mentionCount": 71,
+      "sentimentCounts": {
+        "positive": 70,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "biolojic-design",
+      "name": "Biolojic Design",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "biolumic",
+      "name": "BioLumic",
+      "section": 5,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "biscience",
+      "name": "BIScience",
+      "section": 8,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-02T07:00:00.000Z",
+      "daysAgo": 26,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "bites",
+      "name": "Bites",
+      "section": 1,
+      "hint": "\"Bites\" \"Erran Heffetz\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "bizzabo",
+      "name": "Bizzabo",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T10:28:00.000Z",
+      "daysAgo": 3,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "bluecircle",
+      "name": "BlueCircle",
+      "section": 5,
+      "hint": "(\"BlueCircle\" OR \"trellis.ai\")",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "bluegreen-water-technologies",
+      "name": "BlueGreen Water Technologies",
+      "section": 10,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-17T12:30:00.000Z",
+      "daysAgo": 10,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "bluenalu",
+      "name": "BlueNalu",
+      "section": 5,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-21T13:00:00.000Z",
+      "daysAgo": 6,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "bluetree-technologies",
+      "name": "BlueTree Technologies",
+      "section": 5,
+      "hint": "BlueTree sugar",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "boatsetter",
+      "name": "Boatsetter",
+      "section": 6,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-11T07:00:00.000Z",
+      "daysAgo": 79,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "brainq-technologies",
+      "name": "BrainQ Technologies",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "briefcam",
+      "name": "BriefCam",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "brightinsight",
+      "name": "BrightInsight",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-09T07:00:00.000Z",
+      "daysAgo": 19,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "c2a-security",
+      "name": "C2A Security",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cardekho",
+      "name": "CarDekho",
+      "section": 6,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T08:25:50.000Z",
+      "daysAgo": 3,
+      "mentionCount": 42,
+      "sentimentCounts": {
+        "positive": 30,
+        "neutral": 11,
+        "negative": 1
+      }
+    },
+    {
+      "id": "carrar",
+      "name": "Carrar",
+      "section": 6,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-03T07:00:00.000Z",
+      "daysAgo": 87,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "casper",
+      "name": "Casper",
+      "section": 6,
+      "hint": "Casper mattress",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T07:00:00.000Z",
+      "daysAgo": 4,
+      "mentionCount": 28,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 23,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cb4",
+      "name": "CB4",
+      "section": 1,
+      "hint": "CB4 Gap",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "celeno",
+      "name": "Celeno",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T21:39:39.000Z",
+      "daysAgo": 0,
+      "mentionCount": 447,
+      "sentimentCounts": {
+        "positive": 274,
+        "neutral": 79,
+        "negative": 94
+      }
+    },
+    {
+      "id": "cimagine",
+      "name": "Cimagine",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "classiq",
+      "name": "Classiq",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T22:56:59.000Z",
+      "daysAgo": 3,
+      "mentionCount": 21,
+      "sentimentCounts": {
+        "positive": 20,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "clinch",
+      "name": "Clinch",
+      "section": 8,
+      "hint": "Clinch (\"ad tech\" OR creative)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-09T07:00:00.000Z",
+      "daysAgo": 19,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cognigo",
+      "name": "Cognigo",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "connected-energy",
+      "name": "Connected Energy",
+      "section": 9,
+      "hint": "\"Connected Energy\" battery",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-21T09:03:46.000Z",
+      "daysAgo": 6,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "consumer-physics",
+      "name": "Consumer Physics",
+      "section": 1,
+      "hint": "SCiO",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-22T07:00:00.000Z",
+      "daysAgo": 68,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cordio-medical",
+      "name": "Cordio Medical",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "corephotonics",
+      "name": "Corephotonics",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "corractions",
+      "name": "CorrActions",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cropx",
+      "name": "CropX",
+      "section": 5,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 6,
+      "sentimentCounts": {
+        "positive": 6,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "crosswise",
+      "name": "Crosswise",
+      "section": 8,
+      "hint": "Crosswise Oracle",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cyabra",
+      "name": "Cyabra",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-22T19:29:42.000Z",
+      "daysAgo": 5,
+      "mentionCount": 26,
+      "sentimentCounts": {
+        "positive": 19,
+        "neutral": 6,
+        "negative": 1
+      }
+    },
+    {
+      "id": "cybermdx",
+      "name": "CyberMDX",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cyberx",
+      "name": "CyberX",
+      "section": 1,
+      "hint": "CyberX Microsoft",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cycuity",
+      "name": "Cycuity",
+      "section": 1,
+      "hint": "(Cycuity OR \"Tortuga Logic\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-15T07:00:00.000Z",
+      "daysAgo": 75,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "cyfirma",
+      "name": "Cyfirma",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-14T06:33:47.000Z",
+      "daysAgo": 14,
+      "mentionCount": 14,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 8,
+        "negative": 2
+      }
+    },
+    {
+      "id": "cytoreason",
+      "name": "CytoReason",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "dailypay",
+      "name": "DailyPay",
+      "section": 4,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T13:59:48.000Z",
+      "daysAgo": 0,
+      "mentionCount": 12,
+      "sentimentCounts": {
+        "positive": 8,
+        "neutral": 4,
+        "negative": 0
+      }
+    },
+    {
+      "id": "dandelion-energy",
+      "name": "Dandelion Energy",
+      "section": 9,
+      "hint": "\"Dandelion Energy\" geothermal",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 4,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "databricks",
+      "name": "Databricks",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T11:06:20.000Z",
+      "daysAgo": 0,
+      "mentionCount": 409,
+      "sentimentCounts": {
+        "positive": 338,
+        "neutral": 52,
+        "negative": 19
+      }
+    },
+    {
+      "id": "dataloop",
+      "name": "Dataloop",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T05:53:52.000Z",
+      "daysAgo": 3,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "deepkeep",
+      "name": "DeepKeep",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "diagnostic-robotics",
+      "name": "Diagnostic Robotics",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "dreamed-diabetes",
+      "name": "DreaMed Diabetes",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "edgybees",
+      "name": "Edgybees",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "edity-therapeutics",
+      "name": "Edity Therapeutics",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "edunav",
+      "name": "EduNav",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "eko-health",
+      "name": "Eko Health",
+      "section": 2,
+      "hint": "\"Eko Health\" stethoscope",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "entangled-networks",
+      "name": "Entangled Networks",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "enverid",
+      "name": "enVerid",
+      "section": 7,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "equipmentshare",
+      "name": "EquipmentShare",
+      "section": 7,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T03:41:27.000Z",
+      "daysAgo": 1,
+      "mentionCount": 93,
+      "sentimentCounts": {
+        "positive": 29,
+        "neutral": 10,
+        "negative": 54
+      }
+    },
+    {
+      "id": "evigilo",
+      "name": "eVigilo",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "fireblade",
+      "name": "Fireblade",
+      "section": 1,
+      "hint": "Fireblade StackPath",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "firefly-neuroscience",
+      "name": "Firefly Neuroscience",
+      "section": 2,
+      "hint": "\"Firefly Neuroscience\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T17:53:02.000Z",
+      "daysAgo": 2,
+      "mentionCount": 16,
+      "sentimentCounts": {
+        "positive": 12,
+        "neutral": 1,
+        "negative": 3
+      }
+    },
+    {
+      "id": "flash-forest",
+      "name": "Flash Forest",
+      "section": 11,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "flytrex",
+      "name": "Flytrex",
+      "section": 7,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T08:46:00.000Z",
+      "daysAgo": 2,
+      "mentionCount": 12,
+      "sentimentCounts": {
+        "positive": 11,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "foretellix",
+      "name": "Foretellix",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "freightos",
+      "name": "Freightos",
+      "section": 7,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T20:00:00.000Z",
+      "daysAgo": 2,
+      "mentionCount": 40,
+      "sentimentCounts": {
+        "positive": 18,
+        "neutral": 12,
+        "negative": 10
+      }
+    },
+    {
+      "id": "frontier-car-group",
+      "name": "Frontier Car Group",
+      "section": 6,
+      "hint": "\"OLX Autos\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-06T07:00:00.000Z",
+      "daysAgo": 84,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "future-family",
+      "name": "Future Family",
+      "section": 2,
+      "hint": "\"Future Family\" fertility",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-23T09:32:50.000Z",
+      "daysAgo": 4,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "genopore",
+      "name": "Genopore",
+      "section": 2,
+      "hint": "Genopore (\"protein sequencing\" OR imec)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-14T07:00:00.000Z",
+      "daysAgo": 76,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "glean",
+      "name": "Glean",
+      "section": 1,
+      "hint": "Glean \"enterprise AI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-02T07:00:00.000Z",
+      "daysAgo": 26,
+      "mentionCount": 23,
+      "sentimentCounts": {
+        "positive": 22,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "global-kinetics",
+      "name": "Global Kinetics",
+      "section": 2,
+      "hint": "\"Global Kinetics\" Parkinson's",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "greenlight",
+      "name": "Greenlight",
+      "section": 4,
+      "hint": "Greenlight \"debit card\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-15T07:00:00.000Z",
+      "daysAgo": 13,
+      "mentionCount": 10,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 5,
+        "negative": 0
+      }
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T13:12:57.000Z",
+      "daysAgo": 2,
+      "mentionCount": 91,
+      "sentimentCounts": {
+        "positive": 44,
+        "neutral": 3,
+        "negative": 44
+      }
+    },
+    {
+      "id": "guild",
+      "name": "Guild",
+      "section": 6,
+      "hint": "(\"Guild Education\" OR Guild \"Career Choice\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-24T07:00:00.000Z",
+      "daysAgo": 66,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "h2pro",
+      "name": "H2Pro",
+      "section": 9,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-22T11:14:00.000Z",
+      "daysAgo": 5,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "hailo",
+      "name": "Hailo",
+      "section": 1,
+      "hint": "\"Hailo\" AI",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T07:59:22.000Z",
+      "daysAgo": 2,
+      "mentionCount": 35,
+      "sentimentCounts": {
+        "positive": 29,
+        "neutral": 3,
+        "negative": 3
+      }
+    },
+    {
+      "id": "harbinger-motors",
+      "name": "Harbinger Motors",
+      "section": 7,
+      "hint": "(\"Harbinger Motors\" OR Harbinger truck)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-04T07:00:00.000Z",
+      "daysAgo": 24,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "harvey",
+      "name": "Harvey",
+      "section": 1,
+      "hint": "\"Harvey AI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T13:05:00.000Z",
+      "daysAgo": 3,
+      "mentionCount": 60,
+      "sentimentCounts": {
+        "positive": 53,
+        "neutral": 7,
+        "negative": 0
+      }
+    },
+    {
+      "id": "heqa-security",
+      "name": "HEQA Security",
+      "section": 1,
+      "hint": "(\"HEQA Security\" OR QuantLR)",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "honeybook",
+      "name": "HoneyBook",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 7,
+      "sentimentCounts": {
+        "positive": 7,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "hub-security",
+      "name": "Hub Security",
+      "section": 1,
+      "hint": "\"HUB Cyber Security\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T20:08:23.000Z",
+      "daysAgo": 2,
+      "mentionCount": 18,
+      "sentimentCounts": {
+        "positive": 8,
+        "neutral": 4,
+        "negative": 6
+      }
+    },
+    {
+      "id": "incredo",
+      "name": "Incredo",
+      "section": 5,
+      "hint": "(\"Incredo Sugar\" OR DouxMatok)",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "innovalve",
+      "name": "Innovalve",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "innoviz",
+      "name": "Innoviz",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T03:15:30.000Z",
+      "daysAgo": 4,
+      "mentionCount": 45,
+      "sentimentCounts": {
+        "positive": 34,
+        "neutral": 3,
+        "negative": 8
+      }
+    },
+    {
+      "id": "insidetracker",
+      "name": "InsideTracker",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-03T07:00:00.000Z",
+      "daysAgo": 25,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "insightec",
+      "name": "Insightec",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "intuition-robotics",
+      "name": "Intuition Robotics",
+      "section": 1,
+      "hint": "(\"Intuition Robotics\" OR ElliQ)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-09T07:00:00.000Z",
+      "daysAgo": 19,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "inziv",
+      "name": "InZiv",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "iqm",
+      "name": "IQM",
+      "section": 1,
+      "hint": "\"IQM Quantum\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-23T18:40:03.000Z",
+      "daysAgo": 4,
+      "mentionCount": 121,
+      "sentimentCounts": {
+        "positive": 102,
+        "neutral": 12,
+        "negative": 7
+      }
+    },
+    {
+      "id": "ironvest",
+      "name": "IronVest",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-22T07:00:00.000Z",
+      "daysAgo": 68,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "island",
+      "name": "Island",
+      "section": 1,
+      "hint": "Island \"enterprise browser\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T00:00:00.000Z",
+      "daysAgo": 1,
+      "mentionCount": 24,
+      "sentimentCounts": {
+        "positive": 23,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "itsmine",
+      "name": "ItsMine",
+      "section": 1,
+      "hint": "\"ITsMine\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "juganu",
+      "name": "Juganu",
+      "section": 7,
+      "hint": "Juganu lighting",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "jump-bikes",
+      "name": "JUMP Bikes",
+      "section": 6,
+      "hint": "\"Jump bikes\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "jumpcloud",
+      "name": "JumpCloud",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T00:07:07.000Z",
+      "daysAgo": 4,
+      "mentionCount": 12,
+      "sentimentCounts": {
+        "positive": 11,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "kando",
+      "name": "Kando",
+      "section": 10,
+      "hint": "Kando wastewater",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "kardome",
+      "name": "Kardome",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "kemtai",
+      "name": "Kemtai",
+      "section": 3,
+      "hint": "Kemtai physiotherapy",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "kenna-security",
+      "name": "Kenna Security",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-21T07:00:00.000Z",
+      "daysAgo": 69,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "kini",
+      "name": "Kini",
+      "section": 4,
+      "hint": "(kini.id OR Kini \"on-demand pay\")",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "klook",
+      "name": "Klook",
+      "section": 6,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T23:02:49.000Z",
+      "daysAgo": 0,
+      "mentionCount": 62,
+      "sentimentCounts": {
+        "positive": 50,
+        "neutral": 10,
+        "negative": 2
+      }
+    },
+    {
+      "id": "kodiak-robotics",
+      "name": "Kodiak Robotics",
+      "section": 7,
+      "hint": "(\"Kodiak AI\" OR \"Kodiak Robotics\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-26T11:21:55.000Z",
+      "daysAgo": 1,
+      "mentionCount": 42,
+      "sentimentCounts": {
+        "positive": 25,
+        "neutral": 5,
+        "negative": 12
+      }
+    },
+    {
+      "id": "kryon-systems",
+      "name": "Kryon Systems",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "lambda",
+      "name": "Lambda",
+      "section": 1,
+      "hint": "Lambda \"GPU\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-23T09:52:58.000Z",
+      "daysAgo": 4,
+      "mentionCount": 18,
+      "sentimentCounts": {
+        "positive": 13,
+        "neutral": 4,
+        "negative": 1
+      }
+    },
+    {
+      "id": "lano",
+      "name": "Lano",
+      "section": 4,
+      "hint": "Lano payroll",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "launchpad",
+      "name": "Launchpad",
+      "section": 7,
+      "hint": "\"Launchpad Build AI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-08T07:00:00.000Z",
+      "daysAgo": 20,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "lemonade",
+      "name": "Lemonade",
+      "section": 4,
+      "hint": "Lemonade insurance",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-26T04:35:05.000Z",
+      "daysAgo": 2,
+      "mentionCount": 107,
+      "sentimentCounts": {
+        "positive": 49,
+        "neutral": 27,
+        "negative": 31
+      }
+    },
+    {
+      "id": "lifeward",
+      "name": "Lifeward",
+      "section": 2,
+      "hint": "(Lifeward OR ReWalk)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T20:48:30.000Z",
+      "daysAgo": 2,
+      "mentionCount": 16,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 8,
+        "negative": 4
+      }
+    },
+    {
+      "id": "lightico",
+      "name": "Lightico",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-15T07:00:00.000Z",
+      "daysAgo": 13,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "liquid-instruments",
+      "name": "Liquid Instruments",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-29T07:00:00.000Z",
+      "daysAgo": 61,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "locusview",
+      "name": "Locusview",
+      "section": 10,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-18T21:57:42.000Z",
+      "daysAgo": 9,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ludeo",
+      "name": "Ludeo",
+      "section": 3,
+      "hint": "Ludeo",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "magisto",
+      "name": "Magisto",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "maolac",
+      "name": "Maolac",
+      "section": 5,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-19T07:00:00.000Z",
+      "daysAgo": 9,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "masterclass",
+      "name": "MasterClass",
+      "section": 8,
+      "hint": "\"MasterClass\" \"David Rogier\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-13T07:00:00.000Z",
+      "daysAgo": 15,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "materialszone",
+      "name": "MaterialsZone",
+      "section": 11,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "medisafe",
+      "name": "Medisafe",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-22T13:36:57.000Z",
+      "daysAgo": 5,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "memed",
+      "name": "MeMed",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "mentad",
+      "name": "Mentad",
+      "section": 8,
+      "hint": "\"MentAd\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "mermade-seafoods",
+      "name": "Mermade Seafoods",
+      "section": 5,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "migvax",
+      "name": "MigVax",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "momentis-surgical",
+      "name": "Momentis Surgical",
+      "section": 2,
+      "hint": "(\"Momentis Surgical\" OR Memic)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-14T16:00:00.000Z",
+      "daysAgo": 13,
+      "mentionCount": 4,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "moodify",
+      "name": "Moodify",
+      "section": 5,
+      "hint": "Moodify scent",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "morphisec",
+      "name": "Morphisec",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-03T07:00:00.000Z",
+      "daysAgo": 56,
+      "mentionCount": 8,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 5,
+        "negative": 0
+      }
+    },
+    {
+      "id": "mprest",
+      "name": "mPrest",
+      "section": 7,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "mst",
+      "name": "MST",
+      "section": 2,
+      "hint": "\"Medical Surgery Technologies\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "nanomedic",
+      "name": "Nanomedic",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "nanorep",
+      "name": "Nanorep",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "near",
+      "name": "Near",
+      "section": 8,
+      "hint": "\"Near Intelligence\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "neolithics",
+      "name": "Neolithics",
+      "section": 5,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "netop",
+      "name": "NetOp",
+      "section": 1,
+      "hint": "Netop Impero",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "neura",
+      "name": "Neura",
+      "section": 1,
+      "hint": "\"Neura\" \"Gilad Meiri\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "neureality",
+      "name": "NeuReality",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "neverware",
+      "name": "Neverware",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "nextpeer",
+      "name": "Nextpeer",
+      "section": 3,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "noobaa",
+      "name": "NooBaa",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "nt-tao",
+      "name": "NT-Tao",
+      "section": 9,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-21T12:00:00.000Z",
+      "daysAgo": 6,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "omnix-medical",
+      "name": "Omnix Medical",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T21:30:44.000Z",
+      "daysAgo": 2,
+      "mentionCount": 4,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "oncohost",
+      "name": "OncoHost",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "one-zero-digital-bank-ltd",
+      "name": "One Zero Digital Bank Ltd.",
+      "section": 4,
+      "hint": "\"One Zero\" bank",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-19T07:00:00.000Z",
+      "daysAgo": 71,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "oneai",
+      "name": "OneAI",
+      "section": 1,
+      "hint": "\"OneAI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-16T07:00:00.000Z",
+      "daysAgo": 12,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "openevidence",
+      "name": "OpenEvidence",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T23:30:18.000Z",
+      "daysAgo": 0,
+      "mentionCount": 92,
+      "sentimentCounts": {
+        "positive": 84,
+        "neutral": 4,
+        "negative": 4
+      }
+    },
+    {
+      "id": "orchard",
+      "name": "Orchard",
+      "section": 12,
+      "hint": "Orchard \"home buying\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ordergroove",
+      "name": "Ordergroove",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T14:49:10.000Z",
+      "daysAgo": 0,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "oriient",
+      "name": "Oriient",
+      "section": 1,
+      "hint": "Oriient \"indoor navigation\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "oshi",
+      "name": "Oshi",
+      "section": 5,
+      "hint": "(Oshi \"plant-based\" OR \"vegan salmon\" OR Plantish)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-31T07:00:00.000Z",
+      "daysAgo": 28,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "ossio",
+      "name": "Ossio",
+      "section": 2,
+      "hint": "(OSSIO orthopedic OR OSSIOfiber)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-06T07:00:00.000Z",
+      "daysAgo": 84,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "overtime",
+      "name": "Overtime",
+      "section": 3,
+      "hint": "(\"Overtime Elite\" OR \"Overtime Sports\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-15T07:00:00.000Z",
+      "daysAgo": 13,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 3,
+        "negative": 0
+      }
+    },
+    {
+      "id": "parko",
+      "name": "Parko",
+      "section": 6,
+      "hint": "Parko parking",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "peak",
+      "name": "Peak",
+      "section": 1,
+      "hint": "\"Peak AI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-27T07:00:00.000Z",
+      "daysAgo": 32,
+      "mentionCount": 7,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 3,
+        "negative": 2
+      }
+    },
+    {
+      "id": "people-ai",
+      "name": "People.ai",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-18T15:35:44.000Z",
+      "daysAgo": 9,
+      "mentionCount": 15,
+      "sentimentCounts": {
+        "positive": 9,
+        "neutral": 2,
+        "negative": 4
+      }
+    },
+    {
+      "id": "perception-point",
+      "name": "Perception Point",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-17T07:00:00.000Z",
+      "daysAgo": 42,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "playsight",
+      "name": "PlaySight",
+      "section": 3,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "polaris-quantum-biotech",
+      "name": "Polaris Quantum Biotech",
+      "section": 2,
+      "hint": "POLARISqb",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "powwow",
+      "name": "Powwow",
+      "section": 1,
+      "hint": "\"PowWow Mobile\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "privateer",
+      "name": "Privateer",
+      "section": 7,
+      "hint": "\"Privateer Space\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "profuse",
+      "name": "ProFuse",
+      "section": 5,
+      "hint": "\"ProFuse Technology\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-02T07:00:00.000Z",
+      "daysAgo": 88,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "pulmone",
+      "name": "PulmOne",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "quai-md",
+      "name": "Quai.MD",
+      "section": 2,
+      "hint": "\"Quai.MD\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "quantum-machines",
+      "name": "Quantum Machines",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T09:08:38.000Z",
+      "daysAgo": 3,
+      "mentionCount": 29,
+      "sentimentCounts": {
+        "positive": 25,
+        "neutral": 4,
+        "negative": 0
+      }
+    },
+    {
+      "id": "quidnet-energy",
+      "name": "Quidnet Energy",
+      "section": 9,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ravin-ai",
+      "name": "Ravin AI",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "realview-imaging",
+      "name": "RealView Imaging",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "remilk",
+      "name": "Remilk",
+      "section": 5,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "repair-carbon",
+      "name": "RepAir Carbon",
+      "section": 9,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T12:06:46.000Z",
+      "daysAgo": 3,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "replay-technologies",
+      "name": "Replay Technologies",
+      "section": 3,
+      "hint": "\"Replay Technologies\" Intel",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-01T07:00:00.000Z",
+      "daysAgo": 27,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "rewire",
+      "name": "Rewire",
+      "section": 4,
+      "hint": "Rewire Remitly",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ride-vision",
+      "name": "Ride Vision",
+      "section": 6,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ro",
+      "name": "Ro",
+      "section": 2,
+      "hint": "Ro telehealth",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-22T13:27:00.000Z",
+      "daysAgo": 5,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sanotize",
+      "name": "SaNOtize",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sayata",
+      "name": "Sayata",
+      "section": 4,
+      "hint": "Sayata \"cyber insurance\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "scale-ai",
+      "name": "Scale AI",
+      "section": 1,
+      "hint": "\"Scale AI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T11:35:30.000Z",
+      "daysAgo": 0,
+      "mentionCount": 654,
+      "sentimentCounts": {
+        "positive": 598,
+        "neutral": 39,
+        "negative": 17
+      }
+    },
+    {
+      "id": "scopio-labs",
+      "name": "Scopio Labs",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "seetree",
+      "name": "SeeTree",
+      "section": 5,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-14T07:00:00.000Z",
+      "daysAgo": 76,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "seetrue",
+      "name": "SeeTrue",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-21T22:10:47.000Z",
+      "daysAgo": 6,
+      "mentionCount": 7,
+      "sentimentCounts": {
+        "positive": 7,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sense-education",
+      "name": "Sense Education",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sequentify",
+      "name": "Sequentify",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sfara",
+      "name": "Sfara",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "shield",
+      "name": "Shield",
+      "section": 1,
+      "hint": "(shieldfc OR \"Shield\" \"communications compliance\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-16T15:01:54.000Z",
+      "daysAgo": 11,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "shopial",
+      "name": "Shopial",
+      "section": 8,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sight-diagnostics",
+      "name": "Sight Diagnostics",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "signals-analytics",
+      "name": "Signals Analytics",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "silo",
+      "name": "Silo",
+      "section": 6,
+      "hint": "Silo \"vacuum\" food",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "siteaware",
+      "name": "Siteaware",
+      "section": 12,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "skillz",
+      "name": "Skillz",
+      "section": 3,
+      "hint": "(\"Skillz Inc\" OR SKLZ)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T07:00:00.000Z",
+      "daysAgo": 4,
+      "mentionCount": 10,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 4,
+        "negative": 2
+      }
+    },
+    {
+      "id": "sotero",
+      "name": "Sotero",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "spacex",
+      "name": "SpaceX",
+      "section": 7,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-28T06:15:52.000Z",
+      "daysAgo": 0,
+      "mentionCount": 3341,
+      "sentimentCounts": {
+        "positive": 1708,
+        "neutral": 618,
+        "negative": 1015
+      }
+    },
+    {
+      "id": "spectrum-labs",
+      "name": "Spectrum Labs",
+      "section": 1,
+      "hint": "\"Spectrum Labs\" ActiveFence",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "spot-ai",
+      "name": "Spot AI",
+      "section": 1,
+      "hint": "(\"Spot AI\" \"video AI agents\" OR spot.ai)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 4,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ssi",
+      "name": "SSI",
+      "section": 1,
+      "hint": "\"Safe Superintelligence\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-26T07:00:00.000Z",
+      "daysAgo": 33,
+      "mentionCount": 20,
+      "sentimentCounts": {
+        "positive": 19,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "stackiq",
+      "name": "StackIQ",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "stellar-cyber",
+      "name": "Stellar Cyber",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-18T09:28:00.000Z",
+      "daysAgo": 9,
+      "mentionCount": 11,
+      "sentimentCounts": {
+        "positive": 11,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "stoke-space",
+      "name": "Stoke Space",
+      "section": 7,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T23:04:00.000Z",
+      "daysAgo": 3,
+      "mentionCount": 43,
+      "sentimentCounts": {
+        "positive": 42,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "stringify",
+      "name": "Stringify",
+      "section": 1,
+      "hint": "Stringify Comcast",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "section": 4,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-26T16:17:01.000Z",
+      "daysAgo": 1,
+      "mentionCount": 561,
+      "sentimentCounts": {
+        "positive": 317,
+        "neutral": 59,
+        "negative": 185
+      }
+    },
+    {
+      "id": "sufresca",
+      "name": "Sufresca",
+      "section": 5,
+      "hint": "Sufresca \"edible coating\"",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "surgical-theater",
+      "name": "Surgical Theater",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-22T07:00:00.000Z",
+      "daysAgo": 68,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "sweetch",
+      "name": "Sweetch",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-13T07:00:00.000Z",
+      "daysAgo": 77,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "syqe",
+      "name": "Syqe",
+      "section": 2,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "tabnine",
+      "name": "Tabnine",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-10T07:00:00.000Z",
+      "daysAgo": 49,
+      "mentionCount": 8,
+      "sentimentCounts": {
+        "positive": 7,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "tailor-brands",
+      "name": "Tailor Brands",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-23T11:00:00.000Z",
+      "daysAgo": 4,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 1,
+        "negative": 0
+      }
+    },
+    {
+      "id": "tala",
+      "name": "Tala",
+      "section": 4,
+      "hint": "Tala \"digital lending\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-18T13:13:27.000Z",
+      "daysAgo": 9,
+      "mentionCount": 9,
+      "sentimentCounts": {
+        "positive": 9,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "tamar-robotics",
+      "name": "Tamar Robotics",
+      "section": 2,
+      "hint": "\"Tamar Robotics\" neurosurgery",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "taranis",
+      "name": "Taranis",
+      "section": 5,
+      "hint": "Taranis (crop OR agtech)",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "techsee",
+      "name": "TechSee",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T19:18:23.000Z",
+      "daysAgo": 3,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 2
+      }
+    },
+    {
+      "id": "tensorwave",
+      "name": "TensorWave",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-23T09:00:00.000Z",
+      "daysAgo": 4,
+      "mentionCount": 29,
+      "sentimentCounts": {
+        "positive": 21,
+        "neutral": 5,
+        "negative": 3
+      }
+    },
+    {
+      "id": "tevel",
+      "name": "Tevel",
+      "section": 5,
+      "hint": "(\"Tevel Aerobotics\" OR Tevel fruit)",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "the-bouqs",
+      "name": "The Bouqs",
+      "section": 6,
+      "hint": "Bouqs",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "the-every-company",
+      "name": "The EVERY Company",
+      "section": 5,
+      "hint": "(\"EVERY Co\" OR \"The EVERY Company\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-21T07:00:00.000Z",
+      "daysAgo": 69,
+      "mentionCount": 7,
+      "sentimentCounts": {
+        "positive": 7,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "the-trendlines-group",
+      "name": "The Trendlines Group",
+      "section": 4,
+      "hint": "Trendlines",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T15:02:00.000Z",
+      "daysAgo": 2,
+      "mentionCount": 19,
+      "sentimentCounts": {
+        "positive": 12,
+        "neutral": 3,
+        "negative": 4
+      }
+    },
+    {
+      "id": "thetaray",
+      "name": "ThetaRay",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-07-23T07:00:00.000Z",
+      "daysAgo": 67,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 4,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "together-ai",
+      "name": "Together AI",
+      "section": 1,
+      "hint": "\"Together AI\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-26T22:00:30.000Z",
+      "daysAgo": 1,
+      "mentionCount": 142,
+      "sentimentCounts": {
+        "positive": 128,
+        "neutral": 11,
+        "negative": 3
+      }
+    },
+    {
+      "id": "tovala",
+      "name": "Tovala",
+      "section": 6,
+      "hint": "Tovala oven",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-17T07:00:00.000Z",
+      "daysAgo": 11,
+      "mentionCount": 4,
+      "sentimentCounts": {
+        "positive": 2,
+        "neutral": 2,
+        "negative": 0
+      }
+    },
+    {
+      "id": "treedom",
+      "name": "Treedom",
+      "section": 6,
+      "hint": "Treedom trees",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "trusona",
+      "name": "Trusona",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "tubitv",
+      "name": "TubiTV",
+      "section": 3,
+      "hint": "Tubi",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-27T20:04:21.000Z",
+      "daysAgo": 0,
+      "mentionCount": 223,
+      "sentimentCounts": {
+        "positive": 141,
+        "neutral": 69,
+        "negative": 13
+      }
+    },
+    {
+      "id": "ubimo",
+      "name": "Ubimo",
+      "section": 8,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-10T07:00:00.000Z",
+      "daysAgo": 49,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ukko",
+      "name": "Ukko",
+      "section": 2,
+      "hint": "Ukko allergy",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "unispectral",
+      "name": "Unispectral",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "upnride",
+      "name": "UPnRIDE",
+      "section": 2,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-24T13:01:00.000Z",
+      "daysAgo": 3,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ursa-major",
+      "name": "Ursa Major",
+      "section": 7,
+      "hint": "\"Ursa Major\" rocket",
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-29T07:00:00.000Z",
+      "daysAgo": 30,
+      "mentionCount": 23,
+      "sentimentCounts": {
+        "positive": 23,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "vayavision",
+      "name": "VAYAVISION",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "velotix",
+      "name": "Velotix",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-10T07:00:00.000Z",
+      "daysAgo": 49,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "verse-ai",
+      "name": "Verse.ai",
+      "section": 1,
+      "hint": "\"Verse.ai\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-10T07:00:00.000Z",
+      "daysAgo": 49,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "viewbix",
+      "name": "Viewbix",
+      "section": 8,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "virgin-hyperloop-one",
+      "name": "Virgin Hyperloop One",
+      "section": 7,
+      "hint": "\"Hyperloop One\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-21T17:00:00.000Z",
+      "daysAgo": 6,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "wave",
+      "name": "Wave",
+      "section": 1,
+      "hint": "(\"Wave Financial\" OR waveapps)",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-15T07:00:00.000Z",
+      "daysAgo": 13,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "wayup",
+      "name": "Wayup",
+      "section": 1,
+      "hint": "\"WayUp\"",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-10T07:00:00.000Z",
+      "daysAgo": 18,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "wefox",
+      "name": "wefox",
+      "section": 4,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-08-06T07:00:00.000Z",
+      "daysAgo": 53,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "workspot",
+      "name": "Workspot",
+      "section": 1,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "xage-security",
+      "name": "Xage Security",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-22T13:07:00.000Z",
+      "daysAgo": 5,
+      "mentionCount": 5,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-28T04:41:15.000Z",
+      "daysAgo": 0,
+      "mentionCount": 711,
+      "sentimentCounts": {
+        "positive": 233,
+        "neutral": 70,
+        "negative": 408
+      }
+    },
+    {
+      "id": "xsense",
+      "name": "Xsense",
+      "section": 7,
+      "hint": "(Xsense \"cold chain\" OR BT9)",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "ynsect",
+      "name": "Ynsect",
+      "section": 5,
+      "hint": null,
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "yulife",
+      "name": "YuLife",
+      "section": 4,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-25T11:12:05.000Z",
+      "daysAgo": 2,
+      "mentionCount": 2,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 1
+      }
+    },
+    {
+      "id": "zebra-medical-vision",
+      "name": "Zebra Medical Vision",
+      "section": 2,
+      "hint": "(\"Nanox AI\" OR \"Zebra Medical\")",
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-09T07:00:00.000Z",
+      "daysAgo": 19,
+      "mentionCount": 3,
+      "sentimentCounts": {
+        "positive": 3,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "zippin",
+      "name": "Zippin",
+      "section": 1,
+      "hint": "Zippin checkout",
+      "status": "no_coverage",
+      "lastMentionAt": null,
+      "daysAgo": null,
+      "mentionCount": 0,
+      "sentimentCounts": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    {
+      "id": "zoomcar",
+      "name": "Zoomcar",
+      "section": 6,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-18T12:34:50.000Z",
+      "daysAgo": 9,
+      "mentionCount": 11,
+      "sentimentCounts": {
+        "positive": 5,
+        "neutral": 6,
+        "negative": 0
+      }
+    },
+    {
+      "id": "zutacore",
+      "name": "ZutaCore",
+      "section": 1,
+      "hint": null,
+      "status": "mentioned",
+      "lastMentionAt": "2026-09-23T11:15:00.000Z",
+      "daysAgo": 4,
+      "mentionCount": 1,
+      "sentimentCounts": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      }
+    }
+  ]
+}

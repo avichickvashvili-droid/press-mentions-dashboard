@@ -1,0 +1,30 @@
+{
+ "model": "llama3.2:3b",
+ "segments": [
+  {
+   "started": "2026-09-27T06:33:59.794Z",
+   "load_wall_s": 1.797,
+   "load_duration_s": 0,
+   "ollama_ps": "NAME           ID              SIZE      PROCESSOR    CONTEXT    UNTIL               \nllama3.2:3b    a80c4f17acd5    2.6 GB    100% GPU     4096       59 minutes from now    \n",
+   "items": 598,
+   "loop_wall_s": 107.885,
+   "ended": "2026-09-27T06:35:47.680Z",
+   "ollama_ps_end": "NAME           ID              SIZE      PROCESSOR    CONTEXT    UNTIL               \nllama3.2:3b    a80c4f17acd5    2.6 GB    100% GPU     4096       59 minutes from now    \n"
+  }
+ ],
+ "capabilities": [
+  "completion",
+  "tools"
+ ],
+ "think": "not sent (model has no thinking capability)",
+ "details": {
+  "parent_model": "",
+  "format": "gguf",
+  "family": "llama",
+  "families": [
+   "llama"
+  ],
+  "parameter_size": "3.2B",
+  "quantization_level": "Q4_K_M"
+ }
+}

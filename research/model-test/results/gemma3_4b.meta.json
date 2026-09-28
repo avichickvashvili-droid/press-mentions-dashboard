@@ -1,0 +1,30 @@
+{
+ "model": "gemma3:4b",
+ "segments": [
+  {
+   "started": "2026-09-27T06:39:12.777Z",
+   "load_wall_s": 5.411,
+   "load_duration_s": 0,
+   "ollama_ps": "NAME         ID              SIZE      PROCESSOR    CONTEXT    UNTIL               \ngemma3:4b    a2af6cc3eb7f    2.9 GB    100% GPU     4096       59 minutes from now    \n",
+   "items": 598,
+   "loop_wall_s": 162.948,
+   "ended": "2026-09-27T06:41:55.725Z",
+   "ollama_ps_end": "NAME         ID              SIZE      PROCESSOR    CONTEXT    UNTIL               \ngemma3:4b    a2af6cc3eb7f    2.9 GB    100% GPU     4096       59 minutes from now    \n"
+  }
+ ],
+ "capabilities": [
+  "completion",
+  "vision"
+ ],
+ "think": "not sent (model has no thinking capability)",
+ "details": {
+  "parent_model": "",
+  "format": "gguf",
+  "family": "gemma3",
+  "families": [
+   "gemma3"
+  ],
+  "parameter_size": "4.3B",
+  "quantization_level": "Q4_K_M"
+ }
+}

@@ -1,0 +1,18 @@
+=== N=1
+OLLAMA_NUM_PARALLEL:1
+load_tensors: offloaded 37/37 layers to GPU
+=== N=2
+OLLAMA_NUM_PARALLEL:2
+load_tensors: offloaded 37/37 layers to GPU
+=== N=3
+OLLAMA_NUM_PARALLEL:3
+load_tensors: offloaded 37/37 layers to GPU
+=== N=4
+OLLAMA_NUM_PARALLEL:4
+load_tensors: offloaded 37/37 layers to GPU
+=== N=6
+OLLAMA_NUM_PARALLEL:6
+load_tensors: offloaded 37/37 layers to GPU
+=== N=8
+OLLAMA_NUM_PARALLEL:8
+load_tensors: offloaded 31/37 layers to GPU

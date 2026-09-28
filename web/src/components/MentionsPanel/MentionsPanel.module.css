@@ -1,0 +1,53 @@
+/* MentionsPanel.module.css — the list of one company's mentions. */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.itemMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.publisher {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pageNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.pageText {
+  padding: 0 6px;
+  color: var(--muted);
+}

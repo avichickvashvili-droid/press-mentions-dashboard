@@ -1,0 +1,38 @@
+/* global.css — the colours and fonts of the whole page (plain CSS, no library). The components
+   use these colour names (var(--...)) in their own CSS Modules. */
+:root {
+  --text: #1f2328;
+  --muted: #656d76;
+  --border: #d0d7de;
+  --link: #0a58ca;
+  --header-bg: #f6f8fa;
+  --selected-bg: #e7f0ff;
+  --positive-bg: #dafbe1;
+  --positive-text: #116329;
+  --negative-bg: #ffebe9;
+  --negative-text: #a40e26;
+  --neutral-bg: #eaeef2;
+  --neutral-text: #424a53;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+  background: #ffffff;
+}
+
+a {
+  color: var(--link);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}

@@ -1,0 +1,12 @@
+/* StatusText.module.css — the status text: normal when mentioned, grey when there is no coverage.
+   Kept on one line so the table rows stay short. */
+.mentioned {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.noCoverage {
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+}

@@ -1,0 +1,40 @@
+/* CompanyTable.module.css — the company table and its rows. */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: var(--header-bg);
+}
+
+.table .number {
+  text-align: right;
+}
+
+.selected {
+  background: var(--selected-bg);
+}
+
+.nameButton {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--link);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.nameButton:hover {
+  text-decoration: underline;
+}

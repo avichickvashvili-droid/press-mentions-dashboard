@@ -2791,3 +2791,292 @@ can commit and merge to develop as well
 ```
 can merge to main
 ```
+
+---
+
+## Prompt 247 — Add my progress queries to the guide as a TL;DR; make GUIDE.md and progress.sql leaner
+
+```
+i want you to add in the guide the queries i used to identify the run progress 
+also we need to make this files leaner same for queries progress.sql
+call that TLDR, most useful put it at the very begining right with npm progress
+
+SELECT id AS run_id, status, started_at, last_heartbeat,
+  ROUND((julianday('now') - julianday(last_heartbeat)) * 24 * 60, 1) AS minutes_since_heartbeat,
+  last_error, classified_count AS classified, relevant_count AS relevant,
+  irrelevant_count AS irrelevant, failed_count AS failed
+FROM JobRun WHERE id = (SELECT MAX(id) FROM JobRun);
+
+SELECT g.group_number, g.status,
+  SUM(j.status = 'finished') AS done, SUM(j.status = 'failed') AS failed,
+  SUM(j.status IN ('not_started','fetching')) AS left, COUNT(j.company_id) AS total,
+  g.crashes_in_a_row, g.exported_at, g.last_error
+FROM JobRunGroup g
+LEFT JOIN JobRunCompany j ON j.run_id = g.run_id AND j.group_number = g.group_number
+WHERE g.run_id = (SELECT MAX(id) FROM JobRun)
+GROUP BY g.group_number ORDER BY g.group_number;
+
+SELECT state, COUNT(*) AS articles FROM (
+  SELECT CASE WHEN claimed_at IS NOT NULL THEN 'being classified now'
+              WHEN status = 'pending' THEN 'waiting for the AI'
+              WHEN status = 'failed' AND attempts < 3 THEN 'failed once, will be retried'
+              WHEN status = 'failed' THEN 'failed for good'
+              WHEN status = 'relevant' THEN 'relevant, waiting to be moved'
+              ELSE status END AS state
+  FROM BufferQueue) GROUP BY state ORDER BY articles DESC;
+
+SELECT j.group_number, c.name AS company, j.status
+FROM JobRunCompany j
+JOIN Company c ON c.id = j.company_id
+WHERE j.run_id = (SELECT MAX(id) FROM JobRun)
+  AND j.status = 'fetching';
+
+SELECT COUNT(*) AS total,
+  SUM(sentiment = 'positive') AS positive,
+  SUM(sentiment = 'negative') AS negative,
+  SUM(sentiment = 'neutral')  AS neutral,
+  COUNT(DISTINCT company_id)  AS companies_with_mentions
+FROM Mention;
+
+make sure to write aswell what every query does
+```
+
+---
+
+## Prompt 248 — Guide is too long: remove what the README already has, keep the guide a TL;DR
+
+```
+guide is way toooo long, cross info in the README and if its there remove from guide i want the guide to be TLDR
+```
+
+---
+
+## Prompt 249 — A query to see the Company table, and one to see all sentiments of a company by name
+
+```
+i want you to give me a query too see companies table
+and than a query where i give company name i see all the sentminets for that company
+```
+
+---
+
+## Prompt 250 — The sentiment totals query for all companies
+
+```
+SELECT c.name AS company, COUNT(m.id) AS mentions,
+  SUM(m.sentiment = 'positive') AS positive,
+  SUM(m.sentiment = 'negative') AS negative,
+  SUM(m.sentiment = 'neutral')  AS neutral
+FROM Company c
+LEFT JOIN Mention m ON m.company_id = c.id
+WHERE c.name LIKE '%Lambda%'
+GROUP BY c.id;
+
+give me this queries for all the companies to show the totals of sentiments
+```
+
+---
+
+## Prompt 251 — Start planning the dashboard (React + Vite), and how it updates after the daily job
+
+```
+ok time to move on to the dashboard
+lets plan it,
+i want it to be a react vite .
+we need to take into account to update the data after daily job.
+daily job will delete articles >90days
+and add new data 
+so need to make sure we have proper hooks for that
+need your recommendation on how to update that
+
+lets start planning together
+```
+
+---
+
+## Prompt 252 — Keep D13 (filter, don't delete); use React hooks for updates, not a version check
+
+```
+You said the daily job will delete articles older than 90 days. That replaces an earlier decision, D13 ("filter old data in queries, never delete"). I'll record it as a new decision when we write the plan.
+
+
+ur right, just filter.
+
+My recommendation: the page checks one small "data version" every minute and whenever you come back to the tab. When the version changes, it reloads its data.
+
+hell no its missing the whole idea of react, why not using hooks?
+```
+
+---
+
+## Prompt 253 — Restart the dashboard plan: display the data correctly, self-updating with React; one command; Express API
+
+```
+ok forget what we disscussd so far
+and forget about the daily job
+your confusing the dashboard FR with other stuff
+
+start planning with me, what else do we need
+
+for now lets start with the plan only to display the data correctly while being able to update itself (hooks,states) anything react can offer us. (that will help us later when we develop the daily job)
+
+i want the react vite to be able to build the dashboard with 1 comman using the data it has in the DB
+also need to implement the API endpoints we disccused in the system design
+using express
+```
+
+---
+
+## Prompt 254 — Standard React + Vite folders and components; how the data updates (new data, >90 days) with hooks
+
+```
+i want you also to build the project with react vite standarts
+folders organized and componets
+
+now the only thing which isnt clear is how to update the data
+1. when new data arrived 
+2. filter >90days
+it shouldnt be that difficult with hooks no?
+```
+
+---
+
+## Prompt 255 — Answers: TanStack Query ok; why section + sentiment totals?; state only ok; what's the alternative to plain CSS?
+
+```
+1. ok 
+2. why what advantage will it give
+3. ok
+4. whats the altranative
+```
+
+---
+
+## Prompt 256 — Plain CSS; section + sentiment totals are ok, but won't the DC and classifier need changes?
+
+```
+stick to css
+
+now about 2 im ok with yuo adding that but that means its gonna need to be changed in the DC and classifier aswell
+since they are the ones populating the tables
+```
+
+---
+
+## Prompt 257 — Explain again why the 2 new columns don't need DC/classifier changes; who adds them to the DB?
+
+```
+explain to me again how adding thos 2 colunms to the table dont require us to change the DC and classifier? so who does this addition to the db?
+```
+
+---
+
+## Prompt 258 — Yes to computed totals (must update after the daily job); note for the daily job to send the refresh signal
+
+```
+oh ok so you create it using the data. sure do it , but remeber it can change after the daily job so it should be able to update
+
+also add a note that for the daily job we should send that query you told me in order to update the dashboard
+```
+
+---
+
+## Prompt 259 — Point me to Step 5
+
+```
+point me to step 5 your talking about
+```
+
+---
+
+## Prompt 260 — Send an agent to build Step 5, with me as its team lead; what else did I miss?
+
+```
+yes, send an agent act as his team lead giving him full well written instructions
+make sure he handles crashes, error handling, sticking to hooks and states stick to the plan we did
+in csae no DB use the data folder instead
+ask and not act on its own
+what else did i miss?
+```
+
+---
+
+## Prompt 261 — Answers to the agent's Phase 0 questions
+
+```
+1. sure
+2. ok
+3. ok
+4. ok
+5. its nice to have
+6. i disagree and i feel like starting the dashboard should have its own command its different flow in the system
+7. what
+8. no data modification. dont do any of that
+9. whats the question here
+10. yes
+
+Small choices it will make unless you object
+The table starts sorted by name. Clicking a column header sorts by that column.
+sort by sentiments amoutn
+no such fr is for search its a qol for later
+The mentions panel sits beside the table. - explain to me what that means
+It uses the latest versions: Express 5, React 19. sure
+```
+
+---
+
+## Prompt 262 — Q6: two terminals; Q7: no; Q9: no such case (no search), don't invent requirements
+
+```
+q6 2 terminals is fine
+q7 no
+9 no one will ask for it since we dont have search and ur making up FR
+```
+
+---
+
+## Prompt 263 — Show me a sample site first; focus on the FRs, no styling for now
+
+```
+i need to see an exmaple to answer that lets start with that ok
+i want to see a sample site when the agent done
+i dont care about styiling for now tell him to focus the FR so we can see the site and start builkding further
+```
+
+---
+
+## Prompt 264 — How long will it take?
+
+```
+how long will it take +-
+```
+
+---
+
+## Prompt 265 — Sort by most mentions first; 20 mentions per page with page navigation; remove the section column
+
+```
+i already i said i want the list to be sorted with most sentiments first
+for a case of alot of mentions: for example antrhropic scrolling down to 3212 articles is insane
+add a 20 cap of mentions per page and a small nav of pages to see the other sentiments, with next, or go to last what do you yhink?
+also you can get rid of that section colunm
+```
+
+---
+
+## Prompt 266 — OK to client-side pages
+
+```
+ok good
+```
+
+---
+
+## Prompt 267 — Commit everything; next: the daily job (dashboard QoL later)
+
+```
+good job
+i want us to move on to the daily job
+and when we got time left we are going to do some QOL and nice to have in the dash board
+but for now i want you to log everything we did into a commit
+```

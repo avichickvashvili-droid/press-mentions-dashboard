@@ -51,7 +51,7 @@ Correctness (runs end-to-end, three outputs) · Code quality · Use of local LLM
 | 2 | Data collection | ⏳ |
 | 3 | Classification (Ollama) | ⏳ |
 | 4 | Storage layer | ⏳ |
-| 5 | Dashboard / UI layer | ⏳ |
+| 5 | Dashboard / UI layer | 🔄 |
 | 6 | Daily job + alert | ⏳ |
 | 7 | Deliver the task | ⏳ |
 
@@ -304,16 +304,16 @@ Only the dashboard calls the API. Fetching, classifying and alerting run as scri
 **GET /api/companies** (FR1, FR5 / G2)
 - Purpose: the overview. Every company with its status.
 - Request: none.
-- Response: `{ asOf, windowStart, companies: [{ id, name, hint, status: "mentioned" | "no_coverage", lastMentionAt | null, daysAgo | null }] }`
+- Response: `{ asOf, windowStart, companies: [{ id, name, section, hint, status: "mentioned" | "no_coverage", lastMentionAt | null, daysAgo | null, mentionCount, sentimentCounts: { positive, neutral, negative } }] }` (section and counts added in Step 5, D99)
 - Only `relevant` mentions inside the 90-day window count. `daysAgo` is computed when the request arrives, so it's never stale (NFR5).
 - Errors: 500 if storage can't be read.
 
 **GET /api/companies/:id/mentions** (FR2–FR4 / G1)
 - Purpose: when a company is clicked, show all its mentions from the last 90 days with their sentiment, sorted by date.
-- Response: `{ company: { id, name }, mentions: [{ title, url, publisher, publishedAt, sentiment, snippet }] }`, newest first, relevant only.
+- Response: `{ company: { id, name }, mentions: [{ title, url, publisher, publishedAt, sentiment }] }`, newest first, relevant only. (`snippet` dropped in Step 5: no snippet is stored.)
 - Errors: 404 for an unknown company id; 500 if storage can't be read.
 
-**Not included:** write endpoints (no company CRUD, no auth), a "run the job now" endpoint, an alerts endpoint, filters/search/pagination, per-company sentiment counts on the list (all OPTIONAL / OUT OF SCOPE FOR MVP).
+**Not included:** write endpoints (no company CRUD, no auth), a "run the job now" endpoint, an alerts endpoint, filters/search/pagination (all OPTIONAL / OUT OF SCOPE FOR MVP). Per-company sentiment counts were out of scope here; they were added in Step 5 (D99).
 
 #### 1.5 High-Level Architecture ✅
 
@@ -736,13 +736,70 @@ Ollama relevance + sentiment. Includes a validation spot-check set for the READM
 ### 4. Storage layer ⏳
 Files or lightweight DB. Must produce the `data/` folder deliverable.
 
-### 5. Dashboard / UI layer ⏳
+### 5. Dashboard / UI layer 🔄
 Quarterly mentions + current status for every company, including companies with no coverage.
+
+Planned with the owner in Prompts 251–256 (D98–D100). Scope: **display the data correctly and let the page update itself**. The daily job is not part of this step; the page is only built so the daily job can refresh it later.
+
+**API (Express, D34), `src/api/`.** Read-only. It serves the 2 endpoints of 1.4 and the built page.
+- `GET /api/companies` and `GET /api/companies/:id/mentions`, as in 1.4 (updated: no `snippet`; `section`, `mentionCount` and `sentimentCounts` added, D99).
+- The 90-day window and "days ago" are computed on every request (D13: filtered in queries, never deleted; NFR5).
+- Only companies in the company list now are shown (D79).
+- The status / days-ago / sentiment-count logic moves out of `exporter.js` into one shared module that the API and the `data/` export both use, so the two always agree. The export's output does not change.
+- Nothing changes in the collector or the classifier: `Company.section` and `Mention.sentiment` are already stored, and the totals are counted when read (D99).
+- Empty database on start → import `data/*.json` first (D35), so a fresh clone shows the committed real run.
+- Errors: JSON `404` (unknown company) / `500` (storage can't be read) with a clear message.
+
+**One command (D98):**
+- `npm run dashboard`: Vite builds the page into `web/dist`, then Express serves the API and the page at `http://localhost:3000` (port from `.env`).
+- For development, `npm run dev` runs Vite with hot reload and a proxy from `/api` to Express.
+- One `package.json`, so one `npm install` covers everything.
+
+**React (standard Vite + React layout, D98):**
+```
+web/
+  index.html
+  vite.config.js           dev proxy /api → Express; build into web/dist
+  src/
+    main.jsx               mounts <App />, sets up QueryClientProvider
+    App.jsx                page layout
+    api/client.js          fetch wrappers + error handling (the only place that calls fetch)
+    hooks/                 useToday, useCompanies, useCompanyMentions
+    components/            one folder per component: .jsx + .module.css + test
+      Header/              "Data as of …", 90-day window, Refresh button
+      CompanyTable/        table + CompanyRow
+      MentionsPanel/       one company's mentions, newest first, link to each article
+      SentimentBadge/      positive / negative / neutral
+      StatusText/          "last mentioned N days ago" / "no coverage found"
+      common/              Loading, ErrorMessage, ErrorBoundary
+    utils/                 date formatting
+    styles/                global CSS (colors, fonts)
+```
+
+**How the page updates itself (D100):**
+- Data goes only through the hooks (TanStack Query). Components never call `fetch`.
+- Query keys: `['companies', today]` for the list and `['companies', id, 'mentions', today]` for one company. Both start with `'companies'`, so one `invalidateQueries(['companies'])` reloads both.
+- **Older than 90 days:** `useToday()` holds today's date as state and changes it at midnight. The date is part of the query key, so at midnight the queries load again and the server cuts the new window. One timer a day, and the 90-day rule stays only on the server.
+- **New data:** reloads when you come back to the tab (`refetchOnWindowFocus`) or press Refresh (`refetch()`). "Data as of …" shows how fresh the page is. No polling.
+- **Later (daily job):** a signal that calls `queryClient.invalidateQueries(['companies'])` refreshes every component on screen. Nothing else changes.
+- **The section and sentiment totals update too** (Prompt 258): they come in the same `/api/companies` answer as the status, and the server counts them again on every request. Every reload above (tab focus, Refresh, midnight, the daily job's signal) shows the new totals. The daily job can change them; nothing extra is needed.
+- Selected company: `useState` (no React Router for now). Sorting / search: `useMemo`.
+
+**Styling:** plain CSS, one CSS Module per component (built into Vite, no library).
+
+**Tests:** the API on a temporary database (status, 90-day filter, list-only companies, 404, 500, the `data/` import), and the main components and hooks (Vitest + Testing Library).
+
+**Built: a first working sample (2026-09-28, build agent), so the owner can decide sorting and layout by looking at it.**
+- Owner answers before the build (Phase 0): the `data/` import builds the Company rows with the seed loader's own code (`readCompaniesFromFiles` + `writeCompanies`, split out of `saveCompanies`, same behaviour), then inserts `mentions.json`, all in ONE transaction. It runs only when Mention, BufferQueue and JobRun are all empty; `run.json` is not imported (a JobRun row would stop `npm start` from collecting, D67); a mention of a company not in the list is skipped with one warning; anything malformed rolls back everything with the file and item number; a failed import is logged and the api still starts (no crash loop). The api serves through a read-only connection (`openDatabaseReadOnly`, `database.js`). `/api/companies` also sends `sectionName`. Titles are shown exactly as stored. No search box (later, not an FR). The dashboard has its own command: `npm start` and `services.js` are unchanged. `npm run dev` runs only Vite; the api runs in a second terminal (`npm run api`).
+- **After seeing the sample (owner, Prompt 265, D101):** the table is sorted by most mentions first (ties by name A–Z; no coverage last; no click-sorting; `web/src/utils/sortCompanies.js`). The mentions panel shows 20 per page (`MENTIONS_PER_PAGE`), split in the page, not in the api: « First, ‹ Previous, "Page 3 of 161", Next ›, Last »; hidden for 20 or fewer; back to page 1 for another company; a page past the end after a reload becomes the last page; the panel scrolls to its top on a page change (`web/src/hooks/usePagination.js`, `PageNav.jsx`). No section column in the table (the api still sends it). Layout: the panel beside the table (stacked on narrow screens). `npm run test:web` 30 / 30.
+- **Built as:** `src/shared/companyStatus.js` (status, days ago, totals: used by the api AND `exporter.js`; export output checked byte-for-byte against the committed `data/`), `src/api/` (`app.js` routes + errors + page, `queries.js`, `importData.js`, `runApi.js` start-up, busy port, Ctrl+C, crash handlers), `config.js` (`API_PORT`, `DASHBOARD_WINDOW_DAYS`, `WEB_DIST_DIR`), `web/` (the D98 layout: `api/client.js` + `queryClient.js`, hooks `useToday` / `useCompanies` / `useCompanyMentions`, components Header, CompanyTable + CompanyRow, MentionsPanel, SentimentBadge, StatusText, common). Scripts: `api`, `build`, `dashboard`, `dev`, `test:web`.
+- **Tests:** `npm test` 342 / 342 (321 before; new `test/api/`: endpoints, window + days ago per request, 404, 500, read-only, reads during a pipeline write, api = export, page + fallback, the import rules, the real program: busy port, start). `npm run test:web` 22 / 22 (useToday at midnight + cleanup, query keys, one invalidate reloads both, api client errors, retry rule, StatusText, SentimentBadge, CompanyTable, MentionsPanel states + link attributes, ErrorBoundary). Smoke check: `npm run dashboard` on a temporary database → imported 258 companies + 11,600 mentions from `data/`, page and api answer (list 17 ms, Anthropic's 3,212 mentions 27 ms).
 
 ### 6. Daily job ⏳
 Scheduled check → daily digest alert.
 - High-level flow (Prompt 46, user; details discussed later): daily job → check for duplicates → remove/add in the DB → send the message (mail, webhook, etc.).
 - To reconcile later: duplicates are already skipped at insert (D16), and old data is filtered, not deleted (D13). Clarify what "remove" means here.
+- **Note (Prompt 258): refresh the dashboard at the end.** When the daily job has added its new mentions, it must send a signal to the open dashboard pages that makes them run `queryClient.invalidateQueries(['companies'])` (D100). That reloads the company list (status, days ago, section, sentiment totals) and the open company's mentions. How the signal gets from the job to the page (e.g. the API pushes an event) is decided in this step.
 
 ### 7. Deliver ⏳
 README, `data/` output from a real run, prompts file finalized, push to GitHub.
@@ -901,6 +958,10 @@ Every choice lists why we use it for THIS task and the alternative we didn't pic
 | D95 | Review of the groups commit (G1–G13) | All 13 findings of the review of commit 3265ed8 are approved for fixing. Owner choices: **G3** (a) a company that crashes or hangs the group process **3 times** is marked `failed` (“crashed the group process 3 times”) and the group continues; (b) if **3 groups in a row** fail with no progress at all, the runner stops with a clear error (exit 1) instead of failing every group. **G4** (revises D91): the chosen groups are reset only once, when a `done` run is reopened; a restart after a crash simply resumes (the start line says the other unfinished groups continue too). **G5**: logs live next to the database by default (`<db folder>/logs/run-N/`, e.g. `db/logs/run-1/`), so a test DB never touches the real run’s logs. **G1**: the log cleanup only ever deletes folders named `run-<n>` or `no-run`. **G3 (b) is replaced by D97** (not built): failed groups are retried 3 more times, then the runner moves on; it never stops | User (Prompt 206) |
 | D96 | After-group `data/` also while `collected` | The after-group export (D86) also runs when the run is `collected` (the collector finished but the classifier is still working), not only while `running`. Found in the medium test (40 companies, 2 groups): the collector finished in 49 s, before group 1’s articles were classified, so no after-group export ever happened; in a real run the collector (~10–20 min) finishes long before the classifier (~1.5 h). Groups are exported in order as each group’s articles are done; the end-of-run export and `done` stay as they are | User (Prompt 212) |
 | D97 | Review 2 open points (G3, G9, G11) | **G3:** a company that crashes or hangs the group process 3 times is marked `failed` and does **not** count as progress for its group; a stuck kill (no `fetching` / `waiting` signal for 5 min) counts like any crash against the company in progress. When groups fail without finishing a single company, each failed group is **retried 3 more times**, then the runner moves on (no stop). **G9:** the new-run log cleanup keeps a leftover folder that holds files newer than the run’s start. **G11:** reopening a run clears its old crash time and last error. The saved crash reason (last printed line) stays as it is. **G13** (group processes copy all Node options, e.g. `--inspect`) is out of scope, not built | User (Prompts 221–222, 225) |
+| D98 | Dashboard build and layout | React + Vite in `web/` with the standard layout (`api/`, `hooks/`, `components/` one folder each, `utils/`, `styles/`). `npm run dashboard` builds the page and starts Express (API + page) with one command; `npm run dev` for development. One `package.json`. Plain CSS (CSS Modules, no UI library). Selected company in `useState`, no React Router for now | User (Prompts 253–256) |
+| D99 | Section + sentiment totals on the company list | `GET /api/companies` also returns `section`, `mentionCount` and `sentimentCounts`; `snippet` is dropped from the mentions endpoint (never stored). Counted when read, never stored: no change to the collector or the classifier. The counting code moves from `exporter.js` into a module shared by the API and the export | User (Prompts 255–256): see the sentiment picture without opening every company |
+| D100 | How the page updates itself | TanStack Query hooks (`useCompanies`, `useCompanyMentions`); components never call `fetch`. `useToday()` puts today's date in the query key, so the page reloads at midnight and the server cuts the new 90-day window (D13 stays: filter, never delete). New data: reload on tab focus + Refresh button, "Data as of …" in the header; no polling. The daily job (Step 6) will refresh the page through `invalidateQueries` | User (Prompts 251–255) |
+| D101 | Dashboard table order, mention pages, columns | Table sorted by most mentions first (ties by name A–Z, no coverage last), no click-sorting. Mentions panel: 20 per page with First / Previous / Page N of M / Next / Last, split in the page (the api is unchanged and still sends the whole list). No section column in the table (the api still sends `section` / `sectionName`) | Owner (Prompt 265), after seeing the sample page. Client-side pages: the list is already loaded (Anthropic: 3,212 mentions in 27 ms), so the api stays simple |
 | D81 | Code review | A senior-engineer review (13 findings) was run on 2026-09-27; all findings approved for fixing (R1–R13). `dummy.txt` deleted | User (Prompts 160–164) |
 | D56 | Testing run | The first real run on a few companies (separate test DB) is called the **testing run** and is done after the DC build is finished, not during it | User (Prompt 126) |
 | D20 | When `data/` is written | At the end of the classification process: classified mentions (sentiment, links) + per-company status snapshot | User decision (Prompts 32–33). Sentiment labels only exist after classification, and the brief asks for them in `data/` |

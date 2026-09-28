@@ -73,10 +73,11 @@ function fillSampleRun(db) {
 }
 
 // Splits progress.sql into its statements: comment lines are removed, then it is cut at ";".
-// (The file has no ";" inside strings or comments-within-lines, so this simple split is enough.)
+// (The file has no ";" inside strings or comments-within-lines, so this simple split is enough.
+// Lines may end in CRLF when Git checks the file out on Windows.)
 function readSqlStatements() {
   const text = fs.readFileSync(PROGRESS_SQL, 'utf8');
-  const withoutComments = text.split('\n').map((line) => line.replace(/--.*$/, '')).join('\n');
+  const withoutComments = text.split(/\r?\n/).map((line) => line.replace(/--.*$/, '')).join('\n');
   return withoutComments.split(';').map((statement) => statement.trim()).filter(Boolean);
 }
 
@@ -246,6 +247,9 @@ test('the progress.sql answers match the numbers of the progress command', (t) =
     'waiting for the AI': 2, 'being classified now': 1, 'failed once, will be retried': 1,
     'failed for good': 1, 'relevant, waiting to be moved': 1,
   });
+
+  const searchedNow = db.prepare(find("AND j.status = 'fetching'")).all();
+  assert.deepEqual(searchedNow.map((row) => [row.group_number, row.company]), [[2, 'Company E']]);
 
   const noMentions = db.prepare(find('WHERE NOT EXISTS')).all().map((row) => row.company);
   assert.deepEqual(noMentions, ['Company C', 'Company E', 'Company F', 'Company G', 'Company H']);

@@ -13,9 +13,26 @@
     "collect": "node --env-file-if-exists=.env src/collector/runCollect.js",
     "classifier": "node --env-file-if-exists=.env src/classifier/runClassifier.js",
     "progress": "node --env-file-if-exists=.env src/tools/progress.js",
-    "test": "node --test \"test/**/*.test.js\""
+    "api": "node --env-file-if-exists=.env src/api/runApi.js",
+    "build": "vite build --config web/vite.config.js",
+    "dashboard": "npm run build && npm run api",
+    "dev": "vite --config web/vite.config.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:web": "vitest run --config web/vite.config.js"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.11.1"
+    "@tanstack/react-query": "^5.104.0",
+    "express": "^5.2.1",
+    "fast-xml-parser": "^5.11.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.1.1",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
   }
 }

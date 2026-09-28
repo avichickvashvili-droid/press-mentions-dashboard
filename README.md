@@ -1,6 +1,6 @@
 # Press Mentions Monitoring & Dashboard
 
-> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). The first real run is done: [results](#real-run-results-run-1-2026-09-28). Next: the API + dashboard, then the daily job and alert.
+> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). The first real run is done: [results](#real-run-results-run-1-2026-09-28). The API + dashboard are built ([the dashboard](#5-the-dashboard)). Next: the daily job and alert.
 > Full design notes and the decision log are in [PLAN.md](PLAN.md).
 
 ## What it does
@@ -116,13 +116,43 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 298 tests. Offline: Google News and Ollama are replaced with fakes |
+| `npm test` | Runs all 342 backend tests (pipeline + API). Offline: Google News and Ollama are replaced with fakes |
+| `npm run test:web` | Runs the dashboard page's tests (Vitest, in a simulated browser) |
+| `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
+| `npm run api` | Starts only the API + the already-built page |
+| `npm run build` | Only builds the page into `web/dist` |
+| `npm run dev` | The page in development mode (hot reload); needs `npm run api` in a second terminal |
 | `npm run collect` | Runs only the collector: one full 90-day collection (or resumes an unfinished one). `npm run collect -- --groups 2,5` re-runs groups of the last run |
 | `npm run classifier` | Runs only the classifier (always on; stop with Ctrl+C) |
 | `npm run seed` | Only loads or updates the company list in the database |
 | `npm run progress` | Shows the latest run's progress from the database (read-only) |
 
 Each service ends with an exit code that says why it stopped (0 finished, 3 refused because another run is active or `--groups` can't be used now, 1 crashed); see [challenge 12](#12-crashes-and-failures).
+
+### 5. The dashboard
+```
+npm run dashboard
+```
+Then open **http://localhost:3000**. The dashboard is its own command, separate from `npm start`, and needs neither Google News nor Ollama.
+- It shows every company in the list, also those with no coverage, **most mentions first** (no coverage last): status ("last mentioned 3 days ago" / "no coverage found"), number of mentions and how many are positive / negative / neutral. Click a company to see its mentions from the last 90 days, newest first, **20 per page** (« First ‹ Previous · Page 3 of 161 · Next › Last »), each with its date, sentiment, publisher and a link to the article.
+- **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. A database that already has data is never changed.
+- **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads when you come back to its tab, when you press **Refresh**, and by itself at midnight (UTC). "Data as of …" at the top shows when it was loaded.
+- **Development:** `npm run dev` (the page with hot reload, http://localhost:5173) together with `npm run api` in a second terminal.
+
+**API** (read-only, JSON):
+
+| Endpoint | Answer |
+|---|---|
+| `GET /api/companies` | `{ asOf, windowStart, companies: [{ id, name, section, sectionName, hint, status, lastMentionAt, daysAgo, mentionCount, sentimentCounts: { positive, neutral, negative } }] }` |
+| `GET /api/companies/:id/mentions` | `{ company: { id, name }, mentions: [{ title, url, publisher, publishedAt, sentiment }] }`, newest first, last 90 days |
+
+Errors are JSON `{ "error": "…" }`: 404 for an unknown company or API address, 500 if the database can't be read (details only in the API's terminal).
+
+**Troubleshooting**
+- `port 3000 is busy`: another program uses the port. Stop it, or set `API_PORT=3001` in `.env` (copy `.env.example`).
+- `The dashboard page has not been built yet`: run `npm run dashboard` (or `npm run build`) instead of `npm run api`.
+- `data/ could not be imported`: the database was empty and `data/` is missing or broken. Restore it (`git checkout data`) and start again. The page then shows "No companies to show yet".
+- The page says it can't reach the server: the API was stopped; start `npm run dashboard` again.
 
 ## Tracking progress
 
@@ -173,7 +203,7 @@ MENTIONS
 ```
 If no run has started yet, it prints `No database yet — start a run with npm start`.
 
-**Ready-made SQL queries:** [`queries/progress.sql`](queries/progress.sql) holds the same questions and more, each with a plain heading ("Which group is running now?", "Which companies failed, and why?", "Which companies have no mentions at all?") and an example of what it shows. They are plain SQLite and work in any database viewer.
+**Ready-made SQL queries:** [`queries/progress.sql`](queries/progress.sql) starts with a **TL;DR of the 5 most useful queries** (is the run OK, each group, the AI queue, the company being searched now, mentions by sentiment), then 11 more for detail. Each has a one-line comment on what it shows. They are plain SQLite and work in any database viewer. The 5 are also in [GUIDE.md](GUIDE.md#follow-a-run).
 
 **In DB Browser for SQLite** (a free viewer):
 1. Download it from [sqlitebrowser.org](https://sqlitebrowser.org/dl/) and install it.

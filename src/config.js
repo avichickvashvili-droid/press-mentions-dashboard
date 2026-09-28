@@ -1,10 +1,11 @@
 // config.js — every setting of the project in one place (D80): the data collection (collector
-// and seed), the classifier (the AI step and the data/ export) and the orchestrator (`npm start`).
+// and seed), the classifier (the AI step and the data/ export), the api + dashboard and the
+// orchestrator (`npm start`).
 //
 // Where it sits: read by every other file (database, seed loader, Google News client, queue
-// writer, lock, company loop, classifier, orchestrator). Nothing else holds a "magic number".
-// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL and LLM_CONCURRENCY environment variables
-// (all optional, from .env if present).
+// writer, lock, company loop, classifier, api, orchestrator). Nothing else holds a "magic number".
+// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL, LLM_CONCURRENCY and API_PORT environment
+// variables (all optional, from .env if present).
 // Writes: nothing.
 //
 // To change how the program behaves, change a value here. Each value has a plain-language
@@ -331,6 +332,21 @@ export const config = {
   // many times, EXPORT_RENAME_RETRY_MS apart, before the export counts as failed.
   EXPORT_RENAME_TRIES: 5,
   EXPORT_RENAME_RETRY_MS: 200,
+
+  // =====================================================================================
+  // API + dashboard (Step 5, `src/api/`)
+  // =====================================================================================
+
+  // The port the api (and the dashboard page) listens on: http://localhost:3000.
+  // Can be changed with the API_PORT setting in .env (e.g. when port 3000 is taken).
+  API_PORT: positiveIntegerFromEnv('API_PORT', 3000),
+
+  // The rolling window the dashboard shows, in days (the "last quarter", D1): the same 90 days as
+  // the collection and the data/ export. Worked out again on every request (D13, NFR5).
+  DASHBOARD_WINDOW_DAYS: COLLECTION_DAYS,
+
+  // The built dashboard page (made by the Vite build) that the api serves.
+  WEB_DIST_DIR: path.join(PROJECT_ROOT, 'web', 'dist'),
 
   // =====================================================================================
   // Orchestrator (`npm start`, the supervisor). These values are fixed here on purpose; they

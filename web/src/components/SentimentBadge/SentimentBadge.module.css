@@ -1,0 +1,24 @@
+/* SentimentBadge.module.css — the colours of the positive / negative / neutral labels. */
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.positive {
+  background: var(--positive-bg);
+  color: var(--positive-text);
+}
+
+.negative {
+  background: var(--negative-bg);
+  color: var(--negative-text);
+}
+
+.neutral {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}

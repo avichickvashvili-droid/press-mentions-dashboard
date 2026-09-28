@@ -14,7 +14,8 @@
 //
 // If anything in the files is wrong, the loader stops with a clear message (SeedError) and the
 // Company table is left exactly as it was. Reading the company list file itself is shared with
-// the data/ export (src/shared/companyList.js).
+// the data/ export (src/shared/companyList.js). The api's data/ import (src/api/importData.js)
+// builds its Company rows with the same code (readCompaniesFromFiles + writeCompanies).
 
 import { config } from '../config.js';
 import { inTransaction } from '../db/database.js';
@@ -128,40 +129,47 @@ export function buildCompanies(listEntries, hintsFile, keywordsFile) {
   return { companies, warnings };
 }
 
-// Saves the companies in ONE transaction: a known name keeps its id and gets its section,
-// hint and search updated; a new name is inserted. Nothing is deleted. If any row fails,
-// nothing is saved. Returns { inserted, updated }.
-export function saveCompanies(db, companies) {
-  return inTransaction(db, () => {
-    const findByName = db.prepare('SELECT id FROM Company WHERE name = ?');
-    const findById = db.prepare('SELECT name FROM Company WHERE id = ?');
-    const update = db.prepare('UPDATE Company SET section = ?, hint = ?, query_param = ? WHERE id = ?');
-    const insert = db.prepare('INSERT INTO Company (id, name, section, hint, query_param) VALUES (?, ?, ?, ?, ?)');
-    let inserted = 0;
-    let updated = 0;
+// Writes the companies WITHOUT starting a transaction of its own: a known name keeps its id and
+// gets its section, hint and search updated; a new name is inserted. Nothing is deleted.
+// The caller must already be inside a transaction, so a failing row undoes everything: used by
+// saveCompanies below, and by the api's data/ import (src/api/importData.js), which writes the
+// companies and the mentions in one single transaction. Returns { inserted, updated }.
+export function writeCompanies(db, companies) {
+  const findByName = db.prepare('SELECT id FROM Company WHERE name = ?');
+  const findById = db.prepare('SELECT name FROM Company WHERE id = ?');
+  const update = db.prepare('UPDATE Company SET section = ?, hint = ?, query_param = ? WHERE id = ?');
+  const insert = db.prepare('INSERT INTO Company (id, name, section, hint, query_param) VALUES (?, ?, ?, ?, ?)');
+  let inserted = 0;
+  let updated = 0;
 
-    for (const company of companies) {
-      const existing = findByName.get(company.name);
-      if (existing) {
-        update.run(company.section, company.hint, company.query_param, existing.id);
-        company.id = existing.id; // existing rows keep their id
-        updated += 1;
-        continue;
-      }
-      const idOwner = findById.get(company.id);
-      if (idOwner) {
-        throw new SeedError(`Cannot add "${company.name}": its id "${company.id}" is already used by "${idOwner.name}" in the database.`);
-      }
-      insert.run(company.id, company.name, company.section, company.hint, company.query_param);
-      inserted += 1;
+  for (const company of companies) {
+    const existing = findByName.get(company.name);
+    if (existing) {
+      update.run(company.section, company.hint, company.query_param, existing.id);
+      company.id = existing.id; // existing rows keep their id
+      updated += 1;
+      continue;
     }
-    return { inserted, updated };
-  });
+    const idOwner = findById.get(company.id);
+    if (idOwner) {
+      throw new SeedError(`Cannot add "${company.name}": its id "${company.id}" is already used by "${idOwner.name}" in the database.`);
+    }
+    insert.run(company.id, company.name, company.section, company.hint, company.query_param);
+    inserted += 1;
+  }
+  return { inserted, updated };
 }
 
-// The whole seed step: read the 3 files, check them, build every company's search and save
-// them. Returns { companies (file order, with their ids), warnings, inserted, updated }.
-export function seedCompanies(db, files = {}) {
+// Saves the companies in ONE transaction (see writeCompanies). If any row fails, nothing is
+// saved. Returns { inserted, updated }.
+export function saveCompanies(db, companies) {
+  return inTransaction(db, () => writeCompanies(db, companies));
+}
+
+// Reads the 3 files, checks them and builds every company's row, without saving anything.
+// Returns { companies (file order), warnings }. Shared by seedCompanies below and by the api's
+// data/ import (src/api/importData.js), so both build exactly the same Company rows.
+export function readCompaniesFromFiles(files = {}) {
   const listFile = files.listFile ?? config.COMPANY_LIST_FILE;
   const hintsFilePath = files.hintsFile ?? config.COMPANY_HINTS_FILE;
   const keywordsFilePath = files.keywordsFile ?? config.SECTION_KEYWORDS_FILE;
@@ -172,8 +180,13 @@ export function seedCompanies(db, files = {}) {
   if (listEntries.length === 0) {
     throw new SeedError(`The company list (${listFile}) has no companies.`);
   }
+  return buildCompanies(listEntries, hintsFile, keywordsFile);
+}
 
-  const { companies, warnings } = buildCompanies(listEntries, hintsFile, keywordsFile);
+// The whole seed step: read the 3 files, check them, build every company's search and save
+// them. Returns { companies (file order, with their ids), warnings, inserted, updated }.
+export function seedCompanies(db, files = {}) {
+  const { companies, warnings } = readCompaniesFromFiles(files);
   const { inserted, updated } = saveCompanies(db, companies);
   return { companies, warnings, inserted, updated };
 }

@@ -11,7 +11,9 @@
 // A full snapshot every time, not an append. Only companies that are in the company list NOW
 // are exported, with their mentions (D79): a company removed from the list (or renamed) keeps
 // its rows in the database (nothing is ever deleted, D46) but is no longer in data/.
-// "daysAgo" is a snapshot as of `asOf`; the live dashboard recomputes it.
+// "daysAgo" is a snapshot as of `asOf`; the live dashboard recomputes it. The per-company status
+// (status, last mention, days ago, mention count, sentiment totals) is worked out by
+// src/shared/companyStatus.js, the same code the api uses (D99).
 // run.json also shows the groups (D86): { total, complete: [numbers], failed: [numbers],
 // exported: how many groups' results are in this snapshot }, and failedCompanies: [names].
 // After a group (the run is still being collected or classified) `finishedAt` is null; at the end of the run it
@@ -30,17 +32,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config.js';
 import { readCompanyNames } from '../shared/companyList.js';
+import { buildCompanyStatuses, windowStartFor } from '../shared/companyStatus.js';
 import { sleep as realSleep } from '../shared/retry.js';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Rename errors that usually mean "another program has the file open right now" (worth retrying).
 const TEMPORARY_RENAME_ERRORS = new Set(['EPERM', 'EBUSY', 'EACCES']);
-
-// Whole days between a mention's date and the snapshot time (never below 0).
-function daysBetween(fromIso, toMs) {
-  return Math.max(0, Math.floor((toMs - Date.parse(fromIso)) / DAY_MS));
-}
 
 // Builds the three files' contents from the database. Read-only.
 // `run` is the JobRun row being exported; `now` is the snapshot time (at the end of the run: the
@@ -59,7 +55,7 @@ export function buildExport(db, {
   companyNames = readCompanyNames(config.COMPANY_LIST_FILE),
 }) {
   const asOf = new Date(now).toISOString();
-  const windowStart = new Date(now - windowDays * DAY_MS).toISOString();
+  const windowStart = windowStartFor(now, windowDays);
   const inList = new Set(companyNames);
 
   // --- mentions.json: every relevant mention in the window, by company, newest first ---
@@ -83,30 +79,8 @@ export function buildExport(db, {
   }));
 
   // --- companies.json: every company in the list (also those with no coverage) with its status ---
-  const perCompany = new Map();
-  for (const mention of mentions) {
-    const entry = perCompany.get(mention.companyId) ?? { count: 0, last: null, sentimentCounts: { positive: 0, neutral: 0, negative: 0 } };
-    entry.count += 1;
-    entry.sentimentCounts[mention.sentiment] += 1;
-    if (entry.last === null || mention.publishedAt > entry.last) entry.last = mention.publishedAt;
-    perCompany.set(mention.companyId, entry);
-  }
-  const companyRows = db.prepare('SELECT id, name, section, hint FROM Company ORDER BY name COLLATE NOCASE').all()
-    .filter((company) => inList.has(company.name));
-  const companies = companyRows.map((company) => {
-    const entry = perCompany.get(company.id);
-    return {
-      id: company.id,
-      name: company.name,
-      section: company.section,
-      hint: company.hint,
-      status: entry ? 'mentioned' : 'no_coverage',
-      lastMentionAt: entry ? entry.last : null,
-      daysAgo: entry ? daysBetween(entry.last, now) : null,
-      mentionCount: entry ? entry.count : 0,
-      sentimentCounts: entry ? entry.sentimentCounts : { positive: 0, neutral: 0, negative: 0 },
-    };
-  });
+  // Worked out by the shared module, the same code the api uses (D99), so the two always agree.
+  const { companies } = buildCompanyStatuses(db, { now, windowDays, companyNames });
 
   // --- run.json: what this run did ---
   const checklist = db.prepare(`SELECT j.company_id, c.name, j.status, j.error FROM JobRunCompany j JOIN Company c ON c.id = j.company_id

@@ -11,7 +11,8 @@ import { stripPublisherSuffix } from '../../src/shared/text.js';
 import { validateAnswer } from '../../src/classifier/answerValidator.js';
 import { makeTempDir } from '../helpers.js';
 
-const RESEARCH_PROMPT = fs.readFileSync(new URL('../../research/model-test/prompt.txt', import.meta.url), 'utf8');
+// CRLF → LF: Git may check the file out with Windows line endings.
+const RESEARCH_PROMPT = fs.readFileSync(new URL('../../research/model-test/prompt.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 test('the prompt is the tested prompt with only the description line removed (D58)', () => {
   const [template, schemaText] = RESEARCH_PROMPT.split(/^---- JSON schema.*$/m);

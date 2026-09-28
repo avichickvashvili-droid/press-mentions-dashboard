@@ -7,8 +7,8 @@
 // Writes: web/dist (the build).
 //
 // In development the page runs on Vite's own server, and every /api request is passed on
-// (proxied) to the api at http://localhost:API_PORT. Start the api in a second terminal with
-// `npm run api`.
+// (proxied) to the api at http://127.0.0.1:API_PORT, the live-updates channel too. Start the api
+// in a second terminal with `npm run api`.
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +32,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        '/api': `http://localhost:${apiPort}`,
+        // 127.0.0.1, not "localhost": the api listens on 127.0.0.1 only (D106), and "localhost"
+        // can mean the IPv6 address ::1 instead.
+        '/api': `http://127.0.0.1:${apiPort}`,
       },
     },
     test: {

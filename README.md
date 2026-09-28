@@ -1,6 +1,6 @@
 # Press Mentions Monitoring & Dashboard
 
-> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). The first real run is done: [results](#real-run-results-run-1-2026-09-28). The API + dashboard are built ([the dashboard](#5-the-dashboard)). Next: the daily job and alert.
+> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). The first real run is done: [results](#real-run-results-run-1-2026-09-28). The API + dashboard are built ([the dashboard](#5-the-dashboard)), and so is the daily job with its Discord alert ([the daily job](#6-the-daily-job)); its first real run is next.
 > Full design notes and the decision log are in [PLAN.md](PLAN.md).
 
 ## What it does
@@ -11,7 +11,7 @@ For every company in `ourcrowd_companies.txt` (258 companies), the system:
 2. **Classifies** each article with a **local Ollama model**: is it really about this company, and if so, is it positive, negative or neutral?
 3. **Stores** the relevant mentions in SQLite.
 4. **Shows** a dashboard: every company with its status ("last mentioned 3 days ago" / "no coverage found"). Click a company to see its mentions, newest first, each with its sentiment and a link to the article.
-5. **Runs daily**, adds new mentions, and sends one alert listing them (the daily job: planned, not built yet).
+5. **Runs daily** (`npm run daily`, 03:00 Israel time): adds the new mentions, updates open dashboards by itself, and sends one Discord message listing them.
 
 ## How it works
 
@@ -36,7 +36,8 @@ ourcrowd_companies.txt (258 companies) → filtered_ourcrowd_companies.txt (12 s
         ▼
 5. API (Express) ──► 6. DASHBOARD (React + Vite)
 
-`npm run collect` runs the 90-day collection. The daily job (one alert with the new mentions) is a separate job, designed later.
+`npm run collect` runs the 90-day collection. The daily job (`npm run daily`) is a separate program: every day it
+searches the last 2 days, classifies, tells the API (which updates open pages), and sends one Discord message.
 Collection (1), classification (3) and the API (5) are separate services, kept alive by a small supervisor.
 ```
 
@@ -116,8 +117,9 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 350 backend tests (pipeline + API). Offline: Google News and Ollama are replaced with fakes |
-| `npm run test:web` | Runs the dashboard page's 56 tests (Vitest, in a simulated browser) |
+| `npm test` | Runs all 423 backend tests (pipeline + API + daily job). Offline: Google News, Ollama and Discord are replaced with fakes |
+| `npm run test:web` | Runs the dashboard page's 64 tests (Vitest, in a simulated browser) |
+| `npm run daily` | Starts the daily job; it stays up and runs every day at 03:00 Israel time (see [the daily job](#6-the-daily-job)) |
 | `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
 | `npm run api` | Starts only the API + the already-built page |
 | `npm run build` | Only builds the page into `web/dist` |
@@ -138,15 +140,18 @@ Then open **http://localhost:3000**. The dashboard is its own command, separate 
 - **Search:** type in the box above the table and it narrows on every keystroke (no button, no Enter): company names containing the text, in any case. The text stays when the data reloads, and an open company stays open.
 - **Sort:** click the Company, Status or Mentions header to sort by it; click again to reverse (▲ / ▼ shows the active one). Companies with no coverage stay at the bottom (except when sorting by Company). The sentiment columns are not sortable.
 - **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. The data of a database that already has data is never changed (at start-up the api may only switch it to WAL mode and add missing tables or columns).
-- **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads when you come back to its tab, when you press **Refresh**, and by itself at midnight (UTC). "Data as of …" at the top shows when it was loaded.
+- **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads when you come back to its tab, when you press **Refresh**, and by itself at midnight (UTC), and by itself when the daily job has added new data. "Data as of …" at the top shows when it was loaded.
+- **This computer only:** the API listens on 127.0.0.1, so nobody else on your network can open it.
 - **Development:** `npm run dev` (the page with hot reload, http://localhost:5173) together with `npm run api` in a second terminal.
 
-**API** (read-only, JSON):
+**API** (it never writes to the database):
 
 | Endpoint | Answer |
 |---|---|
 | `GET /api/companies` | `{ asOf, windowStart, windowDays, companies: [{ id, name, section, sectionName, hint, status, lastMentionAt, daysAgo, mentionCount, sentimentCounts: { positive, neutral, negative } }] }` |
 | `GET /api/companies/:id/mentions` | `{ company: { id, name }, mentions: [{ title, url, publisher, publishedAt, sentiment }] }`, newest first, last 90 days |
+| `GET /api/events` | Live updates for an open page (Server-Sent Events): the event `data-updated` when the daily job has added new data |
+| `POST /api/internal/data-updated` | The daily job's "new data" signal. Accepted only from this computer with the header `X-Press-Mentions: daily-job` (else 403). Sends `data-updated` to every open page; answers `{ pages }` |
 
 Errors are JSON `{ "error": "…" }`: 404 for an unknown company or API address, 500 if the database can't be read (details only in the API's terminal).
 
@@ -155,6 +160,37 @@ Errors are JSON `{ "error": "…" }`: 404 for an unknown company or API address,
 - `The dashboard page has not been built yet`: run `npm run dashboard` (or `npm run build`) instead of `npm run api`.
 - `data/ could not be imported`: the database was empty and `data/` is missing or broken. Restore it (`git checkout data`) and start again. The page then shows "No companies to show yet".
 - The page says it can't reach the server: the API was stopped; start `npm run dashboard` again.
+
+### 6. The daily job
+```
+npm run daily
+```
+It stays up (like the dashboard, in its own terminal) and runs **every day at 03:00 Israel time**. Stop it with Ctrl+C. Only one can be open at a time: a second `npm run daily` on the same database says which process is already open and exits (code 3), so no day gets two runs and two messages (the lock is a small file, `db/daily.lock`, removed when the job stops). It needs **Ollama** running (only when there are new articles) and `DISCORD_WEBHOOK_URL` in `.env` (see `.env.example`; the address is a secret and is never committed). The dashboard does not have to be running.
+
+**One daily run, step by step:**
+1. **Waits** if the 90-day collection (`npm start`) is still collecting or classifying, and tries again every 15 min. If that collection was stopped halfway and nothing is working on it, the log says so: run `npm start` to finish it.
+2. **First run ever only:** marks every mention already in the database as alerted, so the ~11,600 mentions of the real run never go to Discord.
+3. **Searches** every company for yesterday + today (Google takes dates only). A company that is in the list but not in the database yet is named in one warning (run `npm run seed` to add it). Articles already stored are skipped by the same duplicate checks as the 90-day run. The AI classifies at the same time: not about the company → deleted, about it → a mention with its sentiment.
+4. **New mentions** = mentions not alerted yet (`Mention.alerted_at` empty), counted per company.
+5. **Updates the dashboard** (only when something is new): it calls the API, and every open page reloads its data: the new mentions appear, and anything older than 90 days drops out.
+6. **Discord:** one message listing **every** company with new mentions (count and 🟢 / ⚪ / 🔴), most first, with the total and a dashboard link; a long list goes on in a second message. A quiet day gets a short "☕ All quiet on the press front" message, so you know it ran. Only after Discord accepts a message are its mentions marked as alerted; if Discord fails, they go out with the next run.
+7. **Merges into `data/`** (only when something is new): `mentions.json` and `companies.json` are written again from the database (old + new mentions, new totals), and `run.json` gets a `lastDailyRun` part (when, which days, how many new, when the alert went out, companies that could not be searched). The 90-day collection's own times in `run.json` (`collectedAt`, `finishedAt`) stay as they were.
+8. **Records the run** in the `DailyRun` table (status, new mentions, when the alert went out, last error).
+
+**When something goes wrong:**
+- **The computer was off at 03:00:** when `npm run daily` starts and the last successful run is more than a day old, it runs right away, and it searches from the day of the last run, so no day is skipped.
+- **The computer was asleep at 03:00** (with `npm run daily` open): the same check runs every hour, so the missed run starts within an hour after the computer wakes up.
+- **A database filled from `data/`** (a fresh clone, no run yet): the first daily run searches from the day that data was collected (the newest mention), at most 90 days back.
+- **Google or Ollama is down:** it waits and tries again until they are back ("run when possible").
+- **Discord is down, or the webhook was deleted:** the run still finishes; the mentions stay "new" and go out with the next message. The terminal and the log say why.
+- **A run fails** (an unexpected error): tried again after 30 min, at most 3 times, then at the next 03:00.
+- **Stopped in the middle** (Ctrl+C, a crash, a closed window): the articles being classified go back to the queue, the run is marked failed, and the next start runs it again. An article left "being classified" by a program that is gone is given back, so it can never make a run wait forever.
+- **The database is busy** for a moment (another program is writing): the run's own writes wait and try again, so a message Discord already accepted is never sent twice.
+
+**Log:** the terminal (with the time of each line) and `db/logs/daily/daily.log`. The history of the runs:
+```sql
+SELECT id, started_at, finished_at, status, new_mentions, alert_sent_at, last_error FROM DailyRun ORDER BY id DESC;
+```
 
 ## Tracking progress
 
@@ -612,14 +648,15 @@ Each design choice solves a specific problem. For each one: the problem, what we
     - `mentions.json`: every relevant mention from the last 90 days, with sentiment, publisher, date and link
     - `run.json`: a run summary (counts fetched / relevant / deleted / failed; groups complete / failed / exported; failed companies)
   - Only relevant, classified mentions are exported. Each run rewrites a full snapshot, so `data/` always matches the database.
-  - The export happens **before** the alert, and each file is written to a temp file and then renamed, so a crash can never leave a half-written file.
+  - Each file is written to a temp file and then renamed, so a crash can never leave a half-written file.
+  - The daily job writes `data/` again after each run with new mentions (old + new mentions, new totals, and a `lastDailyRun` part in `run.json`), after the Discord message, so `run.json` can say whether the alert went out.
   - When the API starts on an empty database, it **imports `data/` automatically**, so the dashboard works right away from the committed results.
 - **Optional:** a Docker image for the API + dashboard only. The pipeline stays local, because Ollama needs the GPU.
 
 ### 16. Other deliberate limits
 - **Old data is filtered, not deleted.** Queries use the last 90 days, which keeps the door open for longer ranges later.
 - **Former names aren't searched** ("formerly Plantish", etc.): only current names, to avoid noise. Known limitation.
-- **No authentication, company editing, or real-time updates.** Not required; the seed file is the source of truth.
+- **No authentication or company editing.** Not required; the seed file is the source of truth. The API only listens on this computer (127.0.0.1).
 
 ---
 

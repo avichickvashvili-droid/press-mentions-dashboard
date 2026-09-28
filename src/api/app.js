@@ -1,4 +1,5 @@
-// app.js — builds the Express app: the two read-only endpoints and the dashboard page (D19, D34).
+// app.js — builds the Express app: the read-only endpoints, the live-updates channel and the
+// dashboard page (D19, D34, D106).
 //
 // Where it sits: created by src/api/runApi.js (the `npm run api` / `npm run dashboard` command),
 // and by the tests, which start it on a temporary database. It only reads (D19): the database
@@ -11,6 +12,13 @@
 //   GET /api/companies               every company in the list with its status and totals, and
 //                                    windowDays (how many days the window covers, for the page)
 //   GET /api/companies/:id/mentions  one company's mentions in the last 90 days, newest first
+//   GET /api/events                  live updates for an open page (Server-Sent Events, events.js):
+//                                    "data-updated" when the daily job has added new data
+//   POST /api/internal/data-updated  the daily job's signal (D106). Accepted only from this
+//                                    computer AND with the X-Press-Mentions: daily-job header (a
+//                                    web page on another site can't add that header), else 403.
+//                                    It writes nothing: it only sends "data-updated" to the open
+//                                    pages, and answers { pages } = how many got it.
 // Everything is worked out again on every request: the 90-day window, "days ago", the totals
 // (D13, D99, NFR5).
 //
@@ -35,6 +43,7 @@ import { config } from '../config.js';
 import { readCompanyNames } from '../shared/companyList.js';
 import { loadSectionNames } from '../classifier/prompt.js';
 import { findCompany, readCompanyList, readCompanyMentions } from './queries.js';
+import { createEventHub, DAILY_JOB_HEADER, isLocalRequest } from './events.js';
 
 // The security headers of every answer (see the file header).
 const SECURITY_HEADERS = {
@@ -54,6 +63,7 @@ const READ_FAILED_MESSAGE = 'The dashboard data could not be read from the datab
 //   getSectionNames  returns { section number: name }
 //   webDistDir       the folder of the built page
 //   logError         where server-side errors are written
+//   events           the live-updates channel (events.js); runApi.js closes it when stopping
 export function createApp({
   db,
   now = () => Date.now(),
@@ -62,6 +72,7 @@ export function createApp({
   getSectionNames = () => loadSectionNames(),
   webDistDir = config.WEB_DIST_DIR,
   logError = (text) => console.error(text),
+  events = createEventHub(),
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -113,6 +124,21 @@ export function createApp({
     } catch (error) {
       sendServerError(res, `GET /api/companies/${req.params.id}/mentions`, error);
     }
+  });
+
+  // GET /api/events: an open page listens here for "data-updated" (D106).
+  app.get('/api/events', (req, res) => {
+    events.open(req, res);
+  });
+
+  // POST /api/internal/data-updated: the daily job's "new data" signal (D106). Writes nothing.
+  app.post('/api/internal/data-updated', (req, res) => {
+    if (!isLocalRequest(req) || req.get(DAILY_JOB_HEADER.name) !== DAILY_JOB_HEADER.value) {
+      res.status(403).json({ error: 'Only the daily job on this computer may send this signal.' });
+      return;
+    }
+    const pages = events.broadcast('data-updated');
+    res.json({ pages });
   });
 
   // Any other /api address: a clear 404 in JSON (not the page).

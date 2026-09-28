@@ -15,6 +15,10 @@ Stop: Ctrl+C. Resume: `npm start` again. It continues where it stopped.
 `npm run dashboard`, then open **http://localhost:3000**. It shows the database; if the database is empty (a fresh clone), it first loads the committed `data/`. Stop: Ctrl+C.
 Port 3000 taken? Set `API_PORT=3001` in `.env`. More in [README](README.md#5-the-dashboard).
 
+## Daily job
+
+`npm run daily` in its own terminal, with Ollama running and `DISCORD_WEBHOOK_URL` in `.env`. It stays up and runs every day at 03:00 Israel time (right away if a day was missed), then posts to Discord, also on a quiet day. Stop: Ctrl+C. More in [README](README.md#6-the-daily-job).
+
 ## Follow a run
 
 **Terminal** (a second one): `npm run progress`

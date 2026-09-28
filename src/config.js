@@ -1,11 +1,11 @@
 // config.js — every setting of the project in one place (D80): the data collection (collector
-// and seed), the classifier (the AI step and the data/ export), the api + dashboard and the
-// orchestrator (`npm start`).
+// and seed), the classifier (the AI step and the data/ export), the api + dashboard, the daily
+// job and the orchestrator (`npm start`).
 //
 // Where it sits: read by every other file (database, seed loader, Google News client, queue
 // writer, lock, company loop, classifier, api, orchestrator). Nothing else holds a "magic number".
-// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL, LLM_CONCURRENCY and API_PORT environment
-// variables (all optional, from .env if present).
+// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL, LLM_CONCURRENCY, API_PORT and
+// DISCORD_WEBHOOK_URL environment variables (all optional, from .env if present).
 // Writes: nothing.
 //
 // To change how the program behaves, change a value here. Each value has a plain-language
@@ -347,6 +347,92 @@ export const config = {
 
   // The built dashboard page (made by the Vite build) that the api serves.
   WEB_DIST_DIR: path.join(PROJECT_ROOT, 'web', 'dist'),
+
+  // The address the api listens on: 127.0.0.1 = this computer only (D106, code review #2).
+  // Nobody else on the network can open the dashboard or send it the daily job's signal.
+  API_HOST: '127.0.0.1',
+
+  // While a dashboard page is open, the api sends it a small "still here" line this often over
+  // the live-updates connection (GET /api/events), so the connection is not closed as idle.
+  EVENTS_KEEP_ALIVE_MS: 25000,
+
+  // If the live-updates connection drops (e.g. the api was restarted), the page tries to
+  // connect again after this long.
+  EVENTS_RECONNECT_MS: 5000,
+
+  // =====================================================================================
+  // Daily job (Step 6, `npm run daily`, D102, D105, D106)
+  // =====================================================================================
+
+  // When the daily job runs: every day at 03:00 (cron format: minute hour day month weekday),
+  // in the time zone below. The Discord message goes out when the job ends, not at 03:00 exactly.
+  DAILY_CRON: '0 3 * * *',
+
+  // The time zone of DAILY_CRON and of the date in the Discord message's title.
+  DAILY_TIMEZONE: 'Asia/Jerusalem',
+
+  // How many days each daily search covers, counted in whole UTC days: 2 = yesterday + today
+  // (Google takes dates only, I40). If the last run is older (the computer was off), the search
+  // starts from the day the last run ran instead, so no day is skipped; never more than
+  // COLLECTION_DAYS back.
+  DAILY_SEARCH_DAYS: 2,
+
+  // "Missed run" check at start-up: when the last successful daily run started more than this
+  // long ago (or there is none), `npm run daily` runs the job right away (Prompt 272).
+  DAILY_MISSED_AFTER_MS: 24 * 60 * 60 * 1000,
+
+  // The same "missed run" check is also done every this long while `npm run daily` stays open
+  // (every hour): a computer that was asleep at 03:00 runs the missed job within an hour after
+  // it wakes up. It only starts a run when no run or retry is already on its way.
+  DAILY_MISSED_CHECK_MS: 60 * 60 * 1000,
+
+  // When the 90-day collection (`npm start`) is still collecting or classifying, the daily job
+  // waits: it tries again after this long (15 minutes).
+  DAILY_BLOCKED_RETRY_MS: 15 * 60 * 1000,
+
+  // When a daily run fails (an unexpected error), it is tried again after this long (30 minutes),
+  // at most DAILY_FAILED_RETRIES times in a row; after that it waits for the next 03:00.
+  DAILY_FAILED_RETRY_MS: 30 * 60 * 1000,
+  DAILY_FAILED_RETRIES: 3,
+
+  // The daily job tells the api "new data" (POST /api/internal/data-updated). How long it waits
+  // for the api to answer before it gives up (the api may simply not be running).
+  DAILY_NOTIFY_TIMEOUT_MS: 5000,
+
+  // ---------- Discord (the alert, D105) ----------
+
+  // The Discord webhook address. It is a SECRET: it is only read from .env
+  // (DISCORD_WEBHOOK_URL=...), never written in the code, the logs or git.
+  DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL || '',
+
+  // The dashboard link at the end of the Discord message.
+  DASHBOARD_URL: `http://localhost:${positiveIntegerFromEnv('API_PORT', 3000)}`,
+
+  // The side color of the Discord message (Discord's blurple).
+  DISCORD_COLOR: 5793266,
+
+  // Discord allows at most 4,096 characters in one message's text. Every company is listed
+  // (Prompt 294); when the list is longer than this, it goes on in a next message ("2/3").
+  // Kept a little under the limit to be safe.
+  DISCORD_MAX_TEXT_CHARS: 4000,
+
+  // How long to wait for Discord to answer one message.
+  DISCORD_TIMEOUT_MS: 15000,
+
+  // Sending one message: tried this many times in all when Discord or the network has a problem,
+  // with these waits in between (5 s, 30 s). When Discord says "too many requests" (429), the wait
+  // Discord asks for is used instead. A message that still fails is sent with the next run: its
+  // mentions stay "not alerted" (D106).
+  DISCORD_TRIES: 3,
+  DISCORD_RETRY_WAITS_MS: [5000, 30000],
+
+  // When Discord says "too many requests" (429), the longest wait accepted from its answer
+  // (5 minutes): a safety net against a strange value.
+  DISCORD_MAX_RATE_LIMIT_WAIT_MS: 5 * 60 * 1000,
+
+  // A company name longer than this is cut (with "…") in the Discord message, so one strange
+  // name can't fill the message.
+  DISCORD_MAX_NAME_CHARS: 100,
 
   // =====================================================================================
   // Orchestrator (`npm start`, the supervisor). These values are fixed here on purpose; they

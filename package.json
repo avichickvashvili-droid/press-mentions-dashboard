@@ -17,6 +17,7 @@
     "build": "vite build --config web/vite.config.js",
     "dashboard": "npm run build && npm run api",
     "dev": "vite --config web/vite.config.js",
+    "daily": "node --env-file-if-exists=.env src/daily/runDaily.js",
     "test": "node --test \"test/**/*.test.js\"",
     "test:web": "vitest run --config web/vite.config.js"
   },
@@ -24,6 +25,7 @@
     "@tanstack/react-query": "^5.104.0",
     "express": "^5.2.1",
     "fast-xml-parser": "^5.11.1",
+    "node-cron": "^4.6.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

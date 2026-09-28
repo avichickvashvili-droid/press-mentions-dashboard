@@ -13,11 +13,14 @@
 // even when the search hides that company's row.
 // Click-to-sort (D104): the chosen sort is state here too (useTableSort), so a reload keeps it;
 // the list is sorted first, then the search narrows it.
+// Live updates (D106): useDataUpdates reloads the same 'companies' queries when the daily job has
+// added new data, exactly like the Refresh button.
 
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCompanies, COMPANIES_KEY } from './hooks/useCompanies.js';
 import { useTableSort } from './hooks/useTableSort.js';
+import { useDataUpdates } from './hooks/useDataUpdates.js';
 import { sortCompanies } from './utils/sortCompanies.js';
 import { filterCompanies } from './utils/filterCompanies.js';
 import { Header } from './components/Header/Header.jsx';
@@ -56,6 +59,7 @@ export function App() {
   const { sort, sortBy } = useTableSort();
   const companiesQuery = useCompanies();
   const queryClient = useQueryClient();
+  useDataUpdates();
 
   const companies = useMemo(() => sortCompanies(companiesQuery.data?.companies ?? [], sort), [companiesQuery.data, sort]);
   const visibleCompanies = useMemo(() => filterCompanies(companies, deferredSearchText), [companies, deferredSearchText]);

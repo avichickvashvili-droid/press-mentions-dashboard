@@ -26,6 +26,9 @@ build/
 *.sqlite3-shm
 *.sqlite3-journal
 
+# The lock file of an open `npm run daily` (src/daily/processLock.js)
+daily.lock
+
 # Unfinished data/ export files (written first, then renamed over the real file)
 data/*.tmp
 

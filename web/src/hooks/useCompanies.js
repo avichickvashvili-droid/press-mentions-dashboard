@@ -6,8 +6,8 @@
 //
 // Query key: ['companies', today]. It starts with 'companies', like the mentions key, so one
 // queryClient.invalidateQueries({ queryKey: ['companies'] }) reloads everything on the page
-// (the Refresh button now, the daily job later). `today` changes at midnight, which loads the
-// list again (new 90-day window, new "days ago").
+// (the Refresh button, and the daily job's signal through useDataUpdates). `today` changes at
+// midnight, which loads the list again (new 90-day window, new "days ago").
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchCompanies } from '../api/client.js';

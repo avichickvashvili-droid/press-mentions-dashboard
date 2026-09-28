@@ -3275,3 +3275,100 @@ after that perform all tests
 ```
 prapre a commit
 ```
+
+---
+
+## Prompt 289 — Push to develop
+
+```
+push to dev
+```
+
+---
+
+## Prompt 290 — Daily job: full steps and how it talks to the backend and the dashboard
+
+```
+ok time to work on the daily job give me a full steps on how to write it based on what we agreed 
+im reminding you the daily job has to do this things:
+run with its own command stays up aka cron job, fetch 24hr (or 48h since its google limitation), no duplications, after this is done if there new data trigger:
+1. data filter -> filtr out everything >90days from the dashboard
+2. add the new sentiments to the dashboard
+3. send the web hook
+
+send me a full detailed overview on how we are going to achive that for example after the cron job is done.
+how is it communicating with our back end? which enpoint is it going to use?
+how the backend will trigger a change on the dashboard to see the updated changes
+```
+
+---
+
+## Prompt 291 — Daily job: the "new mentions" query, invalidate, DailyRun, localhost, merging into data/
+
+```
+SELECT … FROM Mention WHERE alerted_at IS NULL
+explain to me this part why the db will have the answer? when does this run? give me an example of expected output
+also i didnt see you mention invalidate query
+1. give me the structre of dailyrun table, i dont want to save another table just like that. whats the benefit for that?
+2. explain what do you mean
+3. you need to be able to merge the daily job run into the data folder meaning:
+adding to the sentiments the new sentiments
+i dont understand why you would not want to save the data.
+```
+
+---
+
+## Prompt 292 — The new-mentions query returns 136 rows; DailyRun, localhost-only and the data/ merge approved
+
+```
+now i ran the query and i have 136 rows returned, so somthing in your logic is wrong or it shouldve been already marked.
+ok you can make the dailyrun table
+4. yes only accept a call from localhost ok
+agreed on data merge
+```
+
+---
+
+## Prompt 293 — Digest: always send on a quiet day (something cute); questions 2 and 3 unclear
+
+```
+1. even on no new mentions send: something so we can know that the daily job has ran 
+and yeah send something cute
+2. i dont understand whats the question
+3. i dont understand whats the question
+
+try to be more clear when asking me stuff
+```
+
+---
+
+## Prompt 294 — Digest: list every company; the title date is the day it is sent
+
+```
+2. list all
+3. of that same day. yeah ofc its from monday
+since i cant do a daily run every few hours to keep checking its not a news site
+its a dashboard
+```
+
+---
+
+## Prompt 295 — Which column the first run changes, and was it tested on dummy data
+
+```
+First run ever: before searching, it marks the 11,600 existing mentions as alerted, so they never reach Discord.
+explain what colunm inthe table it changes to and to what value 
+
+did you test it on dummy data?to ee its working
+```
+
+---
+
+## Prompt 296 — Code review agent, fix agent, then a commit
+
+```
+ok so im going to instruct you now what to do:
+1. code review agent
+2. code fix from the review agent
+3. after those are done prapre a commit for me.
+```

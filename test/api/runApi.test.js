@@ -13,12 +13,12 @@ import { config } from '../../src/config.js';
 
 const RUN_API = path.join(config.PROJECT_ROOT, 'src', 'api', 'runApi.js');
 
-// Opens a server on a free port, on every address like the api does (to keep the port busy,
+// Opens a server on a free port, on 127.0.0.1 like the api does (D106; to keep the port busy,
 // or to learn a free one), and returns it.
 function occupyFreePort() {
   return new Promise((resolve) => {
     const server = net.createServer();
-    server.listen(0, () => resolve(server));
+    server.listen(0, config.API_HOST, () => resolve(server));
   });
 }
 

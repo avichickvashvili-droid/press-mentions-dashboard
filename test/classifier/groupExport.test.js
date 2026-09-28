@@ -1,4 +1,4 @@
-// groupExport.test.js — data/ after each group (D86): runFinisher.js (findGroupToExport,
+// groupExport.test.js — data/ after each group (D86; also while the run is 'collected', D96): runFinisher.js (findGroupToExport,
 // exportGroup, markRunDone), exporter.js (the groups and failedCompanies in run.json), mover.js
 // (moving only one group's rows) and the classifier loop calling it. Fake Ollama, offline,
 // temporary SQLite + data folder.
@@ -63,7 +63,9 @@ test('a group is ready for export only once it has ended and none of its article
   setGroup(db, runId, 1, 'failed');
   assert.deepEqual(findGroupToExport(db), { runId, groupNumber: 1, finishedAt: null }, 'a failed group is exported too');
   db.prepare("UPDATE JobRun SET status = 'collected'").run();
-  assert.equal(findGroupToExport(db), undefined, 'once the run is collected, the end-of-run export takes over');
+  assert.deepEqual(findGroupToExport(db), { runId, groupNumber: 1, finishedAt: null }, 'D96: also while the run is collected');
+  db.prepare("UPDATE JobRun SET status = 'done'").run();
+  assert.equal(findGroupToExport(db), undefined, 'a done run: the end-of-run export covered it');
 });
 
 test('moving one group\'s rows leaves the other groups\' relevant rows in the queue', (t) => {
@@ -191,4 +193,95 @@ test('G8: a --groups re-run that resets the group while its data/ is being writt
   assert.equal(stale.marked, false, 'finished_at changed since the group was found ready');
   const fresh = await exportGroup(db, findGroupToExport(db), { now: NOW, dataDir, companyListFile });
   assert.equal(fresh.marked, true);
+});
+
+// ---------- D96: after-group data/ also while the run is 'collected' ----------
+
+// The run after the collector has finished: 'collected', nobody holds it, both groups ended (with
+// their finish times), every company done. Harvey (group 1) has 2 articles waiting, Zeta (group 2) 4.
+function collectedRun(t) {
+  const context = setup(t);
+  const { db, runId } = context;
+  db.prepare("UPDATE JobRunCompany SET status = 'finished' WHERE company_id = 'zeta'").run();
+  db.prepare("UPDATE JobRunGroup SET status = 'complete', finished_at = '2026-09-27T09:00:00.000Z' WHERE group_number = 1").run();
+  db.prepare("UPDATE JobRunGroup SET status = 'complete', finished_at = '2026-09-27T09:10:00.000Z' WHERE group_number = 2").run();
+  db.prepare("UPDATE JobRun SET status = 'collected', owner_pid = NULL, finished_at = '2026-09-27T09:10:00.000Z' WHERE id = ?").run(runId);
+  addQueueRows(db, [
+    { companyId: 'harvey', guid: 'h1', title: 'Harvey one' },
+    { companyId: 'harvey', guid: 'h2', title: 'Harvey two' },
+    ...[1, 2, 3, 4].map((number) => ({ companyId: 'zeta', guid: `z${number}`, title: `Zeta ${number}` })),
+  ]);
+  return context;
+}
+
+// The groups' exported_at, as [[1, true/false], [2, true/false]].
+function exportedGroups(db) {
+  return db.prepare('SELECT group_number, exported_at FROM JobRunGroup ORDER BY group_number').all()
+    .map((row) => [row.group_number, row.exported_at !== null]);
+}
+
+test('D96: run collected, 2 ended groups: group 1 is exported once its articles are done, group 2 only after its own, then the run is done', async (t) => {
+  const { db, runId, dataDir, companyListFile } = collectedRun(t);
+  const client = makeFakeClient(() => ({ relevant: true, sentiment: 'positive' }));
+  const logger = makeLogger();
+  const events = [];
+  const classifier = createClassifier({
+    db, client, sectionNames: SECTION_NAMES, pid: 4242, concurrency: 1, claimBatchSize: 2, moveChunk: 1000, dataDir, companyListFile,
+    isAlive: () => true, sleep: async () => {}, now: () => NOW, log: logger.log, warn: logger.warn, event: (text) => events.push(text),
+  });
+
+  assert.equal((await classifier.runOnePass()).kind, 'worked'); // Harvey's 2 articles
+  assert.deepEqual(exportedGroups(db), [[1, true], [2, false]], 'group 1 at once, while the run is collected');
+  assert.deepEqual(readData(dataDir, 'run.json').groups, { total: 2, complete: [1, 2], failed: [], exported: 1 });
+  assert.equal(readData(dataDir, 'mentions.json').mentions.length, 2, 'group 1\'s mentions are in data/');
+  assert.equal(db.prepare('SELECT status FROM JobRun').get().status, 'collected');
+
+  assert.equal((await classifier.runOnePass()).kind, 'worked'); // Zeta 1–2: 2 are still waiting
+  assert.deepEqual(exportedGroups(db), [[1, true], [2, false]], 'group 2 not before its own articles are done');
+
+  assert.equal((await classifier.runOnePass()).kind, 'worked'); // Zeta 3–4: group 2 done
+  assert.deepEqual(exportedGroups(db), [[1, true], [2, true]]);
+  assert.equal(readData(dataDir, 'run.json').groups.exported, 2);
+
+  const last = await classifier.runOnePass(); // queue drained: the end-of-run export, then 'done'
+  assert.deepEqual([last.kind, last.finished], ['idle', true]);
+  assert.equal(db.prepare('SELECT status FROM JobRun WHERE id = ?').get(runId).status, 'done');
+  assert.equal(readData(dataDir, 'mentions.json').mentions.length, 6);
+  assert.deepEqual(events.filter((text) => /classified, data\/ written|done, data\/ written/.test(text)),
+    [`Run ${runId}, group 1 classified, data/ written`, `Run ${runId}, group 2 classified, data/ written`, `Run ${runId} done, data/ written: 6 mentions`]);
+});
+
+test('D96: a collected run whose queue is drained is finished at once, with no separate group export just before', async (t) => {
+  const { db, runId, dataDir, companyListFile } = collectedRun(t);
+  db.prepare("UPDATE BufferQueue SET status = 'relevant', sentiment = 'neutral'").run(); // all classified already
+  let renames = 0;
+  const rename = (from, to) => { renames += 1; fs.renameSync(from, to); };
+  const logger = makeLogger();
+  const classifier = createClassifier({
+    db, client: makeFakeClient(() => ({ relevant: true, sentiment: 'positive' })), sectionNames: SECTION_NAMES, pid: 4242, concurrency: 1,
+    claimBatchSize: 2, moveChunk: 1000, dataDir, companyListFile, exportWriteOptions: { rename },
+    isAlive: () => true, sleep: async () => {}, now: () => NOW, log: logger.log, warn: logger.warn,
+  });
+  const pass = await classifier.runOnePass();
+  assert.deepEqual([pass.kind, pass.finished], ['idle', true]);
+  assert.equal(renames, 3, 'data/ written once (3 files), by the end-of-run export');
+  assert.equal(db.prepare('SELECT status FROM JobRun WHERE id = ?').get(runId).status, 'done');
+  assert.deepEqual(exportedGroups(db), [[1, true], [2, true]], 'markRunDone stamps both groups');
+});
+
+test('D96 + G2: while the run is collected, a failing group export still never fails the pass (one warning, retried after 5 min)', async (t) => {
+  const { db, dataDir, companyListFile } = collectedRun(t);
+  let renames = 0;
+  const rename = () => { renames += 1; throw Object.assign(new Error('EPERM: run.json is open in another program'), { code: 'EPERM' }); };
+  const logger = makeLogger();
+  const classifier = createClassifier({
+    db, client: makeFakeClient(() => ({ relevant: false })), sectionNames: SECTION_NAMES, pid: 4242, concurrency: 1, claimBatchSize: 2,
+    moveChunk: 1000, dataDir, companyListFile, exportWriteOptions: { rename, tries: 1 },
+    isAlive: () => true, sleep: async () => {}, now: () => NOW, log: logger.log, warn: logger.warn,
+  });
+  assert.equal((await classifier.runOnePass()).kind, 'worked'); // Harvey done: group 1's export fails
+  assert.equal((await classifier.runOnePass()).kind, 'worked'); // Zeta 1–2: group 1 not tried again yet
+  assert.equal(renames, 1);
+  assert.equal(logger.lines.warn.filter((line) => /group 1: data\/ could not be written/.test(line)).length, 1);
+  assert.deepEqual(exportedGroups(db), [[1, false], [2, false]]);
 });

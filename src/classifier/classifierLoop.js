@@ -12,7 +12,7 @@
 //   3. ask Ollama about them, LLM_CONCURRENCY at a time (one end-to-end question each, D26)
 //   4. save the whole batch's answers in one transaction
 //   5. when ≥ MOVE_CHUNK relevant rows are waiting, move them to Mention
-//   6. while a run is still being collected: a group that has ended and whose articles are all
+//   6. while a run is 'running' or 'collected' (D96): a group that has ended and whose articles are all
 //      classified gets its own data/ export (leftovers of that group → data/, D86). If that
 //      export fails, the pass still counts as done: one warning, and that group is tried again
 //      only every GROUP_EXPORT_RETRY_MS (5 min; review G2)
@@ -241,8 +241,10 @@ export function createClassifier({
 
     if (rows.length === 0) {
       moveFullChunks(db, { chunk: moveChunk });
-      await tryExportGroup();
+      // The end of the run first: when a 'collected' run can be finished now, its end export covers
+      // every group, so writing one group's data/ just before it would only write data/ twice.
       const finished = await tryFinishRun();
+      if (!finished) await tryExportGroup();
       return { kind: 'idle', finished };
     }
 

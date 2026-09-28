@@ -2487,3 +2487,103 @@ prapre a commit
 ```
 yes can push
 ```
+
+---
+
+## Prompt 209 — Test run on 2 companies, whole flow
+
+```
+i want you to run a test run on 2 companies tell me how it went the whole flow
+```
+
+---
+
+## Prompt 210 — How did the flow behave? Check the logs
+
+```
+im asking how did the flow went? check the logs? how the stystem behaves?
+```
+
+---
+
+## Prompt 211 — Why not on my system? Then run the medium test
+
+```
+you can do medium test but before answet that why not oin my system?
+```
+
+---
+
+## Prompt 212 — Fix the data/ issue first, then a medium test on the real DB path, then drop the DB
+
+```
+i want you to run medium test on my data. drop the db after whats the issue?
+
+why did data not written fix the problems before we move on
+```
+
+---
+
+## Prompt 213 — Did it work? Check all the DB tables
+
+```
+so it worked as expected? check the db results as well
+all the tables
+```
+
+---
+
+## Prompt 214 — Why so little data and so fast?
+
+```
+i was expecting to get insane amounts of data how does it finish fetching so fast?
+```
+
+---
+
+## Prompt 215 — A longer, proper test (not a 30-second one)
+
+```
+i want to have a few min test and not 30sec and saying its all good
+make a more proper test
+```
+
+---
+
+## Prompts 216–220 — Test updates, then: TL;DR of the D96 fix and what G3/G9/G11/G13 are
+
+```
+any updates
+update
+when are we writing data again? when group finish?
+so why didnt we write? since its waiting for the queue?
+wait ur running it in parllel?
+ok update when its done
+Commit the D96 fix?
+give me the tldr of the fix what was broken
+The review questions G3, G9, G11 and G13 are still open. what are them
+```
+
+---
+
+## Prompt 221 — G3 answers
+
+```
+1. no
+2. thats not a solution, if its really still fetching that means data coming in, i explained what i want.
+fetching, waiting for queue
+3. retry 3 times
+```
+
+---
+
+## Prompt 222 — Commit with the two tests explained; G3.3 = b, G9 yes, G11 yes, G13?, crash reason doesn't matter
+
+```
+prapre a commit explaining the 2 tests we made here before going into real test
+3. b
+g9. yes
+g11. ofc
+g13. what?
+crash dosent matter
+```

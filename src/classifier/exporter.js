@@ -14,7 +14,7 @@
 // "daysAgo" is a snapshot as of `asOf`; the live dashboard recomputes it.
 // run.json also shows the groups (D86): { total, complete: [numbers], failed: [numbers],
 // exported: how many groups' results are in this snapshot }, and failedCompanies: [names].
-// After a group (the run is still being collected) `finishedAt` is null; at the end of the run it
+// After a group (the run is still being collected or classified) `finishedAt` is null; at the end of the run it
 // is the time the run becomes 'done'. `asOf` is always the time of this snapshot.
 //
 // Crash safety (D41): every file is first written as "<name>.tmp", then each one is renamed over

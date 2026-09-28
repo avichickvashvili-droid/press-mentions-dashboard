@@ -10,12 +10,16 @@
 // There is no alert here (D61): the daily job sends it later from Mention.alerted_at.
 // If a step fails, the run stays 'collected' and the classifier tries again on its next pass.
 //
-// data/ after each group (D86): while a run is still 'running' (being collected), a group that
+// data/ after each group (D86, D96): while a run is 'running' (being collected) OR 'collected'
+// (the collector has finished, but the classifier is still working through the articles), a group that
 // has ended ('complete' or 'failed'), is not exported yet, and has no article left to classify
 // (pending, to retry, or being worked on; articles that failed for good don't count, D72) is
 // exported: its leftover relevant rows are moved to Mention, data/ is written (the full snapshot
-// so far) and the group's exported_at is set. This needs no hold on the run (the collector holds
-// it): it only reads the run and writes data/ and JobRunGroup.exported_at. When the run becomes
+// so far) and the group's exported_at is set. Groups are exported in group order, each as soon as
+// its articles are done. This needs no hold on the run (the collector, or nobody, holds it): it only
+// reads the run and writes data/ and JobRunGroup.exported_at. The 'collected' case matters most:
+// the collector (~10–20 min) finishes long before the classifier (~1.5 h), so without it almost no
+// after-group export would ever happen (D96). When the run becomes
 // 'done', every group that has no exported_at yet gets one (the end export covers them all).
 // Reads/writes: JobRun (take over, done), JobRunGroup (exported_at), BufferQueue + Mention (via mover.js), data/ (via
 // exporter.js, which also reads the company list file: only listed companies are exported, D79).
@@ -55,14 +59,15 @@ export function markRunDone(db, runId, { pid = process.pid, now = new Date().toI
   });
 }
 
-// Every group that is ready for its after-group export (D86), in order: its run is 'running', the
+// Every group that is ready for its after-group export (D86), in order: its run is 'running' or
+// 'collected' (D96), the
 // group ended ('complete' or 'failed'), it has no exported_at, and none of its companies has an
 // article left to classify (pending, failed with attempts left, or claimed).
 // Returns [{ runId, groupNumber, finishedAt }]. Read-only.
 export function findGroupsToExport(db, { maxAttempts = config.MAX_ATTEMPTS } = {}) {
   return db.prepare(`
     SELECT g.run_id, g.group_number, g.finished_at FROM JobRunGroup g JOIN JobRun r ON r.id = g.run_id
-    WHERE r.status = 'running' AND g.status IN ('complete', 'failed') AND g.exported_at IS NULL
+    WHERE r.status IN ('running', 'collected') AND g.status IN ('complete', 'failed') AND g.exported_at IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM BufferQueue b JOIN JobRunCompany c ON c.company_id = b.company_id
         WHERE c.run_id = g.run_id AND c.group_number = g.group_number

@@ -1,6 +1,6 @@
 # Press Mentions Monitoring & Dashboard
 
-> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). Next: the API + dashboard, then the daily job and alert.
+> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). The first real run is done: [results](#real-run-results-run-1-2026-09-28). Next: the API + dashboard, then the daily job and alert.
 > Full design notes and the decision log are in [PLAN.md](PLAN.md).
 
 ## What it does
@@ -74,7 +74,7 @@ This starts the **orchestrator**, which runs two services side by side and resta
 | Service | What it does | How long (on the dev PC) |
 |---|---|---|
 | `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue. The companies are split into **10 groups** of about 25 (in list order); the groups run one after another, **each in its own process**, which exits when its group is done | About 10–30 minutes of searching. It pauses whenever the queue is full (10,000), so on a big backfill it finishes close to the classifier |
-| `[classifier]` | Asks the local AI about each article: relevant? sentiment? Deletes the irrelevant ones, saves the rest as mentions | Keeps pace with the collector, then about 1–2 hours to finish the queue |
+| `[classifier]` | Asks the local AI about each article: relevant? sentiment? Deletes the irrelevant ones, saves the rest as mentions | Keeps pace with the collector, then finishes the queue (real run: about 30 min after collection ended) |
 
 The progress lines say which group is running, e.g. `Group 2 of 10 (companies 27–52): 12/26 done`. When the last group has ended, the collector prints the **end log**:
 ```
@@ -193,13 +193,169 @@ The database uses WAL mode, so reading it while a run is going is safe: a reader
 
 The classifier is always on, so its lines go to the latest run's folder (after run 1 is done they stay in `run-1` until run 2 starts). Lines written before any run exists go to `db/logs/no-run/`. A `--groups` re-run adds to the same run's folder. The files also exist when a service runs alone (`npm run collect`, `npm run classifier`), except `orchestrator.log`, which only `npm start` writes. The folder can be changed with `LOGS_DIR` in `.env` (relative to the project folder).
 
-**Old logs are removed when a new run starts.** Creating a new run deletes the older runs' rows in the database (`JobRun`, `JobRunCompany`, `JobRunGroup`) and every older `run-<id>` folder in the logs folder (and `no-run/`). **Nothing else** in the logs folder is ever deleted: any other folder is left alone, with one warning. The articles, the mentions and the company list are kept. The new run's line `New run 2: removed 1 old run and its logs` appears in `collector.log` and `orchestrator.log`. Resuming a run or a `--groups` re-run removes nothing: its lines are added to the same folder. A folder that can't be removed (e.g. a file open in another program) gives one warning and is removed at the next new run. **Copy a run's folder elsewhere first if you want to keep it.**
+**Old logs are removed when a new run starts.** Creating a new run deletes the older runs' rows in the database (`JobRun`, `JobRunCompany`, `JobRunGroup`) and every older `run-<id>` folder in the logs folder (and `no-run/`). **Nothing else** in the logs folder is ever deleted: any other folder is left alone, with one warning. The articles, the mentions and the company list are kept. The new run's line `New run 2: removed 1 old run and its logs` appears in `collector.log` and `orchestrator.log`. Resuming a run or a `--groups` re-run removes nothing: its lines are added to the same folder. A folder that can't be removed (e.g. a file open in another program) gives one warning and is removed at the next new run. A folder that holds a file written **after the new run started** (e.g. the classifier already writing its first lines of the new run) is kept, so no line of the current run is lost; it is removed at the next new run. **Copy a run's folder elsewhere first if you want to keep it.**
 
 To follow a file live, open a second PowerShell window in the project folder:
 ```
 Get-Content db\logs\run-1\orchestrator.log -Wait -Tail 20
 ```
 If a log file can't be written (e.g. the disk is full), the program shows one warning and keeps working.
+
+## Real run results (run 1, 2026-09-28)
+
+The first full run over all 258 companies, started with `npm start` on a fresh database. Its output is committed in [`data/`](data/): [`run.json`](data/run.json) (the summary), [`companies.json`](data/companies.json) and [`mentions.json`](data/mentions.json).
+
+**TL;DR:** 58 minutes from start to finish. 258 / 258 companies searched, 16,933 articles found in the last 90 days, 11,600 of them relevant mentions (54 % positive, 29 % negative, 17 % neutral). Zero failures anywhere: no failed company, group, Google request or AI answer, no crash and no restart.
+
+### Setup
+
+| | |
+|---|---|
+| Window | 90 days: 2026-07-01 to 2026-09-28 |
+| Companies | 258, in 10 groups (26 × 8, 25 × 2), searched one group after another |
+| AI model | `qwen3:4b` on local Ollama, 4 requests at once |
+| Machine | A home Windows 11 PC; nothing ran in the cloud |
+
+### Timeline (local time, UTC+3)
+
+| Time | What happened |
+|---|---|
+| 09:02:50 | `npm start`: run 1 created, group 1 started, Ollama ready 2 s later |
+| 09:10:43 | Group 1 done (7 min 53 s): it holds the big names (Anthropic, xAI, Databricks, Cerebras …) |
+| 09:10 – 09:15 | Groups 2–8 done, about 30 s to 1 min each (mostly small companies, one search each) |
+| 09:16 – 09:29 | **Queue full twice (10,000 articles)**: the collector waited 6 min 16 s and 4 min 56 s for the AI to catch up, then went on by itself |
+| 09:30:33 | Group 10 done: **collection finished after 27 min 43 s** (about 16 min of searching + 11 min waiting for the AI) |
+| 09:33 – 10:01 | `data/` written after each group, as soon as all its articles were classified |
+| 10:01:06 | **Run 1 done** (58 min 16 s in total), final `data/` written |
+
+### Collection (Google News)
+
+| | |
+|---|---|
+| Google News searches | 745 (one per company, more for companies with many articles: SpaceX 171 date windows, Anthropic 165, xAI 41) |
+| Articles found and sent to the AI | **16,933** |
+| Results skipped as already stored (duplicates) | about 42,000, mostly from overlapping date windows of the biggest companies |
+| Results dropped (dated outside the 90 days) | 420 |
+| Companies failed / Google errors | **0 / 0** |
+| Companies with only one search | 242 of 258 |
+
+Articles and mentions by group:
+
+| Group | Companies | Collect time | Articles to the AI | Mentions | `data/` written |
+|---|---|---|---|---|---|
+| 1 | 26 | 7 min 53 s | 9,413 | 6,016 | 09:33 |
+| 2 | 26 | 34 s | 357 | 127 | 09:34 |
+| 3 | 26 | 28 s | 219 | 119 | 09:35 |
+| 4 | 26 | 30 s | 195 | 120 | 09:35 |
+| 5 | 26 | 31 s | 248 | 129 | 09:36 |
+| 6 | 26 | 29 s | 173 | 85 | 09:37 |
+| 7 | 26 | 1 min 15 s | 1,384 | 957 | 09:42 |
+| 8 | 26 | 37 s | 425 | 265 | 09:43 |
+| 9 | 25 | 14 min 56 s (11 min of it waiting for the AI) | 4,459 | 3,758 | 10:00 |
+| 10 | 25 | 28 s | 60 | 24 | 10:01 |
+| **Total** | **258** | **27 min 43 s** | **16,933** | **11,600** | |
+
+### Classification (the local AI)
+
+| | |
+|---|---|
+| Articles classified | 16,933 |
+| Relevant (kept as mentions) | **11,600 (68.5 %)** |
+| Irrelevant (deleted) | 5,333 (31.5 %): a different company with the same name, a passing mention, etc. |
+| Failed (no valid AI answer after 3 tries) | **0** |
+| Speed | 4.4 – 5.3 articles per second (about 300 a minute) |
+
+### Sentiment
+
+| Sentiment | Mentions | Share |
+|---|---|---|
+| Positive | 6,325 | 54.5 % |
+| Negative | 3,355 | 28.9 % |
+| Neutral | 1,920 | 16.6 % |
+| **Total** | **11,600** | |
+
+By month of publication (the coverage is steady across the 90 days):
+
+| Month | Mentions | Positive | Negative | Neutral |
+|---|---|---|---|---|
+| July 2026 | 3,792 | 2,051 | 1,195 | 546 |
+| August 2026 | 3,805 | 2,111 | 1,089 | 605 |
+| September 2026 (to the 28th) | 4,003 | 2,163 | 1,071 | 769 |
+
+### Companies
+
+**136 of 258 companies (53 %) have at least one mention; 122 have "no coverage found".** Coverage is very uneven:
+
+| Mentions per company | Companies |
+|---|---|
+| 0 | 122 |
+| 1 – 5 | 75 |
+| 6 – 20 | 27 |
+| 21 – 100 | 22 |
+| 101 – 500 | 7 |
+| 500 + | 5 |
+
+The top 15 by mentions (SpaceX and Anthropic alone hold 56 % of all mentions):
+
+| Company | Mentions | Positive | Negative | Neutral |
+|---|---|---|---|---|
+| SpaceX | 3,341 | 1,708 | 1,015 | 618 |
+| Anthropic | 3,212 | 1,328 | 1,304 | 580 |
+| xAI | 711 | 233 | 408 | 70 |
+| Scale AI | 654 | 598 | 17 | 39 |
+| Stripe | 561 | 317 | 185 | 59 |
+| Cerebras | 447 | 274 | 94 | 79 |
+| Databricks | 409 | 338 | 19 | 52 |
+| TubiTV | 223 | 141 | 13 | 69 |
+| Beyond Meat | 190 | 70 | 68 | 52 |
+| Together AI | 142 | 128 | 3 | 11 |
+| IQM | 121 | 102 | 7 | 12 |
+| Lemonade | 107 | 49 | 31 | 27 |
+| EquipmentShare | 93 | 29 | 54 | 10 |
+| OpenEvidence | 92 | 84 | 4 | 4 |
+| Groq | 91 | 44 | 44 | 3 |
+
+Tone extremes (companies with at least 20 mentions):
+- **Most negative:** EquipmentShare 58 % negative, xAI 57 %, Groq 48 %, Anthropic 41 %, Beyond Meat 36 %, Stripe 33 %.
+- **Most positive:** Ursa Major 100 % positive (23 mentions), BioCatch 99 %, Stoke Space 98 %, Glean 96 %, Island 96 %, Classiq 95 %.
+
+How recent the latest mention is (the dashboard's "last mentioned N days ago"), for the 136 companies with mentions:
+
+| Last mentioned | Companies |
+|---|---|
+| In the last 7 days | 65 |
+| 8 – 30 days ago | 39 |
+| 31 – 60 days ago | 11 |
+| 61 – 90 days ago | 21 |
+
+By industry section (from `filtered_ourcrowd_companies.txt`):
+
+| Section | Companies | With mentions | Mentions |
+|---|---|---|---|
+| 1. High-Tech | 104 | 58 | 6,382 |
+| 2. Health | 49 | 20 | 197 |
+| 3. Sports, Fitness & Entertainment | 8 | 5 | 241 |
+| 4. Financials | 15 | 10 | 727 |
+| 5. Consumer Staples | 22 | 9 | 211 |
+| 6. Consumer Discretionary | 15 | 9 | 151 |
+| 7. Industrials | 19 | 13 | 3,624 |
+| 8. Communication Services | 12 | 5 | 49 |
+| 9. Energy | 6 | 5 | 15 |
+| 10. Utilities | 3 | 2 | 3 |
+| 11. Materials | 2 | 0 | 0 |
+| 12. Real Estate | 3 | 0 | 0 |
+
+### Publishers
+
+The mentions come from **1,986 different publishers**. The top 10: Yahoo Finance (1,194), The Motley Fool (392), Bloomberg (185), CNBC (179), Reuters (147), 24/7 Wall St. (144), Seeking Alpha (142), TradingView (138), finance.biggo.com (127), dars.gov.et (106).
+
+### What the run showed about the system
+
+- **Built-in back-pressure worked:** the collector hit the 10,000-article queue limit twice, paused, and continued on its own once the AI caught up.
+- **The AI is the bottleneck:** searching took about 16 min; classifying took the rest of the hour.
+- **`data/` after each group worked:** results were usable from 09:33, 28 minutes before the run ended.
+- **Estimate vs. real:** the estimate after the 100-company test was about 15,000 articles and 1¼ hours; the real run found 16,933 articles in 58 minutes.
+- **Two companies dominate:** SpaceX and Anthropic needed 336 of the 745 searches and produced 56 % of the mentions. Some low-quality publishers (e.g. `dars.gov.et`) appear in the top 10; the AI judged those articles relevant, so they stay.
 
 ## Tech stack
 
@@ -378,9 +534,10 @@ Each design choice solves a specific problem. For each one: the problem, what we
   3. **A process dies → the supervisor restarts only that service.** The others keep running: if the internet drops, the collector waits **while the classifier keeps working through the queue**. A service that keeps crashing is stopped with a clear error instead of looping forever. An article that crashes the classifier is counted *before* processing; after a crash the articles are retried one at a time, so only the one that really causes it reaches 3 tries and is set aside as `failed`.
   4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat), a per-run company checklist (`JobRunCompany`, each company `not_started` → `fetching` → `finished`, or `failed`) and a per-run group list (`JobRunGroup`, each group `pending` → `in_progress` → `complete`, or `failed`) record where we stopped. The companies and groups of a run are fixed when it starts; a company added to the list later waits for the next run. The collection ends when every group is `complete` or `failed`. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
   - **Groups: a crash stays inside its group.** The collector's main process (the *group runner*) holds the lock and fetches nothing itself; it starts one **group process** at a time. Example: group 2 has finished 12 of its 26 companies and its process dies. The runner starts group 2 again (after 1 s, 2 s, 5 s, 10 s, 30 s …); it skips the 12 finished companies and goes on from company 13. Groups 1 and 3–10 are not touched.
-    - **5 crashes in a row with no progress** (no company finished or failed in between) → the group is `failed`, skipped, and the next group starts; it is listed in the end log. Progress resets the count. A crash of the runner itself doesn't count against the group.
+    - **5 crashes in a row with no progress** (no company finished or failed in between) → the group has failed a round and is **tried again, 3 more times** (`GROUP_FAILED_RETRIES`), each time with a fresh count. After that it is `failed`, skipped, and the next group starts; it is listed in the end log and `run.json`. The runner never stops because groups fail. Progress resets the count. A crash of the runner itself doesn't count against the group.
+    - **A company that crashes its group process 3 times** (`COMPANY_MAX_GROUP_CRASHES`; the company being fetched when the process died, or was killed as stuck) is marked `failed` ("crashed the group process 3 times (last: …)") and the group goes on with its next company, so one bad feed can't fail the rest of its group. That `failed` doesn't count as progress for the group's crash count.
     - **Stuck, not just slow:** a group process tells the runner "still alive" before each Google request, every 30 s while it waits to retry Google, and every 5 s while the queue is full. **No signal for 5 minutes** = stuck: the runner kills it and counts a crash. Waiting for Google or for the queue is never "stuck".
-    - Stopping (Ctrl+C) first stops the group process (10 s, then a forced kill), then writes the runner's emergency heartbeat.
+    - Stopping (Ctrl+C) first stops the group process (6 s, then a forced kill), then writes the runner's emergency heartbeat.
   - The services share only the SQLite file. There's **no database service**: SQLite is a file, not a server, so there's nothing to crash.
   - **Exit codes** tell the orchestrator why a service stopped, so it only restarts real crashes:
 

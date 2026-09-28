@@ -2,7 +2,8 @@
 // with its REAL group processes, offline: test/fixtures/offline-collect.mjs gives a fake Google
 // News, a tiny company list and small groups, and can make a group process crash or hang.
 // Checks (D83-D90): groups run one after another in separate processes; a crashed group is
-// restarted and resumes; 5 crashes with no progress -> the group is failed and the next one runs;
+// restarted and resumes; a company that crashes its group process 3 times is failed and the group
+// goes on (D97);
 // the end log; a stop reaches the group process and the emergency heartbeat is written;
 // `--groups` (D87): refused while a run is running or collected, bad input refused, and on a
 // done run only the chosen groups are fetched again, with the same 90 days; the log files (D92,
@@ -97,18 +98,22 @@ test('a group process that crashes is started again and continues from its unfin
   assert.match(result.stderr, /Group 1's process crashed .*1 crash\(es\) in a row \(it made progress first\)/);
 });
 
-test('5 crashes in a row with no progress: the group is failed, the next groups run; a company rejected by Google (400 x3) fails alone', (t) => {
+test('D97: a company that crashes its group process 3 times is failed and the group goes on; a company rejected by Google (400 x3) fails alone', (t) => {
   const { db, env, fetches } = setUp(t);
   const result = runCollector(env, [], { TEST_CRASH_COMPANY: 'Alpha', TEST_CRASH_TIMES: '99', TEST_BAD_REQUEST_COMPANY: 'Gamma' });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(groups(db), [[1, 'failed', 5], [2, 'complete', 0], [3, 'complete', 0]]);
+  // Alpha crashed the process 3 times (no progress: 1, 2, 3 in a row), then Beta finished the group.
+  assert.deepEqual(groups(db), [[1, 'complete', 0], [2, 'complete', 0], [3, 'complete', 0]]);
   const names = fetches().map(([, name]) => name);
-  assert.equal(names.filter((name) => name === 'Alpha').length, 5);
+  assert.equal(names.filter((name) => name === 'Alpha').length, 3);
+  assert.equal(names.filter((name) => name === 'Beta').length, 1, 'Beta is collected after Alpha was given up');
   assert.equal(names.filter((name) => name === 'Gamma').length, 3, 'Gamma: 3 tries (D85)');
-  assert.ok(!names.includes('Beta'), 'Beta was never reached');
-  assert.match(result.stdout, /Groups: complete 2–3 · failed 1/);
-  assert.match(result.stdout, /group 1: 2 of 2 companies not collected; last error: exit 1/);
-  assert.match(result.stdout, /Companies failed: \[Gamma\]/);
+  const alpha = db.prepare("SELECT j.status, j.error, j.group_crashes FROM JobRunCompany j JOIN Company c ON c.id = j.company_id WHERE c.name = 'Alpha'").get();
+  assert.equal(alpha.status, 'failed');
+  assert.equal(alpha.group_crashes, 3);
+  assert.match(alpha.error, /^crashed the group process 3 times \(last: exit 1: .*crashed on purpose while searching Alpha\)$/);
+  assert.match(result.stdout, /Groups: complete 1–3 · failed none/);
+  assert.match(result.stdout, /Companies failed: \[Alpha, Gamma\]/);
   assert.match(result.stderr, /Google error for Gamma: Google rejected the search \(HTTP 400 Bad Request\) \(try 1 of 3\)/);
   assert.equal(db.prepare('SELECT status FROM JobRun').get().status, 'collected');
 });
@@ -359,6 +364,19 @@ test('D94: a stale folder with the new run\'s number (from an earlier database) 
   assert.ok(!collector.some((line) => /stale/.test(line)));
   assert.match(collector[0], /^Seed done/);
   assert.ok(!fs.existsSync(path.join(testLogsDir(dbPath), 'run-1', 'group-9.log')));
+});
+
+test('G9 (D97): a leftover log folder written since the new run started is kept (the classifier may already write there)', (t) => {
+  const { dbPath, env } = setUp(t);
+  const folder = path.join(testLogsDir(dbPath), 'run-1');
+  fs.mkdirSync(folder, { recursive: true });
+  const soon = new Date(Date.now() + 60 * 60 * 1000); // stands for a line written just after the run started
+  fs.writeFileSync(path.join(folder, 'classifier.log'), 'a classifier line of the new run\n');
+  fs.utimesSync(path.join(folder, 'classifier.log'), soon, soon);
+  const result = runCollector(env);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(path.join(folder, 'classifier.log'), 'utf8'), 'a classifier line of the new run\n', 'not removed');
+  assert.ok(logLines(dbPath, 'run-1', 'collector.log').some((line) => /Log folder\(s\) run-1 kept: written to since this run started/.test(line)));
 });
 
 test('D94: a --groups re-run removes nothing: same run, same folder, lines added', (t) => {

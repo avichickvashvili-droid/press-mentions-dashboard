@@ -3,7 +3,8 @@
 // (JobRunGroup, JobRunCompany, JobRun) in the same transaction as the insert, while Mention,
 // Company and BufferQueue stay; a resume, a take-over or a --groups re-open deletes nothing; the
 // old log folders go, a stale folder with the new run's name is emptied, and a folder that can't
-// be removed is only reported; only run-<number> and no-run folders are ever removed (G1, D95).
+// be removed is only reported; only run-<number> and no-run folders are ever removed (G1, D95); a
+// run folder holding a file written since the new run started is kept (G9, D97).
 // Offline; temporary databases and folders only.
 
 import { test } from 'node:test';
@@ -102,7 +103,7 @@ test('D94: old log folders are removed (with no-run/), a stale folder with the n
   assert.deepEqual(result.removed.sort(), ['no-run', 'run-1']);
   assert.deepEqual(result.failed, []);
   assert.deepEqual(fs.readdirSync(logsDir), ['notes.txt'], 'run-2 was stale: emptied (removed; the new run writes it again)');
-  assert.deepEqual(removeOldLogFolders({ keepFolder: 'run-1', logsDir: path.join(logsDir, 'missing') }), { removed: [], failed: [], unknown: [] });
+  assert.deepEqual(removeOldLogFolders({ keepFolder: 'run-1', logsDir: path.join(logsDir, 'missing') }), { removed: [], failed: [], unknown: [], kept: [] });
 });
 
 test('G1 (D95): only run-<number> and no-run folders are removed; every other folder and file in the logs folder survives', (t) => {
@@ -150,4 +151,39 @@ test('D94: the system-log line of the clean-up', () => {
   assert.equal(describeCleanup(5, 3, { removed: [] }), 'New run 5: removed 3 old runs and their logs');
   assert.equal(describeCleanup(1, 0, { removed: [] }), 'New run 1: no old runs to remove');
   assert.equal(describeCleanup(1, 0, { removed: ['no-run'] }), 'New run 1: no old runs to remove (old log folders removed: no-run)');
+});
+
+test('G9 (D97): a run folder holding a file written since the new run started is kept (not removed, not emptied); older ones go', (t) => {
+  const logsDir = makeTempDir(t);
+  const runStart = Date.now();
+  const before = new Date(runStart - 60 * 60 * 1000); // an hour before the run started
+  const after = new Date(runStart + 1000);
+  // run-1: old files only. run-2: an old file and one written after the start (in a sub-folder).
+  // run-3 (the new run's name): a file written after the start, e.g. by the classifier.
+  for (const [folder, file, time] of [['run-1', 'collector.log', before], ['run-2', 'collector.log', before], ['run-2/sub', 'classifier.log', after],
+    ['run-3', 'classifier.log', after], ['no-run', 'orchestrator.log', before]]) {
+    fs.mkdirSync(path.join(logsDir, folder), { recursive: true });
+    fs.writeFileSync(path.join(logsDir, folder, file), 'line\n');
+    fs.utimesSync(path.join(logsDir, folder, file), time, time);
+  }
+  const result = removeOldLogFolders({ keepFolder: 'run-3', logsDir, keepIfChangedSince: runStart });
+  assert.deepEqual(result.removed.sort(), ['no-run', 'run-1']);
+  assert.deepEqual(result.kept.sort(), ['run-2', 'run-3']);
+  assert.deepEqual(result.failed, []);
+  assert.deepEqual(fs.readdirSync(logsDir).sort(), ['run-2', 'run-3']);
+  assert.ok(fs.existsSync(path.join(logsDir, 'run-2', 'collector.log')), 'a kept folder is kept whole');
+  assert.equal(fs.readFileSync(path.join(logsDir, 'run-3', 'classifier.log'), 'utf8'), 'line\n', 'the new run\'s folder is not emptied');
+});
+
+test('G9 (D97): a run folder that cannot be checked is left alone and reported; without a start time nothing is checked', (t) => {
+  const logsDir = makeTempDir(t);
+  fs.mkdirSync(path.join(logsDir, 'run-1'));
+  fs.writeFileSync(path.join(logsDir, 'run-1', 'collector.log'), 'x');
+  const fileSystem = { ...fs, statSync: () => { throw new Error('EPERM: operation not permitted'); } };
+  const result = removeOldLogFolders({ keepFolder: 'run-2', logsDir, fileSystem, keepIfChangedSince: Date.now() });
+  assert.deepEqual([result.removed, result.kept], [[], []]);
+  assert.equal(result.failed.length, 1);
+  assert.equal(result.failed[0].name, 'run-1');
+  assert.ok(fs.existsSync(path.join(logsDir, 'run-1', 'collector.log')));
+  assert.deepEqual(removeOldLogFolders({ keepFolder: 'run-2', logsDir, fileSystem }).removed, ['run-1'], 'no start time: removed as before');
 });

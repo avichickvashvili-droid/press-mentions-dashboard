@@ -40,7 +40,8 @@
 // deleted the old runs' rows; before its first log line the collector deletes every old logs/
 // folder (and empties a stale folder with the new run's name), says so in collector.log and sends
 // "New run 2: removed 1 old run and its logs" to orchestrator.log. A folder that can't be removed
-// gives one warning; it is removed at the next new run.
+// gives one warning; it is removed at the next new run. A folder holding a file written since the
+// new run started (e.g. by the classifier, which already follows the new run) is kept (D97, G9).
 //
 // Exit codes (D68, src/shared/exitCodes.js), read by the orchestrator:
 //
@@ -206,7 +207,13 @@ async function main() {
   // A new run: remove the old runs' log folders before the first line goes to the new folder.
   let cleanupText = null;
   if (!run.reopened && !run.tookOver) {
-    const folders = removeOldLogFolders({ keepFolder: runFolderName(run.runId) });
+    // A folder holding a file written since the run started is in use (e.g. the classifier has
+    // already moved to the new run) and is kept (D97, review G9).
+    const startedMs = Date.parse(run.startedAt);
+    const folders = removeOldLogFolders({ keepFolder: runFolderName(run.runId), keepIfChangedSince: Number.isFinite(startedMs) ? startedMs : null });
+    if (folders.kept.length > 0) {
+      progress.info(`Log folder(s) ${folders.kept.join(', ')} kept: written to since this run started. They are removed at the next new run.`);
+    }
     if (folders.failed.length > 0) {
       progress.warn(`Old log folder(s) could not be removed (${folders.failed.map(({ name, error }) => `${name}: ${error?.message ?? error}`).join('; ')}). ` +
         'The run goes on; they are removed when the next new run starts.');

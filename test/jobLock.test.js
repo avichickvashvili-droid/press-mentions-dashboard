@@ -231,3 +231,27 @@ test('D91/D95: --groups on a running run: refused while its collector is live; t
   db.prepare('UPDATE JobRun SET owner_pid = ? WHERE id = ?').run(OTHER_PID, runId);
   assert.equal(reopenRunForGroups(db, [1], { now: TEST_NOW, pid: 2, isAlive: () => false }).tookOver, true, 'a dead owner: taken over at once');
 });
+
+test('D97 (G11): reopening a done run clears its old crash time and last error, and the chosen groups\' failed rounds and company crash counts', (t) => {
+  const { db } = makeTempDb(t);
+  addCompanies(db);
+  const { runId } = acquireRun(db, ['a', 'b', 'c'], { now: TEST_NOW, pid: 1, groupSize: 2 }); // group 1: a, b; group 2: c
+  db.prepare("UPDATE JobRun SET status = 'done', owner_pid = NULL, crashed_at = '2026-09-27T11:00:00.000Z', last_error = 'crashed: Error: old' WHERE id = ?").run(runId);
+  db.prepare("UPDATE JobRunGroup SET status = 'failed', crashes_in_a_row = 5, failed_rounds = 4, last_error = 'exit 1' WHERE run_id = ?").run(runId);
+  db.prepare("UPDATE JobRunCompany SET status = 'failed', error = 'crashed the group process 3 times (last: exit 1)', group_crashes = 3 WHERE run_id = ?").run(runId);
+
+  const reopened = reopenRunForGroups(db, [1], { now: TEST_NOW, pid: 2 });
+  assert.equal(reopened.reopened, true);
+  const run = jobRun(db, runId);
+  assert.deepEqual([run.status, run.crashed_at, run.last_error], ['running', null, null]);
+  const groups = db.prepare('SELECT group_number, status, crashes_in_a_row, failed_rounds, last_error FROM JobRunGroup WHERE run_id = ? ORDER BY group_number').all(runId).map((row) => ({ ...row }));
+  assert.deepEqual(groups, [
+    { group_number: 1, status: 'pending', crashes_in_a_row: 0, failed_rounds: 0, last_error: null },
+    { group_number: 2, status: 'failed', crashes_in_a_row: 5, failed_rounds: 4, last_error: 'exit 1' }, // not chosen: untouched
+  ]);
+  const companies = Object.fromEntries(db.prepare('SELECT company_id, status, error, group_crashes FROM JobRunCompany WHERE run_id = ?').all(runId)
+    .map((row) => [row.company_id, [row.status, row.error, row.group_crashes]]));
+  assert.deepEqual(companies.a, ['not_started', null, 0]);
+  assert.deepEqual(companies.b, ['not_started', null, 0]);
+  assert.deepEqual(companies.c, ['failed', 'crashed the group process 3 times (last: exit 1)', 3]);
+});

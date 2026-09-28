@@ -159,9 +159,10 @@ export function acquireRun(db, companyIdsInOrder, {
 //   - the run becomes 'running', owned by `pid`, with a fresh heartbeat; finished_at is cleared
 //     (it is set again when the run is 'collected'); started_at is NOT changed, so the 90-day
 //     window stays the same (D55); the classifier counters keep adding up (D90);
-//   - ONLY when the run was 'done' (the first reopen): each chosen group becomes 'pending',
-//     crashes_in_a_row 0, exported_at / started_at / finished_at / last_error cleared, and its
-//     companies go back to 'not_started' with no error. Groups that were not chosen are not touched;
+//   - ONLY when the run was 'done' (the first reopen): the run's old crashed_at / last_error are
+//     cleared (D97, G11); each chosen group becomes 'pending', crashes_in_a_row 0, failed_rounds 0,
+//     exported_at / started_at / finished_at / last_error cleared, and its companies go back to
+//     'not_started' with no error and group_crashes 0 (D97). Groups that were not chosen are not touched;
 //   - on a take-over of a 'running' run (e.g. the orchestrator restarts a --groups collector that
 //     crashed) NOTHING is reset (D95, revises D91): the run simply resumes like any take-over (its
 //     'fetching' companies go back to 'not_started'), and every unfinished group ('pending' or
@@ -188,10 +189,14 @@ export function reopenRunForGroups(db, groupNumbers, { pid = process.pid, now = 
       db.prepare("UPDATE JobRunCompany SET status = 'not_started' WHERE run_id = ? AND status = 'fetching'").run(latest.id);
       return { runId: latest.id, startedAt: latest.started_at, groupCount: existing.size, tookOver, reopened: false };
     }
-    const resetGroup = db.prepare(`UPDATE JobRunGroup SET status = 'pending', crashes_in_a_row = 0, exported_at = NULL,
+    // The run's old crash time and last error belong to the earlier collection: cleared, so
+    // `npm run progress` doesn't show an old "Last error" during the re-run (D97, review G11).
+    db.prepare('UPDATE JobRun SET crashed_at = NULL, last_error = NULL WHERE id = ?').run(latest.id);
+    const resetGroup = db.prepare(`UPDATE JobRunGroup SET status = 'pending', crashes_in_a_row = 0, failed_rounds = 0, exported_at = NULL,
                                    started_at = NULL, finished_at = NULL, last_error = NULL
                                    WHERE run_id = ? AND group_number = ?`);
-    const resetCompanies = db.prepare("UPDATE JobRunCompany SET status = 'not_started', error = NULL WHERE run_id = ? AND group_number = ?");
+    const resetCompanies = db.prepare(`UPDATE JobRunCompany SET status = 'not_started', error = NULL, group_crashes = 0
+                                       WHERE run_id = ? AND group_number = ?`);
     for (const number of groupNumbers) {
       resetGroup.run(latest.id, number);
       resetCompanies.run(latest.id, number);

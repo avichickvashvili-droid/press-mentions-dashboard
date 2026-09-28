@@ -21,6 +21,8 @@
 // creating a new one), so nothing is still working on them.
 // A folder that can't be removed (e.g. a file open in another program on Windows) is reported
 // back; the caller warns once and carries on. It is removed at the next new run.
+// A run folder that holds a file written since the new run started is kept (D97, review G9): the
+// always-on classifier may already be writing its lines there, and they must not be lost.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,12 +41,30 @@ export function isLogRunFolder(name, { noRunFolder = config.LOG_NO_RUN_FOLDER } 
   return /^run-\d+$/.test(name) || name === noRunFolder;
 }
 
+// True if the folder (or a folder inside it) holds a file changed at or after `sinceMs` (a time
+// in ms). Throws if the folder can't be read.
+function hasFileChangedSince(folder, sinceMs, fileSystem) {
+  for (const entry of fileSystem.readdirSync(folder, { withFileTypes: true })) {
+    const target = path.join(folder, entry.name);
+    if (entry.isDirectory()) {
+      if (hasFileChangedSince(target, sinceMs, fileSystem)) return true;
+    } else if (fileSystem.statSync(target).mtimeMs >= sinceMs) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Removes every run folder (run-<number>, no-run/) in `logsDir` except `keepFolder`, and empties
 // `keepFolder` itself if it is already there (a stale folder with the new run's name). Any other
 // folder and every loose file in `logsDir` is left alone and only reported in `unknown` (G1).
-// Never throws. Returns { removed: [folder names], failed: [{ name, error }], unknown: [names] }.
-export function removeOldLogFolders({ keepFolder, logsDir = config.LOGS_DIR, fileSystem = fs }) {
-  const result = { removed: [], failed: [], unknown: [] };
+// `keepIfChangedSince` (optional, a time in ms: the new run's start): a run folder holding a file
+// written at or after that time is being written right now (e.g. the classifier already follows
+// the new run) and is KEPT, not removed or emptied; it is reported in `kept` (D97, review G9). A
+// folder that can't be checked is left alone and reported in `failed`.
+// Never throws. Returns { removed: [folder names], failed: [{ name, error }], unknown: [names], kept: [names] }.
+export function removeOldLogFolders({ keepFolder, logsDir = config.LOGS_DIR, fileSystem = fs, keepIfChangedSince = null }) {
+  const result = { removed: [], failed: [], unknown: [], kept: [] };
   let entries;
   try {
     entries = fileSystem.readdirSync(logsDir, { withFileTypes: true });
@@ -59,6 +79,10 @@ export function removeOldLogFolders({ keepFolder, logsDir = config.LOGS_DIR, fil
       continue;
     }
     try {
+      if (keepIfChangedSince !== null && hasFileChangedSince(path.join(logsDir, entry.name), keepIfChangedSince, fileSystem)) {
+        result.kept.push(entry.name); // written since the new run started: in use, left alone (G9)
+        continue;
+      }
       fileSystem.rmSync(path.join(logsDir, entry.name), { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
       if (entry.name !== keepFolder) result.removed.push(entry.name);
     } catch (error) {

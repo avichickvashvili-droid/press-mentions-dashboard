@@ -197,6 +197,18 @@ export const config = {
   // between, is given up: the group is marked 'failed' and the next group starts (D84).
   GROUP_MAX_CRASHES_IN_A_ROW: 5,
 
+  // A group that has failed (GROUP_MAX_CRASHES_IN_A_ROW crashes in a row with no progress) is
+  // tried again this many more times, each time with a fresh count of crashes, before it stays
+  // 'failed' and the runner moves on to the next group (D97, replaces D95's "3 failed groups in a
+  // row stop the runner"). 3 -> the group can fail 4 times in all.
+  GROUP_FAILED_RETRIES: 3,
+
+  // A company that was being fetched when its group process crashed or was killed as stuck this
+  // many times is marked 'failed' ("crashed the group process 3 times") and the group goes on with
+  // its next company (D97). One bad feed can then no longer fail the rest of its group. Marking it
+  // 'failed' this way does NOT count as progress for the group's crash count.
+  COMPANY_MAX_GROUP_CRASHES: 3,
+
   // Waits before the group runner starts a crashed group process again: 1 s, 2 s, 5 s, 10 s,
   // 30 s, then every 30 s (D84). The wait grows so a broken group doesn't restart in a tight loop.
   GROUP_RESTART_WAITS_MS: [1000, 2000, 5000, 10000, 30000],

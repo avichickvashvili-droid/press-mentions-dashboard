@@ -24,8 +24,9 @@ function addRun(db) {
 test('a new database has the JobRunGroup table and JobRunCompany.group_number', (t) => {
   const { db } = makeTempDb(t);
   assert.deepEqual(columnsOf(db, 'JobRunGroup'),
-    ['run_id', 'group_number', 'status', 'crashes_in_a_row', 'started_at', 'finished_at', 'last_error', 'exported_at']);
+    ['run_id', 'group_number', 'status', 'crashes_in_a_row', 'failed_rounds', 'started_at', 'finished_at', 'last_error', 'exported_at']);
   assert.ok(columnsOf(db, 'JobRunCompany').includes('group_number'));
+  assert.ok(columnsOf(db, 'JobRunCompany').includes('group_crashes'), 'D97: crashes counted per company');
 });
 
 test('JobRunGroup: defaults, allowed statuses only, one row per (run, group), the run must exist', (t) => {
@@ -33,8 +34,8 @@ test('JobRunGroup: defaults, allowed statuses only, one row per (run, group), th
   const runId = addRun(db);
   db.prepare('INSERT INTO JobRunGroup (run_id, group_number) VALUES (?, 1)').run(runId);
   const row = db.prepare('SELECT * FROM JobRunGroup').get();
-  assert.deepEqual([row.status, row.crashes_in_a_row, row.started_at, row.finished_at, row.last_error, row.exported_at],
-    ['pending', 0, null, null, null, null]);
+  assert.deepEqual([row.status, row.crashes_in_a_row, row.failed_rounds, row.started_at, row.finished_at, row.last_error, row.exported_at],
+    ['pending', 0, 0, null, null, null, null]);
   for (const status of ['in_progress', 'complete', 'failed', 'pending']) {
     db.prepare('UPDATE JobRunGroup SET status = ?').run(status);
   }
@@ -57,8 +58,9 @@ test('an older database file (no JobRunGroup, no group_number) gets both on open
   try {
     assert.ok(columnsOf(db, 'JobRunCompany').includes('group_number'));
     assert.ok(columnsOf(db, 'JobRunGroup').length > 0);
-    const row = db.prepare('SELECT status, group_number FROM JobRunCompany').get();
-    assert.deepEqual([row.status, row.group_number], ['finished', null], 'the old row is kept; no data is converted (D89)');
+    const row = db.prepare('SELECT status, group_number, group_crashes FROM JobRunCompany').get();
+    assert.deepEqual([row.status, row.group_number, row.group_crashes], ['finished', null, 0], 'the old row is kept; no data is converted (D89)');
+    assert.ok(columnsOf(db, 'JobRunGroup').includes('failed_rounds'));
     assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_jobruncompany_run_group_status'").get());
   } finally {
     db.close();

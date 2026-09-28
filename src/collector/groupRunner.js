@@ -22,9 +22,15 @@
 //   no "still alive" message for GROUP_STUCK_AFTER_MS (5 min) -> stuck: killed, counted as a crash.
 // Crash count (D84, D90): if at least one company of the group became 'finished' or 'failed'
 // since this start, the count goes back to 0 and this crash adds 1 (so it is 1); otherwise the
-// crash adds 1. At GROUP_MAX_CRASHES_IN_A_ROW (5) the group is 'failed' (finished_at set) and the
-// next group starts; below that the runner waits (GROUP_RESTART_WAITS_MS: 1 s, 2 s, 5 s, 10 s,
-// 30 s, then 30 s) and starts the same group again, which continues from its unfinished companies.
+// crash adds 1. Below GROUP_MAX_CRASHES_IN_A_ROW (5) the runner waits (GROUP_RESTART_WAITS_MS:
+// 1 s, 2 s, 5 s, 10 s, 30 s, then 30 s) and starts the same group again, which continues from its
+// unfinished companies. At 5 the group has failed a round: it is tried again, with a fresh count,
+// GROUP_FAILED_RETRIES (3) more times (D97); after that it is 'failed' (finished_at set) and the
+// next group starts. The runner never stops because groups fail (D97 replaces D95's stop rule).
+// Poison company (D97): the company that was 'fetching' when the group process crashed or was
+// killed as stuck gets a crash counted (JobRunCompany.group_crashes). At COMPANY_MAX_GROUP_CRASHES
+// (3) it is 'failed' ("crashed the group process 3 times") and the group goes on with its next
+// company. That 'failed' does not count as progress for the group's crash count.
 // A crash of the runner itself is not counted against the group (D90): after the orchestrator
 // restarts the runner, it simply starts the 'in_progress' group again.
 //
@@ -36,7 +42,9 @@
 // System log (orchestrator.log, D93): the runner calls `event(text)` for the story of the run,
 // e.g. "Starting group 1 of 10 (companies 1–26)", "Group 2 done (26/26 finished) → starting
 // group 3 (companies 53–78)", "Group 3 crashed (exit 1: …), 2 in a row → restarting in 2 s",
-// "Group 4 failed after 5 crashes in a row (last: …) → skipped". It also passes on the event
+// "Group 4 failed after 5 crashes in a row (last: …) → retry 1 of 3 in 30 s",
+// "Group 4 failed after 5 crashes in a row, also on 3 retries (last: …), skipped",
+// "Company Acme Bio failed: crashed the group process 3 times (last: …)". It also passes on the event
 // lines its group process sends ({ type: 'event', text }).
 
 import { config } from '../config.js';
@@ -46,6 +54,7 @@ import { describeExit, formatWait, isStopCode, restartWait } from '../supervisor
 import { EXIT_CODES } from '../shared/exitCodes.js';
 import { LostOwnershipError, ownsRun } from './jobLock.js';
 import { startGroupProcess } from './groupProcess.js';
+import { companyFailedEvent } from './groupEvents.js';
 
 // Thrown when a group process refused to work (exit 3) although this runner still owns the run
 // (e.g. its group was not 'in_progress'). The runner stops with exit 3; nothing is broken.
@@ -150,23 +159,58 @@ export function markGroupComplete(db, runId, groupNumber, { pid = process.pid, w
     WHERE run_id = ? AND group_number = ?`).run(nowIso(), runId, groupNumber), { pid, warn, wait });
 }
 
-// Records a crash of a group process (D84, D90): saves the reason in last_error, and counts it:
-// after progress (`progressMade`: a company finished or failed since this start) the count is
-// 1, otherwise it goes up by 1. At `maxCrashes` the group becomes 'failed' with finished_at.
-// Returns { crashesInARow, failed }.
+// The error saved for a company that crashed its group process too often (D97), e.g.
+// "crashed the group process 3 times (last: exit 1: Error: boom)".
+export function companyCrashError(crashes, reason) {
+  return `crashed the group process ${crashes} times (last: ${reason})`;
+}
+
+// Records a crash of a group process (D84, D90, D97), all in ONE transaction:
+//   1. the company that was in progress (still 'fetching': the group process died while working
+//      on it, or was killed as stuck) gets 1 more crash in group_crashes; at `maxCompanyCrashes`
+//      (3) it becomes 'failed' ("crashed the group process 3 times"), so the next start of the
+//      group goes on with the next company. This does NOT count as progress (`progressMade` is
+//      measured by the caller before this write);
+//   2. the group: saves the reason in last_error and counts the crash: after progress
+//      (`progressMade`: a company finished or failed since this start) the count is 1, otherwise
+//      it goes up by 1. At `maxCrashes` (5) the round is over: if the group still has retries
+//      left (failed_rounds < `failedRetries`), failed_rounds goes up by 1, the count starts again
+//      at 0 and the group stays 'in_progress' (it is tried again); otherwise the group becomes
+//      'failed' with finished_at.
+// Returns { crashesInARow, failed, retry, failedRounds, companiesFailed: [{ name, error }] }
+// (retry = a round is over and the group is tried again; failedRounds = the rounds over so far).
 export function recordGroupCrash(db, runId, groupNumber, {
-  reason, progressMade, maxCrashes = config.GROUP_MAX_CRASHES_IN_A_ROW, pid = process.pid, warn = console.warn, wait = realSleep,
+  reason, progressMade, maxCrashes = config.GROUP_MAX_CRASHES_IN_A_ROW, maxCompanyCrashes = config.COMPANY_MAX_GROUP_CRASHES,
+  failedRetries = config.GROUP_FAILED_RETRIES, pid = process.pid, warn = console.warn, wait = realSleep,
 }) {
   return writeOnGroup(db, runId, `record the crash of group ${groupNumber}`, () => {
-    const row = db.prepare('SELECT crashes_in_a_row FROM JobRunGroup WHERE run_id = ? AND group_number = ?').get(runId, groupNumber);
+    const companiesFailed = [];
+    const inProgress = db.prepare(`SELECT j.company_id, j.group_crashes, c.name FROM JobRunCompany j JOIN Company c ON c.id = j.company_id
+                                   WHERE j.run_id = ? AND j.group_number = ? AND j.status = 'fetching'`).all(runId, groupNumber);
+    for (const company of inProgress) {
+      const crashes = company.group_crashes + 1;
+      if (crashes >= maxCompanyCrashes) {
+        const error = companyCrashError(crashes, reason);
+        db.prepare("UPDATE JobRunCompany SET group_crashes = ?, status = 'failed', error = ? WHERE run_id = ? AND company_id = ?")
+          .run(crashes, error, runId, company.company_id);
+        companiesFailed.push({ name: company.name, error });
+      } else {
+        db.prepare('UPDATE JobRunCompany SET group_crashes = ? WHERE run_id = ? AND company_id = ?').run(crashes, runId, company.company_id);
+      }
+    }
+
+    const row = db.prepare('SELECT crashes_in_a_row, failed_rounds FROM JobRunGroup WHERE run_id = ? AND group_number = ?').get(runId, groupNumber);
     const crashesInARow = progressMade ? 1 : row.crashes_in_a_row + 1;
-    const failed = crashesInARow >= maxCrashes;
-    db.prepare(`UPDATE JobRunGroup SET crashes_in_a_row = ?, last_error = ?,
+    const roundOver = crashesInARow >= maxCrashes;
+    const failed = roundOver && row.failed_rounds >= failedRetries;
+    const retry = roundOver && !failed;
+    const failedRounds = row.failed_rounds + (roundOver ? 1 : 0);
+    db.prepare(`UPDATE JobRunGroup SET crashes_in_a_row = ?, failed_rounds = ?, last_error = ?,
                 status = CASE WHEN ? THEN 'failed' ELSE status END,
                 finished_at = CASE WHEN ? THEN ? ELSE finished_at END
                 WHERE run_id = ? AND group_number = ?`)
-      .run(crashesInARow, String(reason), failed ? 1 : 0, failed ? 1 : 0, nowIso(), runId, groupNumber);
-    return { crashesInARow, failed };
+      .run(retry ? 0 : crashesInARow, failedRounds, String(reason), failed ? 1 : 0, failed ? 1 : 0, nowIso(), runId, groupNumber);
+    return { crashesInARow, failed, retry, failedRounds, companiesFailed };
   }, { pid, warn, wait });
 }
 
@@ -387,17 +431,36 @@ export function createGroupRunner({
         continue;
       }
 
+      // Measured BEFORE the crash is recorded: a company marked 'failed' by that write (it crashed
+      // the group process too often, D97) is not progress.
       const progressMade = countGroupDone(db, runId, groupNumber) > doneBefore;
-      const { crashesInARow, failed } = await recordGroupCrash(db, runId, groupNumber, {
-        reason: end.reason, progressMade, maxCrashes: settings.GROUP_MAX_CRASHES_IN_A_ROW, ...writeOptions,
+      const { crashesInARow, failed, retry, failedRounds, companiesFailed } = await recordGroupCrash(db, runId, groupNumber, {
+        reason: end.reason, progressMade, maxCrashes: settings.GROUP_MAX_CRASHES_IN_A_ROW,
+        maxCompanyCrashes: settings.COMPANY_MAX_GROUP_CRASHES, failedRetries: settings.GROUP_FAILED_RETRIES, ...writeOptions,
       });
+      for (const company of companiesFailed) {
+        warn(`${company.name}: ${company.error}. Marked as failed; group ${groupNumber} goes on with its next company.`);
+        sendEvent(companyFailedEvent(company.name, company.error));
+      }
       if (failed) {
-        warn(`Group ${groupNumber} FAILED: its process crashed ${crashesInARow} times in a row with no progress ` +
+        const retries = failedRounds - 1;
+        const retriesText = retries > 0 ? `, also on ${retries} ${retries === 1 ? 'retry' : 'retries'}` : '';
+        warn(`Group ${groupNumber} FAILED: its process crashed ${crashesInARow} times in a row with no progress${retriesText} ` +
           `(last: ${end.reason}). It is skipped; re-run it later with: npm start -- --groups ${groupNumber}`);
-        endedText = `Group ${groupNumber} failed after ${crashesInARow} crashes in a row (last: ${end.reason}), skipped`;
+        endedText = `Group ${groupNumber} failed after ${crashesInARow} crashes in a row${retriesText} (last: ${end.reason}), skipped`;
         continue;
       }
       const waitMs = restartWait(crashesInARow - 1, settings.GROUP_RESTART_WAITS_MS);
+      if (retry) {
+        // A round of crashes is over but the group has retries left (D97): it starts again with a
+        // fresh crash count, from its unfinished companies.
+        const retryText = `retry ${failedRounds} of ${settings.GROUP_FAILED_RETRIES}`;
+        sendEvent(`Group ${groupNumber} failed after ${crashesInARow} crashes in a row (last: ${end.reason}) → ${retryText} in ${formatWait(waitMs)}`);
+        warn(`Group ${groupNumber}'s process crashed ${crashesInARow} times in a row with no progress (last: ${end.reason}). ` +
+          `Trying the group again (${retryText}) in ${formatWait(waitMs)}; it continues from its unfinished companies.`);
+        await waitUnlessStopped(waitMs);
+        continue;
+      }
       sendEvent(`Group ${groupNumber} crashed (${end.reason}), ${crashesInARow} in a row → restarting in ${formatWait(waitMs)}`);
       warn(`Group ${groupNumber}'s process crashed (${end.reason}); ${crashesInARow} crash(es) in a row` +
         `${progressMade ? ' (it made progress first)' : ''}. Starting it again in ${formatWait(waitMs)}; it continues from its unfinished companies.`);

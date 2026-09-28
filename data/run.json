@@ -1,0 +1,39 @@
+{
+  "runId": 1,
+  "asOf": "2026-09-28T07:01:06.451Z",
+  "startedAt": "2026-09-28T06:02:50.230Z",
+  "collectedAt": "2026-09-28T06:30:33.015Z",
+  "finishedAt": "2026-09-28T07:01:06.451Z",
+  "model": "qwen3:4b",
+  "groups": {
+    "total": 10,
+    "complete": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "failed": [],
+    "exported": 10
+  },
+  "failedCompanies": [],
+  "companies": {
+    "total": 258,
+    "finished": 258,
+    "failed": []
+  },
+  "counts": {
+    "classified": 16933,
+    "relevant": 11600,
+    "irrelevantDeleted": 5333,
+    "failedPermanently": 0
+  },
+  "failedArticles": [],
+  "mentionsInWindow": 11600
+}

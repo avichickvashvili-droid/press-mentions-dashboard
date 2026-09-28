@@ -10,13 +10,14 @@
 //   Mention        final relevant, classified mentions (written by the classifier, read by the dashboard)
 //   JobRun         one row per collection run; also the lock ("only one run at a time")
 //   JobRunCompany  the per-run checklist of companies (each with its group number)
-//   JobRunGroup    the groups of a run (D83-D89): status, crashes in a row, export time
+//   JobRunGroup    the groups of a run (D83-D89): status, crashes in a row, failed rounds (D97), export time
 //
 // All dates are stored as ISO-8601 text in UTC, e.g. "2026-09-27T10:15:00.000Z".
 //
 // Columns added after the first version are added to an existing database file on open
 // (addMissingColumns), so an older database keeps working: BufferQueue.suspect (D78) and
-// JobRunCompany.group_number (D89). Indexes on such columns are created after that step
+// JobRunCompany.group_number (D89), JobRunCompany.group_crashes and JobRunGroup.failed_rounds
+// (D97). Indexes on such columns are created after that step
 // (INDEXES_AFTER_COLUMNS_SQL), because an older file doesn't have the column before it.
 
 import fs from 'node:fs';
@@ -89,6 +90,7 @@ CREATE TABLE IF NOT EXISTS JobRunCompany (
                CHECK (status IN ('not_started', 'fetching', 'finished', 'failed')),
   error        TEXT,
   group_number INTEGER,                         -- the group the company is in (D83), set when the run starts
+  group_crashes INTEGER NOT NULL DEFAULT 0,     -- how often its group process crashed / was killed while fetching it (D97)
   PRIMARY KEY (run_id, company_id)
 );
 
@@ -99,6 +101,7 @@ CREATE TABLE IF NOT EXISTS JobRunGroup (
   status           TEXT NOT NULL DEFAULT 'pending'
                    CHECK (status IN ('pending', 'in_progress', 'complete', 'failed')),
   crashes_in_a_row INTEGER NOT NULL DEFAULT 0,  -- group-process crashes with no progress in between (D84)
+  failed_rounds    INTEGER NOT NULL DEFAULT 0,  -- how often it reached 5 crashes in a row; retried until > GROUP_FAILED_RETRIES (D97)
   started_at       TEXT,
   finished_at      TEXT,
   last_error       TEXT,                        -- why the group process last crashed
@@ -123,6 +126,8 @@ CREATE INDEX IF NOT EXISTS idx_jobruncompany_run_status ON JobRunCompany(run_id,
 const ADDED_COLUMNS = [
   ['BufferQueue', 'suspect', 'INTEGER NOT NULL DEFAULT 0'],
   ['JobRunCompany', 'group_number', 'INTEGER'],
+  ['JobRunCompany', 'group_crashes', 'INTEGER NOT NULL DEFAULT 0'],
+  ['JobRunGroup', 'failed_rounds', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 // Indexes that use a column from ADDED_COLUMNS: created only after those columns exist.

@@ -58,7 +58,7 @@ All commands are typed in a terminal **in the project folder**.
      ```
      Run 1 is done: … data/ written (companies.json, mentions.json, run.json).
      ```
-4. **How long:** searching Google takes about 10–30 minutes; the AI needs about 1–2 hours more. Plan for a few hours.
+4. **How long:** the real run (2026-09-28) took 58 minutes in total: about 28 minutes of searching Google (including waits for the AI), then about 30 minutes more for the AI. Plan for about an hour.
 5. **When it says `Run N is done`:** press **Ctrl+C** to close it (the classifier stays on and waits otherwise).
 
 **Results** land in the **`data/`** folder, updated after each group and once more at the end:
@@ -156,7 +156,7 @@ db\logs\run-1\       ← one folder per run (run-1, run-2, …)
 - **Google errors to analyze after a run:** `group-N.log` (search for `Google error`), and the start / end lines in `orchestrator.log`.
 - Lines from before any run existed are in `db\logs\no-run\`. A `--groups` re-run adds to the same run's folder. The logs are never committed to git.
 - A test database (set with `DB_PATH` in `.env`) gets its own `logs` folder next to it, so it never touches the real run's logs. `LOGS_DIR` in `.env` can put the logs somewhere else.
-- **A new run deletes the old logs**: every older `run-N` folder (and `no-run`) in `db\logs\`, plus the older runs' records in the database. Nothing else in that folder is ever deleted. Articles and mentions are kept. Resuming or `--groups` deletes nothing. **To keep an old run's logs, copy its folder somewhere else before starting a new run.**
+- **A new run deletes the old logs**: every older `run-N` folder (and `no-run`) in `db\logs\`, plus the older runs' records in the database. Nothing else in that folder is ever deleted, and a folder with a file written after the new run started is kept. Articles and mentions are kept. Resuming or `--groups` deletes nothing. **To keep an old run's logs, copy its folder somewhere else before starting a new run.**
 
 **Open a file:** double-click it (Notepad), or in PowerShell:
 ```
@@ -185,8 +185,8 @@ npm start -- --groups 2,5
 
 | What you see | What it means | What to do |
 |---|---|---|
-| A group ended **`failed`** (end log, `FAILED GROUPS`, query 2.4) | Its process crashed 5 times in a row without finishing a company. The other groups went on | Read its last error. When the run is `done`: `npm start -- --groups N` |
-| A company ended **`failed`**, e.g. `Google rejected the search (HTTP 400 Bad Request), 3 tries 1 min apart` | Google refused that search 3 times. The rest of its group went on | When the run is `done`, re-run its group: `npm start -- --groups N` (N = the company's group). If it fails again the same way, tell the developer |
+| A group ended **`failed`** (end log, `FAILED GROUPS`, query 2.4) | Its process crashed 5 times in a row without finishing a company, and again on each of its 3 retries. The other groups went on | Read its last error. When the run is `done`: `npm start -- --groups N` |
+| A company ended **`failed`**, e.g. `Google rejected the search (HTTP 400 Bad Request), 3 tries 1 min apart` or `crashed the group process 3 times (last: …)` | Google refused that search 3 times, or the group process crashed (or hung) 3 times while fetching it. The rest of its group went on | When the run is `done`, re-run its group: `npm start -- --groups N` (N = the company's group). If it fails again the same way, tell the developer |
 | `A run is still in progress (collector or classifier). Try again when it's done.` | You asked for `--groups` while the run is still working. Nothing was started (exit 3) | Wait until `npm run progress` shows `done`, then run the command again |
 | `Another collection is running (run 1, process 4242, …)` | `npm start` is already running in another window. Nothing was started (exit 3) | Use the window that's already running, or stop it with Ctrl+C first |
 | `--groups: run 1 has groups 1 to 10; there is no group 12.` (or another `--groups` message) | A wrong group number. Nothing was started | Fix the numbers and run again |

@@ -2595,3 +2595,191 @@ crash dosent matter
 ```
 can push to develop
 ```
+
+---
+
+## Prompt 224 — What is G13?
+
+```
+what is g13 i dont understand
+```
+
+---
+
+## Prompt 225 — G13 out of scope; fewer questions
+
+```
+its out of scope. stop giving me so many questions as well.
+```
+
+---
+
+## Prompt 226 — Go: build D97
+
+```
+yes. quickly
+```
+
+---
+
+## Prompt 227 — How long?
+
+```
+how long its a small fix
+```
+
+---
+
+## Prompt 228 — Group "complete" when all its companies crashed: leave open
+
+```
+if every company in a group crashes it, each company ends failed and the group itself ends complete. A group now ends failed mainly when it crashes before reaching any company.
+thats not even making sense. leave that open for now
+```
+
+---
+
+## Prompt 229 — Is the real DB made yet?
+
+```
+what i want us to do now is do we have the real db made yet?
+yes or no
+```
+
+---
+
+## Prompt 230 — Start the real run: guide me, connect DB Browser, how to track progress
+
+```
+ok i want to start the real run. 
+IM GOING TO RUN ALL BY MYSELF
+i want you to be able to guide me with the steps how to run.
+connect me to the db via db browser
+and also how to track the progress
+via terminal and via the queries
+```
+
+---
+
+## Prompt 231 — Be my support: tell me how, I do it myself
+
+```
+i need you to be my support what ever i ask from you, you tell me how to do it and i perform it myself
+```
+
+---
+
+## Prompt 232 — How to connect to the DB myself; where are the credentials?
+
+```
+how to connect the db myself where are the db cradentiels?
+```
+
+---
+
+## Prompt 233 — Run started: how to track it
+
+```
+ok how to track the run i started it
+```
+
+---
+
+## Prompt 234 — Give me the query to check
+
+```
+give me the query to check
+```
+
+---
+
+## Prompt 235 — Agent to silently monitor progress every 7 min
+
+```
+I want you to send an agent to silently monitor npm progress and the 3 queries every 7min
+and report back if anything seems off.
+```
+
+---
+
+## Prompt 236 — Which company is running now?
+
+```
+can i get info which company currently running
+```
+
+---
+
+## Prompt 237 — Track sentiments: give me a query
+
+```
+can i track sentiments aswell give me a query
+```
+
+---
+
+## Prompt 238 — Mentions stuck at ~1000: chunked writes?
+
+```
+its not growing because the db writes in chunks right? thats why i only see 1000 sentiments
+```
+
+---
+
+## Prompt 239 — Is data/ created as soon as group 1 is done?
+
+```
+data folder will be created as soon as grp 1 is done?
+```
+
+---
+
+## Prompt 240 — Are sentiments saved to data/ too, or only in the DB?
+
+```
+we also save to data the sentiments later right? or those stay in the db
+```
+
+---
+
+## Prompt 241 — Groups 2–7 finished in ~30 s each, no exported_at: how?
+
+```
+Groups 2–7 each finished in about 30 s, and none has exported_at set. Checking both before deciding.
+how is that possible?
+```
+
+---
+
+## Prompt 242 — How long until the agent updates?
+
+```
+how long until the agent updates
+```
+
+---
+
+## Prompt 243 — No update from the agent after 7 min
+
+```
+i never got any update from the agent its been well past 7min
+```
+
+---
+
+## Prompt 244 — Commit the run; explain the run details and statistics in the README
+
+```
+yes i want you to prapre a nice commit and explain the run details in the README
+how much time, data collected, sentiments
+everything that can be shown for data and statistics
+prapre that for me and give me to view
+```
+
+---
+
+## Prompt 245 — Commit and merge to develop
+
+```
+can commit and merge to develop as well
+```

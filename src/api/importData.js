@@ -18,8 +18,8 @@
 //   - Every mention of mentions.json is imported as it is. run.json is NOT imported: a JobRun
 //     row would make `npm start` think a collection already finished (D67).
 //   - A mention whose company is not in the company list is skipped (one warning with the count).
-//   - Anything malformed (missing file, bad JSON, an item with a missing or wrong field, a
-//     duplicate) stops the import with a clear message naming the file and the item number,
+//   - Anything malformed (missing file, bad JSON, an item with a missing or wrong field, a date
+//     not in ISO form, a url that is not http(s), a duplicate) stops the import with a clear message naming the file and the item number,
 //     and nothing is saved.
 
 import fs from 'node:fs';
@@ -60,9 +60,23 @@ function readDataFile(dataDir, fileName) {
   }
 }
 
-// True for a text that is a valid date (the ISO format every date column uses).
+// True only for a date in the exact ISO form every date column uses (e.g.
+// "2026-09-20T12:00:00.000Z"). Other forms such as "Sun, 01 Mar 2026 08:00:00 GMT" or
+// "+03:00" offsets are refused: the window and the latest date are compared as text, so they
+// would silently give wrong counts and "days ago" values.
 function isDateText(value) {
-  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
+// True only for a web address (http or https). Anything else (data:, file:, javascript:, ...)
+// must never become a link on the page.
+function isWebAddress(value) {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false; // not an address at all
+  }
 }
 
 // Checks one item of mentions.json and returns it as a Mention row. Stops with a clear message
@@ -73,11 +87,12 @@ function toMentionRow(item, itemNumber) {
   for (const field of ['companyId', 'guid', 'url', 'title']) {
     if (typeof item[field] !== 'string' || item[field].trim() === '') throw problem(`"${field}" is missing or not text.`);
   }
+  if (!isWebAddress(item.url)) throw problem('"url" must be a web address starting with http:// or https://.');
   if (item.publisher !== null && item.publisher !== undefined && typeof item.publisher !== 'string') throw problem('"publisher" must be text or null.');
-  if (!isDateText(item.publishedAt)) throw problem('"publishedAt" is missing or not a date.');
-  if (!isDateText(item.firstSeenAt)) throw problem('"firstSeenAt" is missing or not a date.');
+  if (!isDateText(item.publishedAt)) throw problem('"publishedAt" is missing or not a date in ISO form (e.g. 2026-09-20T12:00:00.000Z).');
+  if (!isDateText(item.firstSeenAt)) throw problem('"firstSeenAt" is missing or not a date in ISO form (e.g. 2026-09-20T12:00:00.000Z).');
   if (!SENTIMENTS.has(item.sentiment)) throw problem('"sentiment" must be positive, negative or neutral.');
-  if (item.alertedAt !== null && item.alertedAt !== undefined && !isDateText(item.alertedAt)) throw problem('"alertedAt" must be a date or null.');
+  if (item.alertedAt !== null && item.alertedAt !== undefined && !isDateText(item.alertedAt)) throw problem('"alertedAt" must be a date in ISO form (e.g. 2026-09-20T12:00:00.000Z) or null.');
   return {
     companyId: item.companyId,
     guid: item.guid,

@@ -173,6 +173,94 @@ test('page: the built page, its files, and index.html for any other address', as
 
   assert.match((await get(baseUrl, '/')).body, /<title>Dashboard/);
   assert.match((await get(baseUrl, '/companies/harvey')).body, /<title>Dashboard/, 'fallback to index.html');
+  const somePage = await get(baseUrl, '/some/page');
+  assert.equal(somePage.status, 200);
+  assert.match(somePage.body, /<title>Dashboard/, 'an address without a file extension gets the page');
   assert.equal((await get(baseUrl, '/assets/app.js')).body, 'console.log(1);');
   assert.equal((await get(baseUrl, '/api/nope')).status, 404, '/api addresses never get the page');
+
+  // A missing file (an address with an extension) gets a 404, never the page.
+  for (const missing of ['/favicon.ico', '/assets/index-OLD.js', '/some/page.css']) {
+    const answer = await get(baseUrl, missing);
+    assert.equal(answer.status, 404, missing);
+    assert.doesNotMatch(String(answer.type), /text\/html/, `${missing} is not the page`);
+  }
+});
+
+test('security headers on every answer: the page, a file, the api and an error', async (t) => {
+  const context = makeApiDb(t);
+  addStandardData(context.db);
+  const distDir = path.join(context.dir, 'dist');
+  fs.mkdirSync(path.join(distDir, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Dashboard</title>');
+  fs.writeFileSync(path.join(distDir, 'assets', 'app.js'), 'console.log(1);');
+  const { baseUrl } = await startApi(context.onCleanup, { db: context.openReadOnly(), webDistDir: distDir });
+
+  for (const urlPath of ['/', '/companies/harvey', '/assets/app.js', '/api/companies', '/api/nope', '/favicon.ico']) {
+    const { headers } = await get(baseUrl, urlPath);
+    assert.equal(headers.get('x-content-type-options'), 'nosniff', urlPath);
+    assert.equal(headers.get('x-frame-options'), 'DENY', urlPath);
+    assert.equal(headers.get('referrer-policy'), 'no-referrer', urlPath);
+    assert.match(headers.get('content-security-policy') ?? '', /default-src 'self'/, urlPath);
+    assert.match(headers.get('content-security-policy') ?? '', /frame-ancestors 'none'/, urlPath);
+  }
+});
+
+test('the built page needs nothing the CSP blocks: no inline script or style in web/index.html', () => {
+  // The CSP is default-src 'self': an inline <script> or <style> (or a style="" attribute) in the
+  // page shell would be blocked. Read with CRLF in mind (git autocrlf).
+  const shell = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'web', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const scripts = [...shell.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
+  for (const [, attributes, body] of scripts) {
+    assert.match(attributes, /\bsrc=/, 'every script is a file');
+    assert.equal(body.trim(), '', 'no inline script code');
+  }
+  assert.doesNotMatch(shell, /<style\b/, 'no inline <style>');
+  assert.doesNotMatch(shell, /\sstyle=/, 'no style="" attribute');
+});
+
+test('GET /api/companies sends windowDays, the window setting (not a fixed 90)', async (t) => {
+  const standard = await setup(t);
+  assert.equal((await get(standard.baseUrl, '/api/companies')).body.windowDays, 90);
+
+  const short = await setup(t, { windowDays: 30 });
+  const { body } = await get(short.baseUrl, '/api/companies');
+  assert.equal(body.windowDays, 30);
+  assert.equal(body.windowStart, new Date(API_NOW - 30 * DAY_MS).toISOString());
+  assert.equal(body.companies[0].mentionCount, 3, 'the 3 September mentions are inside 30 days too');
+});
+
+test('window edge: a mention exactly at windowStart counts, 1 ms before it does not', async (t) => {
+  const { baseUrl, db } = await setup(t);
+  const windowStart = API_NOW - 90 * DAY_MS;
+  addMentions(db, [
+    { companyId: 'ukko', guid: 'u-edge', publishedAt: new Date(windowStart).toISOString() },
+    { companyId: 'ukko', guid: 'u-before', publishedAt: new Date(windowStart - 1).toISOString() },
+  ]);
+  const ukko = (await get(baseUrl, '/api/companies')).body.companies[1];
+  assert.equal(ukko.mentionCount, 1);
+  assert.equal(ukko.lastMentionAt, new Date(windowStart).toISOString());
+  assert.equal(ukko.daysAgo, 90);
+  const { body } = await get(baseUrl, '/api/companies/ukko/mentions');
+  assert.deepEqual(body.mentions.map((mention) => mention.url), ['https://news.google.com/rss/articles/u-edge']);
+});
+
+test('"days ago": 23 h 59 min after the latest mention is 0, exactly 24 h is 1', async (t) => {
+  const latest = Date.parse('2026-09-27T08:00:00.000Z'); // Harvey's latest mention
+  let now = latest + DAY_MS - 60 * 1000;
+  const { baseUrl } = await setup(t, { now: () => now });
+  assert.equal((await get(baseUrl, '/api/companies')).body.companies[0].daysAgo, 0);
+  now = latest + DAY_MS;
+  assert.equal((await get(baseUrl, '/api/companies')).body.companies[0].daysAgo, 1);
+});
+
+test('a mention dated in the future counts, and "days ago" is 0 (never below 0)', async (t) => {
+  const { baseUrl, db } = await setup(t);
+  const future = new Date(API_NOW + 3 * 60 * 60 * 1000).toISOString();
+  addMentions(db, [{ companyId: 'ukko', guid: 'u-future', publishedAt: future }]);
+  const ukko = (await get(baseUrl, '/api/companies')).body.companies[1];
+  assert.equal(ukko.status, 'mentioned');
+  assert.equal(ukko.lastMentionAt, future);
+  assert.equal(ukko.daysAgo, 0);
+  assert.equal(ukko.mentionCount, 1);
 });

@@ -11,10 +11,13 @@
 // table is narrowed with useMemo on top of the sorted list (src/utils/filterCompanies.js), on
 // every keystroke; useDeferredValue keeps typing smooth. The open company's mentions stay open
 // even when the search hides that company's row.
+// Click-to-sort (D104): the chosen sort is state here too (useTableSort), so a reload keeps it;
+// the list is sorted first, then the search narrows it.
 
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCompanies, COMPANIES_KEY } from './hooks/useCompanies.js';
+import { useTableSort } from './hooks/useTableSort.js';
 import { sortCompanies } from './utils/sortCompanies.js';
 import { filterCompanies } from './utils/filterCompanies.js';
 import { Header } from './components/Header/Header.jsx';
@@ -27,7 +30,7 @@ import styles from './App.module.css';
 
 // The company list part of the page, for each state of the query.
 // `allCount` = companies before the search; `companies` = the ones that match it.
-function CompanyListArea({ query, allCount, companies, searchText, selectedId, onSelect }) {
+function CompanyListArea({ query, allCount, companies, searchText, selectedId, onSelect, sort, onSort }) {
   if (query.isPending) return <Loading text="Loading companies ..." />;
   if (query.isError) return <ErrorMessage message={query.error?.message ?? 'The company list could not be loaded.'} onRetry={query.refetch} />;
   if (allCount === 0) {
@@ -39,6 +42,8 @@ function CompanyListArea({ query, allCount, companies, searchText, selectedId, o
       selectedId={selectedId}
       onSelect={onSelect}
       emptyMessage={`No companies match "${searchText.trim()}"`}
+      sort={sort}
+      onSort={onSort}
     />
   );
 }
@@ -48,10 +53,11 @@ export function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [searchText, setSearchText] = useState('');
   const deferredSearchText = useDeferredValue(searchText);
+  const { sort, sortBy } = useTableSort();
   const companiesQuery = useCompanies();
   const queryClient = useQueryClient();
 
-  const companies = useMemo(() => sortCompanies(companiesQuery.data?.companies ?? []), [companiesQuery.data]);
+  const companies = useMemo(() => sortCompanies(companiesQuery.data?.companies ?? [], sort), [companiesQuery.data, sort]);
   const visibleCompanies = useMemo(() => filterCompanies(companies, deferredSearchText), [companies, deferredSearchText]);
   // Looked up in the whole list, so the panel keeps its title while the search hides the row.
   const selectedName = companies.find((company) => company.id === selectedId)?.name;
@@ -64,6 +70,7 @@ export function App() {
       <Header
         asOf={companiesQuery.data?.asOf}
         windowStart={companiesQuery.data?.windowStart}
+        windowDays={companiesQuery.data?.windowDays}
         onRefresh={refresh}
         isRefreshing={companiesQuery.isFetching}
       />
@@ -77,10 +84,12 @@ export function App() {
             searchText={deferredSearchText}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            sort={sort}
+            onSort={sortBy}
           />
         </section>
         <section className={styles.panelArea}>
-          <MentionsPanel companyId={selectedId} companyName={selectedName} />
+          <MentionsPanel companyId={selectedId} companyName={selectedName} windowDays={companiesQuery.data?.windowDays} />
         </section>
       </main>
     </div>

@@ -3162,3 +3162,116 @@ why does it take the discord agent so long its just formatting a message
 prapre a commit for a stable version of dashboard, add search, start desginging of daily job
 and everything else we did
 ```
+
+---
+
+## Prompt 276 — Why is it slow? The alert doesn't have to be at 3am exactly: it's sent as part of the daily job
+
+```
+why its taking so long, and also it dosent have to be 3am exactly it will be sent as part of the daily job
+```
+
+---
+
+## Prompt 277 — Resend designs B and C to the webhook
+
+```
+i only see option A sent to me , resend B and C
+```
+
+---
+
+## Prompt 278 — (interrupted)
+
+```
+what other
+```
+
+---
+
+## Prompt 279 — Brainstorm nice-to-have and QoL ideas for the dashboard
+
+```
+help me think on a cool nice to have and QOL for the dashboard.
+```
+
+---
+
+## Prompt 280 — Didn't like any Discord design: too busy, missing the point
+
+```
+for the discord i didnt like any they are too busy and i fell like they are missing the point
+```
+
+---
+
+## Prompt 281 — Send the Discord design agent again with the lean notes; stay in scope
+
+```
+ok send the discord agent again with the new notes tell him not to get out of scope
+```
+
+---
+
+## Prompt 282 — Agent: click a column header to sort (company, status, mentions; not the sentiment columns)
+
+```
+send an agent to add a feature to the site where when clicking on a coulnm it sorts by it
+company -> a to z or z to a
+status -> mentioned today or furthest, 
+mentions -> high to low low tohigh
+poisitive now thats a tricky one so we dont sort by Positive neegative or neutral for now
+```
+
+---
+
+## Prompt 283 — Default view stays as is: most mentions first
+
+```
+exactly i want the default view as is, meaning most sentiment at begining sorted by it
+```
+
+---
+
+## Prompt 284 — The lean Discord design is chosen
+
+```
+i liked that design we gonna use that
+```
+
+---
+
+## Prompt 285 — Bug: after a page refresh the sort arrow still shows on Mentions
+
+```
+[image: the Mentions header with a ▼ arrow] bug when refreshing the sort triangle icon is still present
+but the sort is gone
+expected: sort is gone is good
+but there shouldnt be a sort icon after refresh
+```
+
+---
+
+## Prompt 286 — Run all the tests after the fix
+
+```
+ok after its done perform all the tests
+```
+
+---
+
+## Prompt 287 — Senior engineer code review of the full-stack site; another agent fixes the findings; then run all tests
+
+```
+send to a senior software engineer to do a act as a code review
+for our fullstack site and let another agent fix the issues the code review is raising
+after that perform all tests
+```
+
+---
+
+## Prompt 288 — Prepare a commit
+
+```
+prapre a commit
+```

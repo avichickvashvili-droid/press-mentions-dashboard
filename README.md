@@ -116,8 +116,8 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 342 backend tests (pipeline + API). Offline: Google News and Ollama are replaced with fakes |
-| `npm run test:web` | Runs the dashboard page's tests (Vitest, in a simulated browser) |
+| `npm test` | Runs all 350 backend tests (pipeline + API). Offline: Google News and Ollama are replaced with fakes |
+| `npm run test:web` | Runs the dashboard page's 56 tests (Vitest, in a simulated browser) |
 | `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
 | `npm run api` | Starts only the API + the already-built page |
 | `npm run build` | Only builds the page into `web/dist` |
@@ -136,7 +136,8 @@ npm run dashboard
 Then open **http://localhost:3000**. The dashboard is its own command, separate from `npm start`, and needs neither Google News nor Ollama.
 - It shows every company in the list, also those with no coverage, **most mentions first** (no coverage last): status ("last mentioned 3 days ago" / "no coverage found"), number of mentions and how many are positive / negative / neutral. Click a company to see its mentions from the last 90 days, newest first, **20 per page** (« First ‹ Previous · Page 3 of 161 · Next › Last »), each with its date, sentiment, publisher and a link to the article.
 - **Search:** type in the box above the table and it narrows on every keystroke (no button, no Enter): company names containing the text, in any case. The text stays when the data reloads, and an open company stays open.
-- **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. A database that already has data is never changed.
+- **Sort:** click the Company, Status or Mentions header to sort by it; click again to reverse (▲ / ▼ shows the active one). Companies with no coverage stay at the bottom (except when sorting by Company). The sentiment columns are not sortable.
+- **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. The data of a database that already has data is never changed (at start-up the api may only switch it to WAL mode and add missing tables or columns).
 - **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads when you come back to its tab, when you press **Refresh**, and by itself at midnight (UTC). "Data as of …" at the top shows when it was loaded.
 - **Development:** `npm run dev` (the page with hot reload, http://localhost:5173) together with `npm run api` in a second terminal.
 
@@ -144,7 +145,7 @@ Then open **http://localhost:3000**. The dashboard is its own command, separate 
 
 | Endpoint | Answer |
 |---|---|
-| `GET /api/companies` | `{ asOf, windowStart, companies: [{ id, name, section, sectionName, hint, status, lastMentionAt, daysAgo, mentionCount, sentimentCounts: { positive, neutral, negative } }] }` |
+| `GET /api/companies` | `{ asOf, windowStart, windowDays, companies: [{ id, name, section, sectionName, hint, status, lastMentionAt, daysAgo, mentionCount, sentimentCounts: { positive, neutral, negative } }] }` |
 | `GET /api/companies/:id/mentions` | `{ company: { id, name }, mentions: [{ title, url, publisher, publishedAt, sentiment }] }`, newest first, last 90 days |
 
 Errors are JSON `{ "error": "…" }`: 404 for an unknown company or API address, 500 if the database can't be read (details only in the API's terminal).

@@ -6,13 +6,19 @@
 import { StatusText } from '../StatusText/StatusText.jsx';
 import styles from './CompanyTable.module.css';
 
-// `selected` highlights the row; clicking the name selects the company.
+// `selected` highlights the row and marks the name button as the open company
+// (aria-current, so screen readers announce it); clicking the name selects the company.
 export function CompanyRow({ company, selected, onSelect }) {
   const { positive, negative, neutral } = company.sentimentCounts;
   return (
-    <tr className={selected ? styles.selected : undefined} aria-selected={selected}>
+    <tr className={selected ? styles.selected : undefined}>
       <td>
-        <button type="button" className={styles.nameButton} onClick={() => onSelect(company.id)}>
+        <button
+          type="button"
+          className={styles.nameButton}
+          aria-current={selected ? 'true' : undefined}
+          onClick={() => onSelect(company.id)}
+        >
           {company.name}
         </button>
       </td>

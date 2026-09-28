@@ -1,19 +1,21 @@
 // components.test.jsx — the main components, kept short for the sample (owner, Phase 2):
 // StatusText wording (FR5), SentimentBadge, CompanyTable (every company, click selects),
-// MentionsPanel states and link attributes (FR2-FR4), ErrorBoundary. The fetch is a fake.
+// MentionsPanel states and link attributes (FR2-FR4), Header (the window length from the api),
+// ErrorBoundary. The fetch is a fake.
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { statusWords, StatusText } from './StatusText/StatusText.jsx';
 import { SentimentBadge } from './SentimentBadge/SentimentBadge.jsx';
 import { CompanyTable } from './CompanyTable/CompanyTable.jsx';
+import { Header } from './Header/Header.jsx';
 import { MentionsPanel } from './MentionsPanel/MentionsPanel.jsx';
 import { ErrorBoundary } from './common/ErrorBoundary.jsx';
 import { COMPANIES_ANSWER, HARVEY_MENTIONS, jsonResponse, makeQueryWrapper, stubFetch } from '../test/testTools.jsx';
 
-// Draws a component inside a fresh TanStack Query cache.
-function renderWithQuery(element) {
-  const { wrapper } = makeQueryWrapper();
+// Draws a component inside a fresh TanStack Query cache (`options` go to makeQueryWrapper).
+function renderWithQuery(element, options) {
+  const { wrapper } = makeQueryWrapper(options);
   return render(element, { wrapper });
 }
 
@@ -47,6 +49,21 @@ describe('CompanyTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Harvey' }));
     expect(onSelect).toHaveBeenCalledWith('harvey');
   });
+
+  it('the open company is marked on its name button (aria-current), not with aria-selected on the row', () => {
+    render(<CompanyTable companies={COMPANIES_ANSWER.companies} selectedId="harvey" onSelect={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Harvey' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: 'Ukko' })).not.toHaveAttribute('aria-current');
+    for (const row of screen.getAllByRole('row')) expect(row).not.toHaveAttribute('aria-selected');
+  });
+});
+
+describe('Header', () => {
+  it('shows the window length the api sends (windowDays), not a fixed 90', () => {
+    render(<Header asOf="2026-09-27T10:00:00.000Z" windowStart="2026-08-28T10:00:00.000Z" windowDays={30} onRefresh={() => {}} isRefreshing={false} />);
+    expect(screen.getByText(/Last 30 days:/)).toBeInTheDocument();
+    expect(screen.queryByText(/90/)).not.toBeInTheDocument();
+  });
 });
 
 describe('MentionsPanel', () => {
@@ -69,28 +86,59 @@ describe('MentionsPanel', () => {
     expect(screen.getByText('positive')).toBeInTheDocument();
   });
 
-  it('no mentions: "No coverage found in the last 90 days."', async () => {
+  it('no mentions: "No coverage found in the last N days." with N from the api', async () => {
     stubFetch(() => jsonResponse({ company: { id: 'ukko', name: 'Ukko' }, mentions: [] }));
-    renderWithQuery(<MentionsPanel companyId="ukko" companyName="Ukko" />);
+    const { rerender } = renderWithQuery(<MentionsPanel companyId="ukko" companyName="Ukko" windowDays={90} />);
     expect(await screen.findByText('No coverage found in the last 90 days.')).toBeInTheDocument();
+    rerender(<MentionsPanel companyId="ukko" companyName="Ukko" windowDays={30} />);
+    expect(screen.getByText('No coverage found in the last 30 days.')).toBeInTheDocument();
   });
 
-  it('an error: the message and a working "Try again"', async () => {
+  it('the title says "1 mention" for one and "N mentions" for more', async () => {
+    stubFetch((url) => jsonResponse(url.includes('/one/')
+      ? { company: { id: 'one', name: 'One' }, mentions: HARVEY_MENTIONS.mentions.slice(0, 1) }
+      : HARVEY_MENTIONS));
+    const { rerender } = renderWithQuery(<MentionsPanel companyId="one" companyName="One" />);
+    expect(await screen.findByRole('heading', { name: 'One · 1 mention' })).toBeInTheDocument();
+    rerender(<MentionsPanel companyId="harvey" companyName="Harvey" />);
+    expect(await screen.findByRole('heading', { name: 'Harvey · 2 mentions' })).toBeInTheDocument();
+  });
+
+  it('only an http(s) address becomes a link; any other shows the headline as plain text, unchanged', async () => {
+    const mentions = [
+      { ...HARVEY_MENTIONS.mentions[0], title: 'Web story', url: 'https://news.google.com/a' },
+      { ...HARVEY_MENTIONS.mentions[0], title: 'Data story', url: 'data:text/html,<b>x</b>' },
+      { ...HARVEY_MENTIONS.mentions[0], title: 'Script story', url: 'javascript:alert(1)' },
+    ];
+    stubFetch(() => jsonResponse({ company: { id: 'harvey', name: 'Harvey' }, mentions }));
+    renderWithQuery(<MentionsPanel companyId="harvey" companyName="Harvey" />);
+    const links = await screen.findAllByRole('link');
+    expect(links.map((link) => link.textContent)).toEqual(['Web story']);
+    for (const title of ['Data story', 'Script story']) {
+      const text = screen.getByText(title);
+      expect(text.closest('a')).toBeNull();
+      expect(text).not.toHaveAttribute('href');
+    }
+  });
+
+  it('an error (with the real retry settings): tried 3 times, then the message and a working "Try again"', async () => {
     let calls = 0;
     stubFetch(() => {
       calls += 1;
-      return calls === 1 ? jsonResponse({ error: 'The dashboard data could not be read.' }, 500) : jsonResponse(HARVEY_MENTIONS);
+      return calls <= 3 ? jsonResponse({ error: 'The dashboard data could not be read.' }, 500) : jsonResponse(HARVEY_MENTIONS);
     });
-    renderWithQuery(<MentionsPanel companyId="harvey" companyName="Harvey" />);
+    renderWithQuery(<MentionsPanel companyId="harvey" companyName="Harvey" />, { realDefaults: true });
     expect(await screen.findByText('The dashboard data could not be read.')).toBeInTheDocument();
+    expect(calls).toBe(3); // the first try + 2 retries (QUERY_DEFAULTS)
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findAllByRole('link')).toHaveLength(2);
   });
 
-  it('a company that is not found (404): a message, not a crash', async () => {
-    stubFetch(() => jsonResponse({ error: 'No company with the id "gone".' }, 404));
-    renderWithQuery(<MentionsPanel companyId="gone" companyName="Gone" />);
+  it('a company that is not found (404, with the real retry settings): a message at once, never retried', async () => {
+    const fetchMock = stubFetch(() => jsonResponse({ error: 'No company with the id "gone".' }, 404));
+    renderWithQuery(<MentionsPanel companyId="gone" companyName="Gone" />, { realDefaults: true });
     expect(await screen.findByText(/This company was not found/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

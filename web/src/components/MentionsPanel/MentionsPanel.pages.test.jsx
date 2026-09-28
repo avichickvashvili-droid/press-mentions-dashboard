@@ -1,6 +1,6 @@
 // MentionsPanel.pages.test.jsx — the panel's pages (owner, Prompt 265, D101): 20 per page, the
-// page nav and its disabled buttons, no nav for 20 or fewer, and page 1 again for another
-// company. The fetch is a fake.
+// page nav and its disabled buttons, no nav for 20 or fewer, page 1 again for another company,
+// and that a page change really brings the panel back to its top. The fetch is a fake.
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -71,20 +71,58 @@ describe('MentionsPanel pages', () => {
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
 
-  it('another company starts again at page 1; changing the page scrolls the panel into view', async () => {
+  it('another company starts again at page 1', async () => {
     fakeApi();
-    const scrollIntoView = vi.fn();
-    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
     const { wrapper } = makeQueryWrapper();
     const { rerender } = render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper });
     await screen.findByText('Page 1 of 3');
     fireEvent.click(button('Last »'));
     expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
-    expect(scrollIntoView).toHaveBeenCalled();
 
     rerender(<MentionsPanel companyId="anthropic" companyName="anthropic" />);
     expect(await screen.findByText('Page 1 of 4')).toBeInTheDocument();
     expect(headlines()[0]).toBe('anthropic story 1');
-    delete window.HTMLElement.prototype.scrollIntoView;
+  });
+
+  it('wide screen: changing the page puts the scroll area around the panel back at its top', async () => {
+    fakeApi();
+    const { wrapper } = makeQueryWrapper();
+    // The panel inside a scroll area, like App's .panelArea. jsdom has no layout, so the scroll
+    // position is a plain value on this one element (nothing global is changed).
+    const scrollArea = document.createElement('section');
+    document.body.appendChild(scrollArea);
+    Object.defineProperty(scrollArea, 'scrollTop', { value: 0, writable: true, configurable: true });
+    try {
+      render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper, container: scrollArea });
+      await screen.findByText('Page 1 of 3');
+      scrollArea.scrollTop = 750; // the user scrolled down the list
+      fireEvent.click(button('Next ›'));
+      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+      expect(scrollArea.scrollTop).toBe(0);
+    } finally {
+      scrollArea.remove();
+    }
+  });
+
+  it('narrow screen: when the panel top is above the screen, the page scrolls up to it; otherwise it does not move', async () => {
+    fakeApi();
+    const { wrapper } = makeQueryWrapper();
+    render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper });
+    await screen.findByText('Page 1 of 3');
+    const panel = screen.getByRole('complementary', { name: 'Mentions of harvey' });
+    // Only this element gets the fake layout and scroll method (jsdom has neither), so nothing
+    // leaks into other tests even if an assertion fails.
+    let top = -400;
+    panel.getBoundingClientRect = () => ({ top, bottom: top + 2000, left: 0, right: 0, width: 0, height: 2000 });
+    panel.scrollIntoView = vi.fn(() => { top = 0; });
+
+    fireEvent.click(button('Next ›'));
+    expect(panel.scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(panel.getBoundingClientRect().top).toBe(0);
+
+    panel.scrollIntoView.mockClear();
+    fireEvent.click(button('Next ›'));
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    expect(panel.scrollIntoView).not.toHaveBeenCalled();
   });
 });

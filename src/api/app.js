@@ -8,7 +8,8 @@
 // page in web/dist. Writes: nothing (errors go to the server log).
 //
 // Endpoints (PLAN.md 1.4):
-//   GET /api/companies               every company in the list with its status and totals
+//   GET /api/companies               every company in the list with its status and totals, and
+//                                    windowDays (how many days the window covers, for the page)
 //   GET /api/companies/:id/mentions  one company's mentions in the last 90 days, newest first
 // Everything is worked out again on every request: the 90-day window, "days ago", the totals
 // (D13, D99, NFR5).
@@ -17,8 +18,15 @@
 // /api address, 500 when the data can't be read. The details (stack trace) go to the server log,
 // never to the page.
 //
-// Any other address gets the dashboard page (web/dist/index.html), so the page works when
-// reloaded. If the page has not been built yet, a short message says how to build it.
+// Any other page address (no file extension, e.g. /companies/harvey) gets the dashboard page
+// (web/dist/index.html), so the page works when reloaded. A missing file (an address with an
+// extension, e.g. /favicon.ico or an old /assets/index-OLD.js) gets a 404 instead. If the page
+// has not been built yet, a short message says how to build it.
+//
+// Every answer carries a few security headers (no new library needed): the browser must not
+// guess file types, the page can't be shown inside another site's frame, no address is sent on
+// to other sites, and the page may only load its own files (CSP). The built page has no inline
+// scripts or styles, so `default-src 'self'` is enough for it.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +35,14 @@ import { config } from '../config.js';
 import { readCompanyNames } from '../shared/companyList.js';
 import { loadSectionNames } from '../classifier/prompt.js';
 import { findCompany, readCompanyList, readCompanyMentions } from './queries.js';
+
+// The security headers of every answer (see the file header).
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'",
+};
 
 // The message the page shows when the data can't be read (the details are in the server log).
 const READ_FAILED_MESSAGE = 'The dashboard data could not be read from the database. Try again in a moment; if it keeps failing, check the api window for the error.';
@@ -49,6 +65,12 @@ export function createApp({
 }) {
   const app = express();
   app.disable('x-powered-by');
+
+  // The security headers, on every answer (api, page, files and errors).
+  app.use((req, res, next) => {
+    res.set(SECURITY_HEADERS);
+    next();
+  });
 
   // Answers with a JSON error, and writes the details to the server log (never to the page).
   function sendServerError(res, where, error) {
@@ -101,10 +123,10 @@ export function createApp({
   // The built dashboard page and its files (JavaScript, CSS).
   app.use(express.static(webDistDir));
 
-  // Any other GET address: the page itself (so a reload of the page works), or a message that
-  // says how to build it.
+  // Any other GET page address (no file extension): the page itself (so a reload of the page
+  // works), or a message that says how to build it. A missing file goes on to the 404 below.
   app.use((req, res, next) => {
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if ((req.method !== 'GET' && req.method !== 'HEAD') || path.extname(req.path) !== '') {
       next();
       return;
     }
@@ -119,7 +141,7 @@ export function createApp({
     res.sendFile(indexFile, (error) => { if (error) next(error); });
   });
 
-  // Anything else (e.g. a POST to a page address): 404.
+  // Anything else (e.g. a POST to a page address, or a missing file): 404.
   app.use((req, res) => {
     res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });
   });

@@ -6,7 +6,8 @@
 // Reads: the database (config.DB_PATH), data/*.json (only when the database is empty), the
 // company list files, and web/dist (the built page).
 // Writes: the database ONLY for the one-time data/ import into an empty database (D35,
-// src/api/importData.js); the terminal.
+// src/api/importData.js); the data of an existing database is never changed (opening it may
+// only switch it to WAL mode and add missing tables or columns); the terminal.
 //
 // Start-up:
 //   1. Open the database (creating the tables if the file is new).

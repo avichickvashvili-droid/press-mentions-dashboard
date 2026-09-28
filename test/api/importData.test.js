@@ -138,3 +138,32 @@ test('a broken company list file: the seed loader\'s clear message, and nothing 
   assert.equal(count(db, 'Company'), 0);
   assert.equal(count(db, 'Mention'), 0);
 });
+
+test('a date that is not in ISO form (e.g. the RFC 2822 form of RSS feeds) is refused: file + item number, nothing saved', (t) => {
+  const cases = [
+    [{ publishedAt: 'Sun, 01 Mar 2026 08:00:00 GMT' }, /data\/mentions\.json, item 2: "publishedAt" is missing or not a date in ISO form/],
+    [{ publishedAt: '2026-09-20T15:00:00+03:00' }, /data\/mentions\.json, item 2: "publishedAt" .*ISO form/],
+    [{ firstSeenAt: '2026-09-26' }, /data\/mentions\.json, item 2: "firstSeenAt" .*ISO form/],
+    [{ alertedAt: 'Sat, 26 Sep 2026 08:00:00 GMT' }, /data\/mentions\.json, item 2: "alertedAt" must be a date in ISO form/],
+  ];
+  for (const [overrides, message] of cases) {
+    const { db, dataDir, seedFiles } = setup(t, { mentions: [mentionItem('harvey', 'h1'), mentionItem('harvey', 'h2', overrides)] });
+    assert.throws(() => importDataIfEmpty(db, { dataDir, seedFiles }), (error) => error instanceof DataImportError && message.test(error.message));
+    assert.equal(count(db, 'Company'), 0, 'nothing is saved');
+    assert.equal(count(db, 'Mention'), 0);
+  }
+});
+
+test('a url that is not http(s) is refused: file + item number, nothing saved; stored urls are never changed', (t) => {
+  for (const url of ['data:text/html,<b>hi</b>', 'javascript:alert(1)', 'file:///C:/secret.txt', 'not a url']) {
+    const { db, dataDir, seedFiles } = setup(t, { mentions: [mentionItem('harvey', 'h1'), mentionItem('harvey', 'h2', { url })] });
+    assert.throws(() => importDataIfEmpty(db, { dataDir, seedFiles }),
+      (error) => error instanceof DataImportError && /data\/mentions\.json, item 2: "url" must be a web address starting with http:\/\/ or https:\/\//.test(error.message));
+    assert.equal(count(db, 'Company'), 0, 'the whole import is rolled back');
+    assert.equal(count(db, 'Mention'), 0);
+  }
+
+  const good = setup(t, { mentions: [mentionItem('harvey', 'h1', { url: 'http://example.com/A%20b?x=1' })] });
+  importDataIfEmpty(good.db, { dataDir: good.dataDir, seedFiles: good.seedFiles });
+  assert.equal(good.db.prepare("SELECT url FROM Mention WHERE guid = 'h1'").get().url, 'http://example.com/A%20b?x=1', 'saved exactly as it was');
+});

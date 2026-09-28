@@ -10,12 +10,14 @@ import { buildCompanyStatuses, windowStartFor } from '../shared/companyStatus.js
 
 // GET /api/companies: every company in the list now, with its status, section (number and
 // name), mention count and sentiment totals. `sectionNames` = { number: name }.
-// Returns { asOf, windowStart, companies }.
+// Returns { asOf, windowStart, windowDays, companies }. windowDays is sent so the page shows
+// the real window length (the setting DASHBOARD_WINDOW_DAYS), never a fixed "90".
 export function readCompanyList(db, { now, windowDays, companyNames, sectionNames }) {
   const { asOf, windowStart, companies } = buildCompanyStatuses(db, { now, windowDays, companyNames });
   return {
     asOf,
     windowStart,
+    windowDays,
     // sectionName is added next to the section number, for the page (owner-approved, Q5).
     companies: companies.map(({ id, name, section, ...rest }) => ({
       id, name, section, sectionName: sectionNames[section] ?? null, ...rest,

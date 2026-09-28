@@ -20,6 +20,7 @@ function company(id, name, mentionCount) {
 const LIST = {
   asOf: '2026-09-27T10:00:00.000Z',
   windowStart: '2026-06-29T10:00:00.000Z',
+  windowDays: 90,
   companies: [company('alamo', 'Alamo', 5), company('lambda', 'Lambda', 50), company('klook', 'Klook', 62), company('ukko', 'Ukko', 0)],
 };
 

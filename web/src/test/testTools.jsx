@@ -5,10 +5,15 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi } from 'vitest';
+import { QUERY_DEFAULTS } from '../api/queryClient.js';
 
-// A fresh cache without retries (so an error shows at once) and a wrapper component for it.
-export function makeQueryWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+// A fresh cache and a wrapper component for it. By default without retries (so an error shows
+// at once). With `realDefaults: true` it uses the page's real settings (QUERY_DEFAULTS: the
+// retry rule and reload on tab focus), only without the wait between tries, so a test that is
+// about retrying checks the real rule and stays fast.
+export function makeQueryWrapper({ realDefaults = false } = {}) {
+  const queries = realDefaults ? { ...QUERY_DEFAULTS.queries, retryDelay: 0 } : { retry: false };
+  const queryClient = new QueryClient({ defaultOptions: { queries } });
   const wrapper = ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   return { queryClient, wrapper };
 }
@@ -29,6 +34,7 @@ export function stubFetch(answer) {
 export const COMPANIES_ANSWER = {
   asOf: '2026-09-27T10:00:00.000Z',
   windowStart: '2026-06-29T10:00:00.000Z',
+  windowDays: 90,
   companies: [
     {
       id: 'ukko', name: 'Ukko', section: 2, sectionName: 'Health', hint: null, status: 'no_coverage',

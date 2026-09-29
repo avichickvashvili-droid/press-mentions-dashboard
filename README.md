@@ -1,1054 +1,420 @@
 # Press Mentions Monitoring & Dashboard
 
-> **Status: work in progress.** Built: data collection, classification and the orchestrator ([how to run](#how-to-run)). The first real run is done: [results](#real-run-results-run-1-2026-09-28). The API + dashboard are built ([the dashboard](#5-the-dashboard)), and so is the daily job with its Discord alert ([the daily job](#6-the-daily-job)); its first real run is next.
-> Full design notes and the decision log are in [PLAN.md](PLAN.md).
+**TL;DR:** every day the project searches Google News for 258 OurCrowd portfolio companies, and a **local Ollama model** (`qwen3:4b`) decides whether each headline is really about the company and whether the news is positive, neutral or negative. The results go to a dark-theme dashboard (90-day view per company) and a daily Discord digest. One command runs it all: `docker compose up -d`.
+
+The owner's day-to-day steps are in [GUIDE.md](GUIDE.md). The design notes and the decision log (D-numbers) are in [PLAN.md](PLAN.md).
+
+## Contents
+
+1. [What it does](#what-it-does)
+2. [How it works](#how-it-works)
+3. [Project layout](#project-layout)
+4. [Quick start with Docker (one command)](#quick-start-with-docker)
+5. [Run locally without Docker](#run-locally-without-docker)
+6. [The dashboard](#the-dashboard)
+7. [The daily job and Discord digest](#the-daily-job-and-discord-digest)
+8. [The `data/` folder](#the-data-folder)
+9. [Tracking progress](#tracking-progress)
+10. [News source: Google News](#news-source-google-news)
+11. [The AI model (Ollama)](#the-ai-model-ollama)
+12. [How classification quality was validated](#how-classification-quality-was-validated)
+13. [Assumptions, trade-offs and limitations](#assumptions-trade-offs-and-limitations)
+14. [Real run results](#real-run-results)
+15. [Tech stack](#tech-stack)
+16. [FAQ and where to find things](#faq-and-where-to-find-things)
 
 ## What it does
 
+**TL;DR:** collect → classify with a local AI → store → show → alert daily.
+
 For every company in `ourcrowd_companies.txt` (258 companies), the system:
 
-1. **Collects** its news from the last 90 days from Google News.
-2. **Classifies** each article with a **local Ollama model**: is it really about this company, and if so, is it positive, negative or neutral?
-3. **Stores** the relevant mentions in SQLite.
-4. **Shows** a dashboard: every company with its status ("last mentioned 3 days ago" / "no coverage found"). Click a company to see its mentions, newest first, each with its sentiment and a link to the article.
-5. **Runs daily** (`npm run daily`, 03:00 Israel time): adds the new mentions, updates open dashboards by itself, and sends one Discord message listing them.
+1. **Collects** its news of the last 90 days from Google News.
+2. **Classifies** each headline with a local Ollama model: is it about this company, and if so, is it positive, neutral or negative?
+3. **Stores** the relevant mentions in SQLite (irrelevant ones are deleted).
+4. **Shows** a dashboard: every company with its status ("last mentioned 3 days ago" / "no coverage"), its mentions (newest first, with sentiment and a link), and an Overview page of charts.
+5. **Runs daily** at 03:00 Israel time: adds the new mentions, updates open dashboards, and sends one Discord message.
 
 ## How it works
 
-```
-ourcrowd_companies.txt (258 companies) → filtered_ourcrowd_companies.txt (12 sections + 13 Unsorted) + company_hints.json (search hints for 108 hard names)
-        │
-        ▼
-1. DATA COLLECTION ◄──► Google News RSS  (10 groups of ~25 companies, one group process
-        │                 at a time, one company at a time, paced;
-        │                 search = company hint or name + section words)
-        │  each search result = one chunk; waits while the queue is full
-        ▼
-2. BUFFER QUEUE (SQLite table)   articles waiting for the LLM
-        │  batches
-        ▼
-3. CLASSIFICATION ◄──► Ollama (local)
-        │  not about the company → deleted
-        │  about the company     → sentiment → moved in chunks
-        ▼
-4. MENTION TABLE (SQLite) ──► data/ (JSON export: after each group, and at the end of the run)
-        │
-        ▼
-5. API (Express) ──► 6. DASHBOARD (React + Vite)
+**TL;DR:** separate processes that meet in one SQLite file; the database table is the queue.
 
-`npm run collect` runs the 90-day collection. The daily job (`npm run daily`) is a separate program: every day it
-searches the last 2 days, classifies, tells the API (which updates open pages), and sends one Discord message.
-Collection (1), classification (3) and the API (5) are separate services, kept alive by a small supervisor.
+```
+ourcrowd_companies.txt ─► filtered_ourcrowd_companies.txt (12 sections) + company_hints.json + section_keywords.json
+                                  │  seed loader builds one search per company
+                                  ▼
+ npm start (orchestrator, restarts crashed services)
+   ├─ collector ──► Google News RSS (1 search/s, 10 groups of ~25 companies, one process per group)
+   │                   │ each search result = one chunk; waits while the queue is full (10,000)
+   │                   ▼
+   │               BufferQueue (SQLite table)
+   │                   │
+   └─ classifier ──► Ollama qwen3:4b (4 requests at once)
+                       │ not about the company → deleted
+                       │ about it → sentiment → Mention table ──► data/*.json (after each group + at the end)
+                       ▼
+ npm run dashboard ──► API (Express, 127.0.0.1:3000) ──► dashboard page (React + Vite)
+ npm run daily ──────► 03:00: search yesterday + today → classify → tell the API → Discord digest → data/
 ```
 
-## How to run
+- The collector, the classifier, the dashboard and the daily job are **separate processes**. One crash never stops the others.
+- Every write is a short transaction, and every run can be **stopped and resumed** with no duplicates.
+- Why each piece looks like this: [docs/design-challenges.md](docs/design-challenges.md).
 
-**Short version for the owner:** [GUIDE.md](GUIDE.md): set up, run, follow progress, and what to do when something fails.
+## Project layout
 
-### 0. The fastest way: Docker (one command)
+**TL;DR:** backend in `src/`, dashboard page in `web/`, results in `data/`.
 
-**TL;DR:** install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then in the project folder:
+| Path | What is in it |
+|---|---|
+| `src/collector/` | Google News search, date-window splitting, group processes |
+| `src/classifier/` | The Ollama client, the prompt, the queue worker, the `data/` export |
+| `src/daily/` | The daily job: scheduler, collect + classify, Discord digest |
+| `src/api/` | Express API that serves the dashboard (read-only) |
+| `src/supervisor/` | The orchestrator behind `npm start` |
+| `src/seed/`, `src/db/`, `src/shared/`, `src/tools/` | Company list loader, database schema, shared helpers, `progress` and `docker:snapshot` tools |
+| `src/config.js` | Every setting in one place (paces, limits, times, Overview thresholds) |
+| `web/` | The dashboard page (React + Vite + Recharts); logos in `web/public/logos/` |
+| `test/`, `web/src/**/*.test.*` | Backend tests (`node:test`) and page tests (Vitest) |
+| `data/` | The committed results (JSON), see [below](#the-data-folder) |
+| `db/` | The live SQLite database and logs (not in git) |
+| `docker/`, `Dockerfile`, `docker-compose*.yml` | The Docker setup and the shipped database copy |
+| `research/` | The model test and the parallel-speed test (data, scripts, results) |
+| `queries/progress.sql` | Ready-made read-only SQL queries |
+| `docs/` | Long reference: [LLM research](docs/llm-research.md), [design challenges](docs/design-challenges.md), [run results](docs/run-results.md), [operations](docs/operations.md) |
+| `ourcrowd_companies.txt`, `filtered_ourcrowd_companies.txt`, `company_hints.json`, `section_keywords.json` | The company list, its 12 sections, search hints for 108 hard names, and the section words |
+
+<a id="0-the-fastest-way-docker-one-command"></a>
+
+## Quick start with Docker
+
+**TL;DR:** install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then in the project folder run `docker compose up -d` and open **http://localhost:3000**. No Node, no Ollama, no model download by hand.
+
 ```
 docker compose up -d
 ```
-and open **http://localhost:3000**. Nothing else to install: no Node, no Ollama, no model download by hand.
-
-**What it starts** (D116):
 
 | Container | What runs in it |
 |---|---|
-| `ollama` | The local AI (Ollama 0.34.4) with **`qwen3:4b` already inside the image**. Runs on the CPU, so it works on any computer |
+| `ollama` | Ollama 0.34.4 with **`qwen3:4b` already inside the image**. Runs on the CPU, so it works on any computer |
 | `app` | The **dashboard** (API + page, http://localhost:3000, this computer only) **and the daily job** (every day at 03:00 Israel time), side by side |
 
-- **The data comes with it.** The image carries a copy of the database (258 companies, 12,016 mentions) and `data/`. The first start copies them into two Docker volumes (`db`, `data`). From then on the daily job adds to them, and they survive restarts and rebuilds.
-- **The daily job doesn't re-run a day that already ran.** At start it checks the last successful run in the database. It runs at once only when that was more than 24 hours ago (a missed day), then every day at 03:00.
-- **Discord (optional):** copy `.env.example` to `.env` and set `DISCORD_WEBHOOK_URL`. Docker reads `.env` when it starts. It's never copied into the image.
-- **The first start builds the images:** about 5–10 minutes, because it downloads the model (~2.5 GB). Later starts take seconds. Disk: about **16 GB** for the images (most of it is the Ollama image and the model).
+- **The data comes with it.** The image carries a copy of the database (258 companies, 12,016 mentions) and `data/`. The first start copies them into two Docker volumes (`db`, `data`), which survive restarts and rebuilds.
+- **No double runs.** At start the daily job checks the last successful run. It runs at once only when that was more than 24 hours ago, then every day at 03:00.
+- **Discord (optional):** copy `.env.example` to `.env` and set `DISCORD_WEBHOOK_URL`. Docker reads `.env` at start; it is never copied into the image.
+- **First start:** 5–10 minutes (it downloads the ~2.5 GB model). Later starts take seconds. Disk: about **16 GB**.
 
 **Step by step (first time):**
-1. Install **Docker Desktop** and open it (Start menu → Docker Desktop). Wait until the bottom left says **Engine running**. On Windows it asks for WSL2 the first time; accept it and restart the computer if asked.
-2. Make sure nothing else uses **port 3000** (for example stop `npm run api` / `npm run dashboard`).
-3. Open a terminal **in the project folder**. Either:
-   - **VS Code:** top menu **Terminal → New Terminal** (it opens in the project folder), or
-   - **PowerShell:** Windows key → type `PowerShell` → Enter, then `cd <path to>\press-mentions-dashboard`.
-4. Type `docker compose up -d` and press Enter. The first time, many lines scroll by for 5–10 minutes. It ends with `Container press-mentions-ollama-1 Healthy` and `Container press-mentions-app-1 Started`.
-5. Open **http://localhost:3000** in the browser.
+1. Install **Docker Desktop** and open it. Wait until it says **Engine running**. On Windows, accept WSL2 if asked and restart.
+2. Make sure nothing else uses **port 3000** (stop `npm run api` / `npm run dashboard`).
+3. Open a terminal **in the project folder** (VS Code: **Terminal → New Terminal**; or PowerShell, then `cd <path to>\press-mentions-dashboard`).
+4. Run `docker compose up -d`. It ends with `Container press-mentions-ollama-1 Healthy` and `Container press-mentions-app-1 Started`.
+5. Open **http://localhost:3000**.
 
-"docker is not recognized"? The terminal was opened before Docker was installed. Close it (or VS Code) and open a new one.
+"docker is not recognized"? Close the terminal (or VS Code) and open a new one.
 
 **Check that everything works:**
 
 | # | Do this | You should see |
 |---|---|---|
-| 1 | Open http://localhost:3000 and click a company | The full page: 258 companies, "138 / 258", the new mentions of the last daily run, logos; the company's mentions open on the right |
+| 1 | Open http://localhost:3000, then click a company | The Overview page (hero with briefing and ticker, "138 / 258" companies mentioned, charts); the company opens on the Companies page with its mentions on the right |
 | 2 | `docker compose ps` | Both `ollama` and `app` say **Up … (healthy)** (the app takes about 20 s) |
 | 3 | `docker compose logs app` | `Dashboard: http://localhost:3000` and `Daily job started … runs every day at 03:00`. **No** "running now" line when the last daily run was less than 24 h ago. No "DISCORD_WEBHOOK_URL is not set" warning when `.env` has the webhook |
 | 4 | `docker compose exec app node -e "import('./src/classifier/ollamaClient.js').then(async m => console.log(await m.createOllamaClient().selfCheck()))"` | `{ ok: true, detail: 'answer { "relevant": true, "sentiment": "positive" }' }`: the AI answers inside Docker (a few seconds the first time) |
-| 5 | `docker compose exec app npm start`, then **Ctrl+C** | The backfill starts: "Last collection finished … the collector is not started" (the shipped database already has it), then `Ollama 0.34.4 is ready with qwen3:4b`. Ctrl+C stops only the backfill; the dashboard keeps running |
+| 5 | `docker compose exec app npm start`, then **Ctrl+C** | The backfill starts: "Last collection finished … the collector is not started", then `Ollama 0.34.4 is ready with qwen3:4b`. Ctrl+C stops only the backfill |
 | 6 | `docker compose restart app`, wait ~20 s, refresh the page | The page works again with the same data |
-| 7 | `docker compose down`, then `docker compose up -d` | Starts in seconds this time; the same data (it lives in the volumes) |
+| 7 | `docker compose down`, then `docker compose up -d` | Starts in seconds; the same data (it lives in the volumes) |
 | 8 | When done: `docker compose down` | Everything stops; the data is kept |
 
-**Discord while it runs:** with the webhook in `.env`, Docker's daily job posts the real digest at 03:00. Don't run `npm run daily` outside Docker at the same time (two digests). Run `docker compose down` first if you don't want tonight's message.
+**Good to know:**
+- With the webhook in `.env`, Docker's daily job posts the real digest at 03:00. Don't also run `npm run daily` outside Docker (two digests).
+- `docker compose logs -f app` follows the logs; `docker compose down -v` deletes the volumes (the next start uses the shipped database again); `docker compose up -d --build` rebuilds after a code change.
+- NVIDIA GPU (much faster): `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d`.
+- A full new backfill, all Docker commands, and why the dashboard and daily job share one container: [docs/operations.md](docs/operations.md#docker-extras).
 
-**Everyday commands:**
+[↑ Back to contents](#contents)
 
-| Command | What it does |
-|---|---|
-| `docker compose up -d` | Build (first time only) and start everything in the background |
-| `docker compose ps` | What's running (both should say `healthy`) |
-| `docker compose logs -f app` | Watch the dashboard and daily job live (Ctrl+C stops watching, not the app) |
-| `docker compose exec app npm start` | **The backfill:** the 90-day collection + classifier, in the running app container. On the shipped database it says the collection is already done and only the classifier runs. It fetches again only on an empty database (see below) |
-| `docker compose exec app npm run progress` | The progress summary (same as [Tracking progress](#tracking-progress)) |
-| `docker compose down` | Stop everything. The data is kept |
-| `docker compose down -v` | Stop and **delete the data volumes**: the next `up` starts again from the shipped database |
-| `docker compose up -d --build` | Rebuild after a code change |
+## Run locally without Docker
 
-**A full new backfill:** with the app running, remove the database and restart:
-```
-docker compose exec app sh -c "rm -f db/press-mentions.sqlite*"
-docker compose restart app
-docker compose exec app npm start
-```
-After the restart the dashboard loads `data/` into the new database (like a fresh clone), then the daily job starts. `npm start` then runs the full 90-day collection, because this database has no collection yet. On the CPU this takes many hours: about 6.5 s per article, while the real run classified ~20k articles on the GPU in under an hour.
+**TL;DR:** Node 24 + Ollama with `qwen3:4b`, then `npm install`, `npm start` (backfill), `npm run dashboard`, `npm run daily`.
 
-**With an NVIDIA GPU (optional, much faster):** Docker Desktop with the WSL2 engine and a current NVIDIA driver, then start with both files:
-```
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
-```
+<a id="1-what-you-need"></a>
 
-**Why one container for the dashboard and the daily job:** the daily job tells the dashboard "new data" over 127.0.0.1, which only works on the same computer (D106), and the "is that process still alive?" lock checks only see processes in the same container. The daily job starts once the dashboard answers, so on an empty database the dashboard has loaded `data/` first. If either program stops, the container restarts both (tested: killed the daily job, both were back within about 20 s). The backfill runs in the same container with `exec` for the same reason.
+### What you need
 
-**For the owner:** before a delivery, refresh the shipped database with `npm run docker:snapshot`. It reads the live database read-only and writes `docker/seed/press-mentions.sqlite`.
-
-**Files:** [Dockerfile](Dockerfile) (the app image), [docker/ollama.Dockerfile](docker/ollama.Dockerfile) (Ollama + the model), [docker-compose.yml](docker-compose.yml), [docker-compose.gpu.yml](docker-compose.gpu.yml), [.dockerignore](.dockerignore) (keeps `.env` and the live database out of the image), [src/docker/runApp.js](src/docker/runApp.js) (starts the two programs).
-
-The steps below are the same project **without Docker**.
-
-### 1. What you need
 - **Node.js 24** or newer.
-- **Ollama** (local AI), with the model downloaded once:
+- **Ollama** ([ollama.com/download](https://ollama.com/download)), running, with the model pulled once:
   ```
   ollama pull qwen3:4b
   ```
-- **Ollama set to answer 4 requests at once** (measured to be the best speed, see [LLM research, section 7](#7-speeding-up-the-llm-parallel-requests)). Set it once, then restart the Ollama app:
+- **Ollama set to 4 requests at once** (the fastest setting we measured). Set it, then restart the Ollama app:
   - Windows (PowerShell): `[Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL','4','User')`, then quit Ollama from the tray icon and start it again.
   - macOS / Linux: `export OLLAMA_NUM_PARALLEL=4` in the shell that starts `ollama serve`.
-  - GPU memory: with 4 at once the model uses about **5.1 GB** (62% of an 8 GB card). For less, use 3 (about 4.5 GB, 55%): set `OLLAMA_NUM_PARALLEL=3` **and** `LLM_CONCURRENCY=3` in `.env`. The two numbers must match.
+  - Less GPU memory (about 5.1 GB at 4; 4.5 GB at 3): set `OLLAMA_NUM_PARALLEL=3` **and** `LLM_CONCURRENCY=3` in `.env`. The two numbers must match.
 - An internet connection (Google News).
 
-### 2. Install
+### Install
+
 ```
 git clone https://github.com/avichickvashvili-droid/press-mentions-dashboard.git
 cd press-mentions-dashboard
 npm install
 ```
 
-Optional: copy `.env.example` to `.env` to change a setting (database path, number of parallel AI requests, Ollama address or model). Without a `.env` file the defaults are used, and Node prints `.env not found. Continuing without it.`. That line is expected.
+### Settings (`.env`, all optional)
 
-### 3. Run
-```
-npm start
-```
-This starts the **orchestrator**, which runs two services side by side and restarts them if they crash:
+Copy `.env.example` to `.env` to change a setting. Without it the defaults in `src/config.js` are used (Node prints `.env not found. Continuing without it.`, which is expected).
 
-| Service | What it does | How long (on the dev PC) |
+| Variable | Default | What it does |
 |---|---|---|
-| `[collector]` | Searches Google News for all 258 companies over the last 90 days (1 request per second) and puts each article in the queue. The companies are split into **10 groups** of about 25 (in list order); the groups run one after another, **each in its own process**, which exits when its group is done | About 10–30 minutes of searching. It pauses whenever the queue is full (10,000), so on a big backfill it finishes close to the classifier |
-| `[classifier]` | Asks the local AI about each article: relevant? sentiment? Deletes the irrelevant ones, saves the rest as mentions | Keeps pace with the collector, then finishes the queue (real run: about 30 min after collection ended) |
+| `DB_PATH` | `db/press-mentions.sqlite` | The SQLite file |
+| `LOGS_DIR` | `db/logs` | Log folder (one folder per run) |
+| `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama listens |
+| `OLLAMA_MODEL` | `qwen3:4b` | The model |
+| `LLM_CONCURRENCY` | `4` | AI requests at once; must match `OLLAMA_NUM_PARALLEL` |
+| `API_PORT` | `3000` | Dashboard port |
+| `DISCORD_WEBHOOK_URL` | none | The Discord channel webhook for the daily digest. A secret: only in `.env`, never committed |
 
-The progress lines say which group is running, e.g. `Group 2 of 10 (companies 27–52): 12/26 done`. When the last group has ended, the collector prints the **end log**:
+### Run end to end
+
 ```
-Run 1 collected.
-Companies: 230 finished, 2 failed (of 258).
-Groups: complete 1, 3–10 · failed 2
-  group 2: 26 of 26 companies not collected; last error: exit 1: ERROR: Group process crashed: …
-Companies failed: [Acme Bio, Foo Labs]
-  Acme Bio — Google rejected the search (HTTP 400 Bad Request), 3 tries 1 min apart
-  Foo Labs — Google rejected the search (HTTP 404 Not Found), 3 tries 1 min apart
+npm start            # 1. the 90-day collection + classification (about 1 hour on a GPU)
+npm run dashboard    # 2. build the page and open http://localhost:3000 (second terminal)
+npm run daily        # 3. the daily job, stays open, runs every day at 03:00 (third terminal)
 ```
-A **failed company** is one Google rejected 3 times (HTTP 400 or another 4xx); a **failed group** is one whose process crashed 5 times in a row without finishing a single company. Both can be collected again later with `--groups` (below).
 
-The classifier writes the results to **`data/`** after each group, once that group's articles are all classified (a full snapshot so far), and once more when the queue is empty at the end; then the run is marked `done`:
-- `data/companies.json`: every company with its status ("mentioned N days ago" or "no coverage").
-- `data/mentions.json`: every relevant mention: title, link, publisher, date, sentiment.
-- `data/run.json`: run summary (articles checked, relevant, deleted; the groups: total, complete, failed, how many exported; the failed companies).
+- `npm start` runs the collector and the classifier side by side and restarts them if they crash. **Ctrl+C** stops it; run it again to resume where it stopped. After the collection is done it doesn't collect again (the daily job adds new articles).
+- The dashboard needs neither Google nor Ollama. On an empty database it first imports the committed `data/`, so it works right after `npm install`.
+- Details (the end log, re-running chosen groups with `--groups`, exit codes): [docs/operations.md](docs/operations.md#the-90-day-collection-npm-start).
 
-The database itself is `db/press-mentions.sqlite` (never committed to git).
+<a id="4-other-commands"></a>
 
-**Log files.** Everything important is also written to **`db/logs/run-<id>/`** (next to the database; one folder per run, never committed to git), so nothing is lost when the window closes: `orchestrator.log` (the story of the whole run), `collector.log`, one `group-N.log` per group, and `classifier.log`. The terminal output is the same as without them. See [Tracking progress](#tracking-progress).
-
-**Stopping and resuming.** Press **Ctrl+C** to stop. Each service saves where it was first. Run `npm start` again and it continues with the same group, from its first unfinished company, with no duplicates. The same happens after a crash or a power cut.
-
-**Running again.** The 90-day collection runs **once**. After it has finished, `npm start` doesn't collect again (new articles will come from the daily job, not built yet). To force a new 90-day collection, run `npm run collect` (it removes the previous run's rows and log folder; articles and mentions are kept).
-
-**Re-running chosen groups.** To collect some groups of the last run again (e.g. a failed group, or groups with a failed company):
-```
-npm start -- --groups 2,5
-```
-- Allowed when the last run is **`done`** (collected and classified). While a collector is really working on it, or while it is being classified, it is refused: `A run is still in progress (collector or classifier). Try again when it's done.`
-- If the collector of a re-run dies, the orchestrator restarts it with the same `--groups`. The run is still `running` but no live collector holds it any more (the same lock rules as any resume: the owner process is gone, or no heartbeat for 15 minutes), so the run is taken over and **simply resumed**: nothing is reset, and companies already finished are not searched again (D95). The chosen groups were reset only once, when the `done` run was reopened.
-- On any `running` run whose collector has died (not only a re-run), `--groups` does the same: the run resumes like a plain `npm start`, and **all** its unfinished groups continue, chosen or not. The start line says so, e.g. `--groups 1 given: nothing is reset; unfinished group(s) 1–3 continue (also the ones not chosen)`.
-- Only the chosen groups are searched again, with the **same 90 days** as the original run. Articles already stored are skipped; new ones go through the classifier as usual, and `data/` is written again. The other groups are not touched.
-- A wrong value (`--groups abc`, `--groups 0`, a group the run doesn't have) is refused with a clear message, and nothing is started.
-- Also works with the collector alone: `npm run collect -- --groups 2,5`.
-
-### 4. Other commands
+### All commands
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 458 backend tests (pipeline + API + daily job + the Docker starter and snapshot). Offline: Google News, Ollama and Discord are replaced with fakes |
-| `npm run test:web` | Runs the dashboard page's 124 tests (Vitest, in a simulated browser) |
-| `npm run docker:snapshot` | Refreshes the database copy that ships with Docker (`docker/seed/press-mentions.sqlite`), reading the live database read-only (D116) |
-| `npm run daily` | Starts the daily job; it stays up and runs every day at 03:00 Israel time (see [the daily job](#6-the-daily-job)) |
-| `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
-| `npm run api` | Starts only the API + the already-built page |
-| `npm run build` | Only builds the page into `web/dist` |
-| `npm run dev` | The page in development mode (hot reload); needs `npm run api` in a second terminal |
-| `npm run collect` | Runs only the collector: one full 90-day collection (or resumes an unfinished one). `npm run collect -- --groups 2,5` re-runs groups of the last run |
-| `npm run classifier` | Runs only the classifier (always on; stop with Ctrl+C) |
-| `npm run seed` | Only loads or updates the company list in the database |
-| `npm run progress` | Shows the latest run's progress from the database (read-only) |
+| `npm start` | The 90-day collection + classifier, supervised (resumes an unfinished run) |
+| `npm run dashboard` | Builds the page and starts the API + page at http://localhost:3000 |
+| `npm run daily` | The daily job (every day at 03:00 Israel time) |
+| `npm run progress` | Read-only progress summary of the latest run (`-- --all` lists every company) |
+| `npm test` | The 460 backend tests, offline (Google News, Ollama and Discord are fakes) |
+| `npm run test:web` | The 126 dashboard tests (Vitest, simulated browser) |
+| `npm run collect` | Only the collector: a new 90-day collection; `npm run collect -- --groups 2,5` re-runs groups of the last run |
+| `npm run classifier` | Only the classifier (always on; Ctrl+C to stop) |
+| `npm run api` / `npm run build` / `npm run dev` | API + built page only / build only / page with hot reload (with `npm run api` in another terminal) |
+| `npm run seed` | Only load or update the company list in the database |
+| `npm run docker:snapshot` | Refresh the database copy shipped with Docker (reads the live database read-only) |
 
-Each service ends with an exit code that says why it stopped (0 finished, 3 refused because another run is active or `--groups` can't be used now, 1 crashed); see [challenge 12](#12-crashes-and-failures).
+[↑ Back to contents](#contents)
 
-### 5. The dashboard
-```
-npm run dashboard
-```
-Then open **http://localhost:3000**. The dashboard is its own command, separate from `npm start`, and needs neither Google News nor Ollama.
+<a id="5-the-dashboard"></a>
 
-**TL;DR (D117):** a dark, modern page (a light mode too) with a side menu and two pages: **Overview** (opens first: numbers, charts and lists across all companies) and **Companies** (the table and one company's mentions).
+## The dashboard
 
-- **Side menu:** Overview, Companies, the data status ("Data up to date · Today 05:16 IST") and the **Light mode / Dark mode** switch (dark by default, remembered in this browser). On a phone it becomes a bar across the top. The page is in the address (`?page=companies`), so a refresh stays and Back works.
-- **The hero band at the top of both pages (D118):** a slowly glowing band with today's date and the page title in a gradient; on the Overview a **briefing** written from the data ("This week: 1,657 mentions ↑ 55% vs last week. Anthropic leads with 535, SpaceX follows with 484. EquipmentShare turned 85% negative, and OpenEvidence spiked +475%.", the names open the company); **status pills** (Live · updated today 05:16 IST with a pulsing dot, amber when over 26 h old, red when the last run failed; the last run's new mentions and companies; Discord sent; the window); and a **ticker** of the newest 20 headlines (each opens its article; hover pauses it; it stands still for viewers who asked for less motion).
-- **Overview** (`GET /api/overview`, counted from the mentions when asked, nothing stored):
-  - **Four number cards:** total mentions in 90 days with the change of the last 30 days vs the 30 before and a mini chart; companies mentioned ("138 / 258") with a ring; the sentiment split (bar + % + counts); the last daily run (new mentions, companies, time, Discord). Numbers count up when the page opens.
-  - **Mentions over time:** per Israel day (or week) of the 90 days, stacked by sentiment, with the peak day, a Daily / Weekly switch, hover numbers, and a legend that hides or shows a sentiment.
-  - **Mentions by month:** stacked bars per month with the total on top.
-  - **Top companies:** the top 10 by Most mentioned / Trending (the biggest rise this week) / Most positive / Most negative (share of their 90 days, only companies with 20+ mentions).
-  - **Needs attention:** up to 6 companies picked automatically this week, one of each kind in turn: a **negative week** (50%+ of 10+ mentions negative), a **spike** (2× the week before, 10+ mentions), **went quiet** (none this week after 10+ in the 30 days before), a **very positive week** (85%+ positive). Each with a 14-day mini chart. The limits are in `src/config.js` (`OVERVIEW`).
-  - **Recent mentions:** the newest 20 across all companies, with All / Positive / Neutral / Negative buttons; the headline opens the article.
-  - Clicking a company anywhere opens it on the Companies page: the table scrolls to its row, which is selected and glows for a moment, with its mentions beside it. Going back to the Overview clears the Companies page (open company, search, filter, sort).
-- **The Companies page** (below): its top shows the page title, the last data update and the window.
-- **The top of the page:** "Last data update": when the daily job last finished (e.g. "Today 05:16 (Israel time)", the same time as its Discord message), with a mark: green ✓ done, blue = a daily run is going on now, red = the last daily run failed, amber = the last update is over 26 hours old (is `npm run daily` open?), grey = no daily run yet. Under it, and in two cards: that run's **new mentions** and **companies with updates** (out of 258), the same numbers as its Discord message, and whether Discord was sent. A third card shows **coverage**: how many of the watched companies were mentioned in the 90 days ("138 / 258"). On the right: the 90-day window.
-- **The table** shows every company in the list, also those with no coverage, **most mentions first** (no coverage last). Columns:
-  - **Company:** its logo and name (a coloured letter badge, e.g. "SP", when there is no logo).
-  - **Recent activity:** mentions in the last 7 days ("32 this week") and the change against the 7 days before ("↑ 13 vs prev week" in green, "↓ 4" in red, "same as prev week" in grey). The % is added only when the week before had 10 or more mentions ("(+68%)"), so 3 → 12 shows "↑ 9", not a misleading "+300%". The ⓘ explains it on hover.
-  - **Mentions (90 days)**, with thousands commas.
-  - **Sentiment:** one bar, green / grey / red, with the % under each part (a 0% part has no piece and no label); the exact numbers on hover.
-  - **Last mentioned:** a small label with a coloured dot, in short words: "< 24h", then days ("3d ago"), then weeks ("2w ago"), then months ("1mo ago"). Green for today and yesterday, amber for 2–7 days, grey for older, or plain "No coverage". Hover it to see the exact time of the latest mention in Israel time ("Last mention: 29 Sep 2026, 02:53 IST").
-- **Above the table:** a search box (it narrows on every keystroke: company names containing the text, in any case) and two icons on the right. **Sort** (up/down arrows) opens a small menu: Most mentions (the default), Last mentioned (newest), Company A–Z. **Choosing the current one again reverses it:** Fewest mentions, Last mentioned (oldest), Company Z–A. A pill always shows the current sort ("Sort: Most mentions"), with an × to go back to the default when it is not the default. **Filter** (three lines) opens a menu: All / Mentioned this week / Mentioned / No coverage, with their counts (the counts follow the search). The current choice has a ✓. When a choice is not the default, its icon gets a blue dot and a small pill appears next to the icons (e.g. "Mentioned this week ×"); click the pill to go back to the default. A menu closes when you choose, press Esc, or click outside it. All three stay when the data reloads.
-- **The mentions panel** (click a row; it opens on the right): the logo, the name and "934 mentions in last 90 days", and a **×** to close it.
-  - A headline search with two icons beside it: **Time range** (a clock: 24h / 7d / 30d / 90d) and **Sentiment** (three lines: All / Positive / Neutral / Negative, in the page's sentiment colours), each opening a small menu with the counts. They work together, and each count says what a choice would show. "7d" is the same 7 days as the table's "this week". A choice that is not the default puts a dot on its icon and a pill under the search ("7d ×", "Negative ×"). A company always opens on 90d / All, also when you switch from another company.
-  - The list is **grouped by day** ("Wed 30 Sep (4)", Israel time), newest first, **20 per page** (four small arrow buttons, first « / previous ‹ / next › / last », around "3 / 161"; hover a button to see its name). Each mention: its sentiment (✓ Positive, – Neutral, ! Negative), the headline on one line (the whole headline on hover), "TechCrunch · 10:35 IST" and ↗ to open the article.
-  - The open company is kept in the address (`http://localhost:3000/?company=spacex`), so a refresh (F5) keeps it open and you can send the link to open the same company.
-- **Logos:** collected once into `web/public/logos/` (one image per company, plus `logos.json`: where each came from and how sure). The browser keeps each logo for 30 days, so after the first visit they load from its cache; only the rows on screen load theirs. After collecting new logos, restart the dashboard. 245 of the 258 companies have a logo; the other 13 show the letter badge.
-- **Clear lists:** every company row and every mention is its own white block with a border and rounded corners, with a gap between blocks on a light grey background and more room inside, so the items are clearly apart. The open company's row has a blue border.
-- **Font:** Inter, bundled with the page (the `@fontsource-variable/inter` package), so it works offline.
-- **Smaller screens:** below 1200 px wide the panel goes above the table when a company is open (the page scrolls to it), and the table scrolls sideways inside its card.
-- **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. The data of a database that already has data is never changed (at start-up the api may only switch it to WAL mode and add missing tables or columns).
-- **Fresh numbers:** "days ago", the 90-day window and the totals are worked out again on every request. The page reloads by itself: live when the daily job has added new data, when you come back to its tab, and at midnight (UTC). There is no Refresh button (owner, Prompt 330); reloading the browser page (F5) also works. "Data as of …" at the top shows when it was loaded.
-- **This computer only:** the API listens on 127.0.0.1, so nobody else on your network can open it, and it answers only requests addressed to `localhost` / `127.0.0.1` (anything else gets 403), so a web page on another site can't read it through your browser ("DNS rebinding").
-- **Development:** `npm run dev` (the page with hot reload, http://localhost:5173) together with `npm run api` in a second terminal.
+**TL;DR:** a dark, modern page (light mode too) at http://localhost:3000 with two pages, **Overview** and **Companies**, under a hero band with a briefing and a news ticker.
 
-**API** (it never writes to the database):
+- **Side menu:** Overview, Companies, the data status, and the Light / Dark switch (remembered in the browser). On a phone it becomes a top bar. The page is in the address (`?page=companies`), so refresh and Back work.
+- **Hero band (both pages):** the date and the page title; on the Overview a **briefing** written from the data (e.g. "This week: 1,657 mentions ↑ 55% vs last week. Anthropic leads with 535…", names open the company); **status pills** (Live / last update time, amber when over 26 h old, red when the last daily run failed; the last run's new mentions; Discord sent; the 90-day window); and a **ticker** of the newest 20 headlines (hover pauses it).
+- **Overview:** four number cards (total mentions with a 30-day trend, companies mentioned "138 / 258", sentiment split, last daily run), **Mentions over time** (daily / weekly, stacked by sentiment), **Mentions by month**, **Top companies** (most mentioned / trending / most positive / most negative), **Needs attention** (a negative week, a spike, went quiet, a very positive week; limits in `src/config.js` → `OVERVIEW`), and **Recent mentions**.
+- **Companies:** every company, also those with no coverage, most mentions first. Columns: logo + name, recent activity (this week vs the week before), mentions (90 days), sentiment bar, last mentioned ("3d ago", exact time on hover). Search as you type, sort (choose again to reverse) and filter (All / Mentioned this week / Mentioned / No coverage).
+- **Mentions panel** (click a company): its mentions grouped by day (Israel time), 20 per page, each with sentiment, headline, publisher, time and a link. Filters: time range (24h / 7d / 30d / 90d), sentiment, headline search. The open company is in the address (`?company=spacex`), so a link opens it.
+- **Always fresh:** "days ago" and the 90-day window are computed on every request, never stored. The page reloads itself when the daily job adds data, when you return to the tab, and at midnight.
+- **This computer only:** the API listens on 127.0.0.1 and answers only `localhost` requests.
+- API endpoints and troubleshooting: [docs/operations.md](docs/operations.md#the-api). Design decisions: D117 and D118 in [PLAN.md](PLAN.md).
 
-| Endpoint | Answer |
-|---|---|
-| `GET /api/companies` | `{ asOf, windowStart, windowDays, companies: [{ id, name, section, sectionName, hint, status, lastMentionAt, daysAgo, mentionCount, sentimentCounts: { positive, neutral, negative }, weekCount, prevWeekCount, logoUrl }] }` (`weekCount` = the last 7 days, `prevWeekCount` = the 7 days before; `logoUrl` = `/logos/<file>` or null), and `dailyRun: { latest: { id, status, startedAt, finishedAt }, lastDone: { id, finishedAt, newMentions, companiesWithUpdates, discordSent } }` (null before the first daily run) |
-| `GET /api/companies/:id/mentions` | `{ company: { id, name }, asOf, mentions: [{ title, url, publisher, publishedAt, sentiment }] }`, newest first, last 90 days (`asOf` = when they were read: the panel counts 24h / 7d / 30d from it) |
-| `GET /logos/<file>` | A company logo (the browser keeps it for 30 days) |
-| `GET /api/events` | Live updates for an open page (Server-Sent Events): the event `data-updated` when the daily job has added new data |
-| `POST /api/internal/data-updated` | The daily job's "new data" signal. Accepted only from this computer with the header `X-Press-Mentions: daily-job` (else 403). Sends `data-updated` to every open page; answers `{ pages }` |
+[↑ Back to contents](#contents)
 
-Errors are JSON `{ "error": "…" }`: 404 for an unknown company or API address, 500 if the database can't be read (details only in the API's terminal).
+<a id="6-the-daily-job"></a>
 
-**Troubleshooting**
-- `port 3000 is busy`: another program uses the port. Stop it, or set `API_PORT=3001` in `.env` (copy `.env.example`).
-- `The dashboard page has not been built yet`: run `npm run dashboard` (or `npm run build`) instead of `npm run api`.
-- `data/ could not be imported`: the database was empty and `data/` is missing or broken. Restore it (`git checkout data`) and start again. The page then shows "No companies to show yet".
-- The page says it can't reach the server: the API was stopped; start `npm run dashboard` again.
+## The daily job and Discord digest
 
-### 6. The daily job
+**TL;DR:** `npm run daily` stays open and every day at 03:00 Israel time finds new mentions, updates open dashboards, and sends one Discord message.
+
 ```
 npm run daily
 ```
-It stays up (like the dashboard, in its own terminal) and runs **every day at 03:00 Israel time**. Stop it with Ctrl+C. Only one can be open at a time: a second `npm run daily` on the same database says which process is already open and exits (code 3), so no day gets two runs and two messages (the lock is a small file, `db/daily.lock`, removed when the job stops). It needs **Ollama** running (only when there are new articles) and `DISCORD_WEBHOOK_URL` in `.env` (see `.env.example`; the address is a secret and is never committed). The dashboard does not have to be running.
 
-**One daily run, step by step:**
-1. **Waits** if the 90-day collection (`npm start`) is still collecting or classifying, and tries again every 15 min. If that collection was stopped halfway and nothing is working on it, the log says so: run `npm start` to finish it.
-2. **First run ever only:** marks every mention already in the database as alerted, so the ~11,600 mentions of the real run never go to Discord.
-3. **Searches** every company for yesterday + today (Google takes dates only), **one search every 5 seconds** (about 22 minutes for all companies; see below). A company that is in the list but not in the database yet is named in one warning (run `npm run seed` to add it). Articles already stored are skipped by the same duplicate checks as the 90-day run. The AI classifies at the same time: not about the company → deleted, about it → a mention with its sentiment.
-4. **New mentions** = mentions not alerted yet (`Mention.alerted_at` empty), counted per company.
-5. **Updates the dashboard** (only when something is new): it calls the API, and every open page reloads its data: the new mentions appear, and anything older than 90 days drops out.
-6. **Discord:** one message listing **every** company with new mentions (count, then 🟢 / ⚪ / 🔴 counts, all three always shown, zeros too), most first, with the total and a dashboard link; a long list goes on in a second message. A quiet day gets a short "☕ All quiet on the press front" message, so you know it ran. Only after Discord accepts a message are its mentions marked as alerted; if Discord fails, they go out with the next run.
-7. **Merges into `data/`** (only when something is new): `mentions.json` and `companies.json` are written again from the database (old + new mentions, new totals), and `run.json` gets a `lastDailyRun` part (when, which days, how many new, when the alert went out, companies that could not be searched). The 90-day collection's own times in `run.json` (`collectedAt`, `finishedAt`) stay as they were.
-8. **Records the run** in the `DailyRun` table (status, new mentions, when the alert went out, last error).
+**One run:**
+1. Waits if a 90-day collection is still running.
+2. Searches every company for yesterday + today, **one search every 5 seconds** (about 22 minutes; 1 s got us blocked by Google for 2 hours, D108). Articles already stored are skipped.
+3. Classifies the new articles with Ollama (same prompt and rules as the backfill).
+4. Tells the API, so open dashboards reload with the new mentions.
+5. Sends **one Discord message**: every company with new mentions, its count and 🟢 / ⚪ / 🔴 counts, most first, with the total and a dashboard link. A quiet day gets "☕ All quiet on the press front", so you know it ran.
+6. Writes `data/` again and records the run in the `DailyRun` table.
 
-**When something goes wrong:**
-- **The computer was off at 03:00:** when `npm run daily` starts and the last successful run is more than a day old, it runs right away, and it searches from the day of the last run, so no day is skipped.
-- **The computer was asleep at 03:00** (with `npm run daily` open): the same check runs every hour, so the missed run starts within an hour after the computer wakes up.
-- **A database filled from `data/`** (a fresh clone, no run yet): the first daily run searches from the day that data was collected (the newest mention), at most 90 days back.
-- **Google or Ollama is down:** it waits and tries again until they are back ("run when possible").
-- **Discord is down, or the webhook was deleted:** the run still finishes; the mentions stay "new" and go out with the next message. The terminal and the log say why.
-- **A run fails** (an unexpected error): tried again after 30 min, at most 3 times, then at the next 03:00.
-- **Something stays wrong for hours:** Discord gets one "⚠️ Daily job problem" message (red) when a run has waited 3 hours (the 90-day collection is still open), has been going on for 3 hours (e.g. Ollama or Google is down; the message says the last problem), or gave up after its 3 retries. So a silent Discord never hides a problem.
-- **Stopped in the middle** (Ctrl+C, a crash, a closed window): the articles being classified go back to the queue, the run is marked failed, and the next start runs it again. An article left "being classified" by a program that is gone is given back, so it can never make a run wait forever.
-- **The database is busy** for a moment (another program is writing): the run's own writes wait and try again, so a message Discord already accepted is never sent twice.
+**It handles failures:**
+- Mentions are marked "alerted" only after Discord accepts the message. If Discord is down, they go out next time (at-least-once).
+- Computer off or asleep at 03:00: the missed day runs at start, or within an hour after waking.
+- Google or Ollama down: it waits and retries. A failed run is retried after 30 min (up to 3 times). After 3 hours of trouble, Discord gets one red "⚠️ Daily job problem" message.
+- Only one daily job can be open at a time (lock file `db/daily.lock`). Nothing restarts it by itself outside Docker: after a PC restart, run `npm run daily` again.
+- No webhook set: the job still runs, and the new mentions go out in the first message once the webhook is set.
 
-**Why 5 seconds per search:** the first two real daily runs (29 Sep 2026) searched at the collector's pace, 1 per second. Both times Google answered "503 busy / limiting us" after about 197 fast searches and blocked us for about 2 hours, so each run took 2 h 16 min instead of about 4 minutes. The job waited and finished by itself, but the owner decided on a slower pace for the daily job only (5 s, `DAILY_REQUEST_INTERVAL_MS` in `src/config.js`). It runs at 03:00, so the extra minutes cost nothing. The 90-day collection keeps 1 s.
+Step-by-step details and the run-history SQL: [docs/operations.md](docs/operations.md#the-daily-job-in-detail). Log: `db/logs/daily/daily.log`.
 
-**Restarting it:** nothing restarts `npm run daily` by itself. After a crash, a closed window or a PC restart, just run `npm run daily` again: it runs the missed day right away (and searches every day since the last run).
+[↑ Back to contents](#contents)
 
-**With the 90-day collection:** `npm start` and `npm run collect` refuse to start (exit 3, with a clear message) while a daily run is going on; try again when it ends. The other way round, a daily run waits while a 90-day collection is open. Mentions found by a 90-day collection are marked as already alerted, so they never go to Discord (only what the daily job finds does).
+## The `data/` folder
 
-**Log:** the terminal (with the time of each line) and `db/logs/daily/daily.log`. The history of the runs:
-```sql
-SELECT id, started_at, finished_at, status, new_mentions, alert_sent_at, last_error FROM DailyRun ORDER BY id DESC;
-```
+**TL;DR:** the results of a real run as JSON, readable on GitHub without running anything.
+
+| File | What is in it |
+|---|---|
+| [`data/companies.json`](data/companies.json) | Every company with its status: last mentioned date and "days ago", or "no coverage" |
+| [`data/mentions.json`](data/mentions.json) | Every relevant mention of the last 90 days: title, link, publisher, date, sentiment |
+| [`data/run.json`](data/run.json) | Run summary: counts (classified / relevant / deleted / failed), groups, failed companies, and `lastDailyRun` (the latest daily run) |
+
+- Written by the classifier after each group and at the end of a run, and by the daily job after each run with new mentions.
+- Each file is written to a temp file and renamed, so it is never half-written.
+- An empty database imports `data/` automatically when the dashboard starts.
 
 ## Tracking progress
 
-You can follow a run from the database at any time, also while it is going. Both ways below only **read**; they never change anything.
+**TL;DR:** `npm run progress` in a second terminal, or open the database read-only in a viewer; each run also writes logs to `db/logs/run-<id>/`.
 
-**In the terminal:** open a second terminal in the project folder and run
-```
-npm run progress
-```
-It prints a short dashboard of the latest run (times in UTC). Add `-- --all` (`npm run progress -- --all`) to also list every company. Example:
-```
-RUN
-  Run 1 · running · started 2026-09-27 08:00 · last heartbeat 2026-09-27 09:57 (3.0 min ago) · process 4242
-  AI step: 1,200 classified · 310 relevant · 870 irrelevant · 20 failed
-  Last error: none
+- `npm run progress`: a read-only summary of the latest run (run status, companies, groups, queue, mentions). `npm run progress -- --all` lists every company.
+- [`queries/progress.sql`](queries/progress.sql): the 5 most useful queries first, then 11 more. Open `db/press-mentions.sqlite` **read-only** in [DB Browser for SQLite](https://sqlitebrowser.org/dl/) → Execute SQL. Reading during a run is safe (WAL mode).
+- Logs: `db/logs/run-<id>/orchestrator.log` tells the whole run in a few lines (start here); `collector.log`, `group-N.log` and `classifier.log` have the detail. Follow one live: `Get-Content db\logs\run-1\orchestrator.log -Wait -Tail 20`.
+- An example of the output and all log rules: [docs/operations.md](docs/operations.md#tracking-progress-and-logs).
 
-COMPANIES
-  75 finished · 1 failed · 1 fetching · 181 not started · 258 total
+## News source: Google News
 
-GROUPS
-  2 complete · 0 failed · 1 in progress · 7 pending · 10 total
-  Group  Status       Done  Failed  Left  Total  Crashes  Started           Finished          Exported          Last error
-  -----  -----------  ----  ------  ----  -----  -------  ----------------  ----------------  ----------------  ----------
-      1  complete       26       0     0     26        0  2026-09-27 08:00  2026-09-27 08:40  2026-09-27 09:05  -
-      2  complete       25       1     0     26        0  2026-09-27 08:40  2026-09-27 09:20  -                 -
-      3  in_progress    24       0     2     26        0  2026-09-27 09:20  -                 -                 -
-      4  pending         0       0    26     26        0  -                 -                 -                 -
-  ...
+**TL;DR:** the free Google News RSS search feed, with date filters, section words and search hints; undocumented and limited to ~100 results per search.
 
-RUNNING NOW
-  Group 3 (Acme … Zeta Labs): 24 done · 0 failed · 2 left of 26 · crashes in a row: 0
-  (one line per company of the group, with its status)
+**Why:** Google's News API was shut down in 2016, the Custom Search API is closed to new customers, and paid wrappers cost money far below our volume. The RSS search feed (`news.google.com/rss/search?q=...`) is free, needs no key and returns Google's news results.
 
-FAILED COMPANIES
-  Company  Group  Error
-  -------  -----  ------------------------------------------------------------------------
-  Harvey       2  Google rejected the search (HTTP 400 Bad Request), 3 tries 1 min apart
+**How we search:**
+- Each company gets one search: its name (or a **hint** such as "Harvey AI" for 108 hard names) plus a few **section words** (e.g. `(company OR AI OR …)`), e.g. `after:2026-07-01 before:2026-07-15 "Harvey AI" (company OR AI OR …)`. In a test, "Harvey" alone gave 25 real articles out of 100; with context, 86.
+- A search returns at most ~100 results, so a full window (95+) is **split in half**, down to single days.
+- One request at a time: 1 s apart for the backfill, 5 s for the daily job. Growing waits on 429 / 5xx / CAPTCHA; a company is marked failed only after three 4xx rejections.
+- Duplicates are blocked per company by Google's article ID, with publisher + title as a backup.
 
-FAILED GROUPS
-  None.
+**Limitations:**
+- The feed is undocumented and could change. Its terms are for personal, non-commercial readers and `robots.txt` disallows it; we accept this knowingly for a non-commercial take-home.
+- Completeness is limited to what Google returns; a very big company can still hit 100 articles in one day.
+- **No article text:** only the headline and publisher. Links are `news.google.com` redirects (they open the real article); decoding them would cost 2 extra requests per article.
+- Former company names are not searched.
 
-QUEUE (articles waiting for the AI step)
-  1,240 waiting · 16 being classified · 3 to retry · 2 failed for good · 50 relevant, waiting to be moved · 1,311 total
+Full reasoning, per problem: [docs/design-challenges.md](docs/design-challenges.md) (challenges 1–4, 10, 11).
 
-MENTIONS
-  4,321 total · 1,200 positive · 300 negative · 2,821 neutral
-  180 companies with mentions · 78 with none
-```
-If no run has started yet, it prints `No database yet — start a run with npm start`.
+[↑ Back to contents](#contents)
 
-**Ready-made SQL queries:** [`queries/progress.sql`](queries/progress.sql) starts with a **TL;DR of the 5 most useful queries** (is the run OK, each group, the AI queue, the company being searched now, mentions by sentiment), then 11 more for detail. Each has a one-line comment on what it shows. They are plain SQLite and work in any database viewer. The 5 are also in [GUIDE.md](GUIDE.md#follow-a-run).
+## The AI model (Ollama)
 
-**In DB Browser for SQLite** (a free viewer):
-1. Download it from [sqlitebrowser.org](https://sqlitebrowser.org/dl/) and install it.
-2. **File → Open Database Read Only…** and choose `db/press-mentions.sqlite` in the project folder.
-3. Open the **Execute SQL** tab, paste one query from `queries/progress.sql`, and press the ▶ (Execute) button. Run it again to refresh.
+**TL;DR:** `qwen3:4b` on local Ollama, one call per headline, strict JSON answer `{"relevant": true|false, "sentiment": "positive"|"neutral"|"negative"|null}`.
 
-The database uses WAL mode, so reading it while a run is going is safe: a reader never blocks the collector or the classifier. Always open it **read-only** while a run is going, so nothing can be changed by accident.
+**Which model and why:** we tested 4 models that fit an 8 GB GPU on 598 real headlines. `qwen3:4b` was the only one high on all three measures, so it won over the faster `llama3.2:3b` (which missed 1 in 8 real articles and got sentiment right only 62% of the time):
 
-**Log files:** each run has its own folder, **`db/logs/run-<id>/`** (e.g. `db/logs/run-1/`): the logs folder sits **next to the database** (`<folder of DB_PATH>/logs`), so a test database set with `DB_PATH` gets its own logs and never touches the real run's logs. It is never committed to git. Every line starts with the date and time (`2026-09-27 14:03:11.482 …`). The files are short on purpose: no progress-line repeats, only what happened.
-
-| File | Written by | What is in it |
-|---|---|---|
-| `orchestrator.log` | the orchestrator (`npm start`) | **The story of the run**, a few lines per hour: services started / stopped / restarted / given up, run started or resumed, `Group 2 done (26/26 finished) → starting group 3 of 10 (companies 53–78)`, a group that crashed or failed, `Queue full (10,000): collector waiting for the LLM` / `Queue has room again …`, one line when Google problems start and one when Google answers again, a company that failed, Ollama not ready / back, a group's `data/` written, `Collection done: …`, `Run 1 done, data/ written: 1,234 mentions`. Start here |
-| `collector.log` | the collector's main process (the group runner) | Seed, run started / resumed, each group started / complete / crashed / failed, the end log |
-| `group-1.log`, `group-2.log`, … | each group's process | **One line per finished company** (`Company 5/26 Harvey: finished · 3 windows · 42 new, 7 duplicates · 1 min 12 s`), **every Google error and retry** with its HTTP code and company, failed companies, the group summary |
-| `classifier.log` | the classifier | Start, Ollama ready or not, AI answers that were invalid, each group's `data/` export, the end of the run, and the speed line once every 10 minutes |
-
-The classifier is always on, so its lines go to the latest run's folder (after run 1 is done they stay in `run-1` until run 2 starts). Lines written before any run exists go to `db/logs/no-run/`. A `--groups` re-run adds to the same run's folder. The files also exist when a service runs alone (`npm run collect`, `npm run classifier`), except `orchestrator.log`, which only `npm start` writes. The folder can be changed with `LOGS_DIR` in `.env` (relative to the project folder).
-
-**Old logs are removed when a new run starts.** Creating a new run deletes the older runs' rows in the database (`JobRun`, `JobRunCompany`, `JobRunGroup`) and every older `run-<id>` folder in the logs folder (and `no-run/`). **Nothing else** in the logs folder is ever deleted: any other folder is left alone, with one warning. The articles, the mentions and the company list are kept. The new run's line `New run 2: removed 1 old run and its logs` appears in `collector.log` and `orchestrator.log`. Resuming a run or a `--groups` re-run removes nothing: its lines are added to the same folder. A folder that can't be removed (e.g. a file open in another program) gives one warning and is removed at the next new run. A folder that holds a file written **after the new run started** (e.g. the classifier already writing its first lines of the new run) is kept, so no line of the current run is lost; it is removed at the next new run. **Copy a run's folder elsewhere first if you want to keep it.**
-
-To follow a file live, open a second PowerShell window in the project folder:
-```
-Get-Content db\logs\run-1\orchestrator.log -Wait -Tail 20
-```
-If a log file can't be written (e.g. the disk is full), the program shows one warning and keeps working.
-
-## Real run results (run 1, 2026-09-28)
-
-The first full run over all 258 companies, started with `npm start` on a fresh database. Its output is committed in [`data/`](data/): [`run.json`](data/run.json) (the summary), [`companies.json`](data/companies.json) and [`mentions.json`](data/mentions.json).
-
-**TL;DR:** 58 minutes from start to finish. 258 / 258 companies searched, 16,933 articles found in the last 90 days, 11,600 of them relevant mentions (54 % positive, 29 % negative, 17 % neutral). Zero failures anywhere: no failed company, group, Google request or AI answer, no crash and no restart.
-
-### Setup
-
-| | |
-|---|---|
-| Window | 90 days: 2026-07-01 to 2026-09-28 |
-| Companies | 258, in 10 groups (26 × 8, 25 × 2), searched one group after another |
-| AI model | `qwen3:4b` on local Ollama, 4 requests at once |
-| Machine | A home Windows 11 PC; nothing ran in the cloud |
-
-### Timeline (local time, UTC+3)
-
-| Time | What happened |
-|---|---|
-| 09:02:50 | `npm start`: run 1 created, group 1 started, Ollama ready 2 s later |
-| 09:10:43 | Group 1 done (7 min 53 s): it holds the big names (Anthropic, xAI, Databricks, Cerebras …) |
-| 09:10 – 09:15 | Groups 2–8 done, about 30 s to 1 min each (mostly small companies, one search each) |
-| 09:16 – 09:29 | **Queue full twice (10,000 articles)**: the collector waited 6 min 16 s and 4 min 56 s for the AI to catch up, then went on by itself |
-| 09:30:33 | Group 10 done: **collection finished after 27 min 43 s** (about 16 min of searching + 11 min waiting for the AI) |
-| 09:33 – 10:01 | `data/` written after each group, as soon as all its articles were classified |
-| 10:01:06 | **Run 1 done** (58 min 16 s in total), final `data/` written |
-
-### Collection (Google News)
-
-| | |
-|---|---|
-| Google News searches | 745 (one per company, more for companies with many articles: SpaceX 171 date windows, Anthropic 165, xAI 41) |
-| Articles found and sent to the AI | **16,933** |
-| Results skipped as already stored (duplicates) | about 42,000, mostly from overlapping date windows of the biggest companies |
-| Results dropped (dated outside the 90 days) | 420 |
-| Companies failed / Google errors | **0 / 0** |
-| Companies with only one search | 242 of 258 |
-
-Articles and mentions by group:
-
-| Group | Companies | Collect time | Articles to the AI | Mentions | `data/` written |
-|---|---|---|---|---|---|
-| 1 | 26 | 7 min 53 s | 9,413 | 6,016 | 09:33 |
-| 2 | 26 | 34 s | 357 | 127 | 09:34 |
-| 3 | 26 | 28 s | 219 | 119 | 09:35 |
-| 4 | 26 | 30 s | 195 | 120 | 09:35 |
-| 5 | 26 | 31 s | 248 | 129 | 09:36 |
-| 6 | 26 | 29 s | 173 | 85 | 09:37 |
-| 7 | 26 | 1 min 15 s | 1,384 | 957 | 09:42 |
-| 8 | 26 | 37 s | 425 | 265 | 09:43 |
-| 9 | 25 | 14 min 56 s (11 min of it waiting for the AI) | 4,459 | 3,758 | 10:00 |
-| 10 | 25 | 28 s | 60 | 24 | 10:01 |
-| **Total** | **258** | **27 min 43 s** | **16,933** | **11,600** | |
-
-### Classification (the local AI)
-
-| | |
-|---|---|
-| Articles classified | 16,933 |
-| Relevant (kept as mentions) | **11,600 (68.5 %)** |
-| Irrelevant (deleted) | 5,333 (31.5 %): a different company with the same name, a passing mention, etc. |
-| Failed (no valid AI answer after 3 tries) | **0** |
-| Speed | 4.4 – 5.3 articles per second (about 300 a minute) |
-
-### Sentiment
-
-| Sentiment | Mentions | Share |
-|---|---|---|
-| Positive | 6,325 | 54.5 % |
-| Negative | 3,355 | 28.9 % |
-| Neutral | 1,920 | 16.6 % |
-| **Total** | **11,600** | |
-
-By month of publication (the coverage is steady across the 90 days):
-
-| Month | Mentions | Positive | Negative | Neutral |
+| Model | Relevance precision | Relevance recall | Sentiment accuracy | Articles/s |
 |---|---|---|---|---|
-| July 2026 | 3,792 | 2,051 | 1,195 | 546 |
-| August 2026 | 3,805 | 2,111 | 1,089 | 605 |
-| September 2026 (to the 28th) | 4,003 | 2,163 | 1,071 | 769 |
+| llama3.2:3b | 96.2% | 87.9% | 62.3% | 5.54 |
+| **qwen3:4b** | **97.7%** | **97.7%** | **82.2%** | 3.06 |
+| gemma3:4b | 80.4% | 99.8% | 84.4% | 3.67 |
+| qwen3.5:9b | 86.2% | 100% | 83.8% | 1.57 |
 
-### Companies
+Bigger models (e.g. `gpt-oss:20b`, `gemma4:26b`) don't fit in 8 GB and run partly on the CPU (about 13 h for the backfill), so they were excluded.
 
-**136 of 258 companies (53 %) have at least one mention; 122 have "no coverage found".** Coverage is very uneven:
+**How it is invoked** ([`src/classifier/prompt.js`](src/classifier/prompt.js), [`src/classifier/ollamaClient.js`](src/classifier/ollamaClient.js)):
+- `POST /api/chat` to Ollama, one user message per headline, `temperature: 0`, `think: false`, answer capped at 64 tokens.
+- `format` = a **JSON schema**, so the model can only answer in that shape. Every answer is also checked; a bad one is retried, and after 3 failed rounds the article is set aside as failed.
+- **Prompt structure:** the role ("You check news headlines for a press-mentions monitor"), then `Company`, `Section` (the full section name, e.g. `Health (Healthcare & Biotechnology)`), `Headline` and `Publisher`, then the task: (1) is it really about the company (with rules for same-name people, products and companies), (2) if yes, the tone with examples of positive / negative / neutral, and "answer with JSON only".
+- Not relevant → the article is deleted. Relevant → saved as a mention with its sentiment.
+- **Speed:** 4 requests at once (`LLM_CONCURRENCY` = `OLLAMA_NUM_PARALLEL` = 4) was 1.66× faster with the same accuracy.
 
-| Mentions per company | Companies |
+Full research (benchmarks searched, excluded models, per-company results, the parallel test, how to reproduce): [docs/llm-research.md](docs/llm-research.md).
+
+[↑ Back to contents](#contents)
+
+## How classification quality was validated
+
+**TL;DR:** 598 real Google News headlines with reference answers written before any model ran; `qwen3:4b` agreed on 97.7% precision / 97.7% recall for relevance and 82.2% for sentiment.
+
+- **Data:** 598 real headlines (not synthetic) for 6 companies from the 6 largest sections, mixing confusing names (Harvey, Astra, Lemonade) and unique ones (OpenEvidence, Beyond Meat, Klook). Files: [`research/model-test/`](research/model-test/).
+- **Reference answers:** written by an AI (Claude) with fixed [labeling rules](research/model-test/labeling-rules.md), from the headline and publisher only, before any model ran.
+- **Method:** the same prompt, JSON schema, temperature 0 and thinking off for every model; scored on relevance precision and recall, sentiment accuracy, valid JSON and speed. All models returned 100% valid JSON.
+- **The production prompt** (company + section name instead of a hand-written description): precision 96.6%, recall 97.4%, sentiment 80.7%, still above the 95% precision target. Running 4 at once didn't change accuracy.
+- **In the real run:** 16,933 headlines classified, **0** without a valid answer.
+- **Limits:** the reference answers are AI-made (a human spot-check is advised), only 6 companies were tested, and the model sees the headline only.
+- Visual summary: [`research/model-test/results-page.html`](research/model-test/results-page.html). All numbers: [`research/model-test/summary.md`](research/model-test/summary.md).
+
+## Assumptions, trade-offs and limitations
+
+**TL;DR:** precision over recall, headlines only, a free but unofficial news feed, and a local, single-computer setup.
+
+**Assumptions**
+- The seed list is the source of truth; section and hint files were prepared once by hand.
+- "The last quarter" = a rolling 90-day window, computed on every request (old data is filtered, not deleted).
+- Discord is the alert channel (visible, easy to set up with a webhook).
+- A headline + publisher is enough to judge relevance and tone.
+
+**Trade-offs**
+- **Precision over recall:** a wrong article on the dashboard hurts trust more than a missed one.
+- **Irrelevant articles are deleted**, not kept, so the database only holds what is shown.
+- **SQLite as the queue** (no Redis): the queue is capped at 10,000 rows, so the collector pauses while the AI catches up.
+- **Our own small supervisor** instead of PM2: nothing extra to install; PM2 would be the choice in production.
+- **Express** for speed of building; Fastify would be a better production choice.
+- **Alerts are at-least-once:** a crash between sending and marking may repeat a mention in the next digest.
+
+<a id="12-crashes-and-failures"></a>
+
+**How failures are handled:** a failed search is retried on the same company; a crashed process is restarted by the supervisor; every run is resumable from a lock + heartbeat + per-company checklist; a crash stays inside its group of ~25 companies. Full detail: [docs/design-challenges.md → Crashes and failures](docs/design-challenges.md#12-crashes-and-failures).
+
+<a id="known-limitations"></a>
+
+**Known limitations**
+- Google News RSS limits (see [News source](#news-source-google-news)).
+- AI-made reference answers, 6 test companies, headline-only classification.
+- The daily "last 24 hours" is really yesterday + today (Google takes dates only); duplicates are skipped, so nothing is counted twice.
+- The daily job re-checks yesterday's irrelevant articles (they were deleted); a few extra AI checks a day.
+- `data/` is rewritten only on days with new mentions; the dashboard itself is always current.
+- With 6+ dashboard tabs in one browser, the live-update connections can slow page loads.
+- No login and no company editing; the API is reachable from this computer only.
+- Several processes share one SQLite file: fine at this write rate, not for many writers.
+
+[↑ Back to contents](#contents)
+
+## Real run results
+
+**TL;DR:** the first full run (28 Sep 2026) took 58 minutes: 258 / 258 companies, 16,933 articles checked, 11,600 relevant mentions, zero failures.
+
+| | |
 |---|---|
-| 0 | 122 |
-| 1 – 5 | 75 |
-| 6 – 20 | 27 |
-| 21 – 100 | 22 |
-| 101 – 500 | 7 |
-| 500 + | 5 |
+| Articles classified | 16,933 (68.5% relevant, 31.5% deleted) |
+| Sentiment | 54.5% positive, 28.9% negative, 16.6% neutral |
+| Companies with mentions | 136 of 258 (138 after the first daily runs) |
+| Top companies | SpaceX 3,341, Anthropic 3,212, xAI 711, Scale AI 654, Stripe 561 |
+| Failures | 0 companies, 0 groups, 0 Google errors, 0 invalid AI answers |
+| Machine | A home Windows 11 PC with a local GPU, `qwen3:4b`, 4 at once |
 
-The top 15 by mentions (SpaceX and Anthropic alone hold 56 % of all mentions):
-
-| Company | Mentions | Positive | Negative | Neutral |
-|---|---|---|---|---|
-| SpaceX | 3,341 | 1,708 | 1,015 | 618 |
-| Anthropic | 3,212 | 1,328 | 1,304 | 580 |
-| xAI | 711 | 233 | 408 | 70 |
-| Scale AI | 654 | 598 | 17 | 39 |
-| Stripe | 561 | 317 | 185 | 59 |
-| Cerebras | 447 | 274 | 94 | 79 |
-| Databricks | 409 | 338 | 19 | 52 |
-| TubiTV | 223 | 141 | 13 | 69 |
-| Beyond Meat | 190 | 70 | 68 | 52 |
-| Together AI | 142 | 128 | 3 | 11 |
-| IQM | 121 | 102 | 7 | 12 |
-| Lemonade | 107 | 49 | 31 | 27 |
-| EquipmentShare | 93 | 29 | 54 | 10 |
-| OpenEvidence | 92 | 84 | 4 | 4 |
-| Groq | 91 | 44 | 44 | 3 |
-
-Tone extremes (companies with at least 20 mentions):
-- **Most negative:** EquipmentShare 58 % negative, xAI 57 %, Groq 48 %, Anthropic 41 %, Beyond Meat 36 %, Stripe 33 %.
-- **Most positive:** Ursa Major 100 % positive (23 mentions), BioCatch 99 %, Stoke Space 98 %, Glean 96 %, Island 96 %, Classiq 95 %.
-
-How recent the latest mention is (the dashboard's "last mentioned N days ago"), for the 136 companies with mentions:
-
-| Last mentioned | Companies |
-|---|---|
-| In the last 7 days | 65 |
-| 8 – 30 days ago | 39 |
-| 31 – 60 days ago | 11 |
-| 61 – 90 days ago | 21 |
-
-By industry section (from `filtered_ourcrowd_companies.txt`):
-
-| Section | Companies | With mentions | Mentions |
-|---|---|---|---|
-| 1. High-Tech | 104 | 58 | 6,382 |
-| 2. Health | 49 | 20 | 197 |
-| 3. Sports, Fitness & Entertainment | 8 | 5 | 241 |
-| 4. Financials | 15 | 10 | 727 |
-| 5. Consumer Staples | 22 | 9 | 211 |
-| 6. Consumer Discretionary | 15 | 9 | 151 |
-| 7. Industrials | 19 | 13 | 3,624 |
-| 8. Communication Services | 12 | 5 | 49 |
-| 9. Energy | 6 | 5 | 15 |
-| 10. Utilities | 3 | 2 | 3 |
-| 11. Materials | 2 | 0 | 0 |
-| 12. Real Estate | 3 | 0 | 0 |
-
-### Publishers
-
-The mentions come from **1,986 different publishers**. The top 10: Yahoo Finance (1,194), The Motley Fool (392), Bloomberg (185), CNBC (179), Reuters (147), 24/7 Wall St. (144), Seeking Alpha (142), TradingView (138), finance.biggo.com (127), dars.gov.et (106).
-
-### What the run showed about the system
-
-- **Built-in back-pressure worked:** the collector hit the 10,000-article queue limit twice, paused, and continued on its own once the AI caught up.
-- **The AI is the bottleneck:** searching took about 16 min; classifying took the rest of the hour.
-- **`data/` after each group worked:** results were usable from 09:33, 28 minutes before the run ended.
-- **Estimate vs. real:** the estimate after the 100-company test was about 15,000 articles and 1¼ hours; the real run found 16,933 articles in 58 minutes.
-- **Two companies dominate:** SpaceX and Anthropic needed 336 of the 745 searches and produced 56 % of the mentions. Some low-quality publishers (e.g. `dars.gov.et`) appear in the top 10; the AI judged those articles relevant, so they stay.
+The AI is the bottleneck (searching took ~16 min), and the queue cap worked: the collector paused twice and went on by itself. Timeline, per-group, per-section and publisher tables: [docs/run-results.md](docs/run-results.md).
 
 ## Tech stack
+
+**TL;DR:** Node.js 24, SQLite, Ollama, Express, React + Vite.
 
 | Part | Choice | Why |
 |---|---|---|
 | Runtime | Node.js 24 | Required by the brief |
-| Database | SQLite via built-in `node:sqlite` | We need relations between tables, unique rules to block duplicates, and transactions so chunk writes are all-or-nothing. It's a single file with no server and no install |
-| News source | Google News RSS search feed | The only free, structured access to Google's news results |
-| LLM | Ollama (local), model **`qwen3:4b`**, chosen by research ([see below](#llm-research-model-choice-and-validation)) | Required by the brief: a local model for all text understanding |
-| Orchestration | 3 independent services (api, collector, classifier) + our own small supervisor; the daily job is a separate job (designed later) | The database already is the queue, so a queue library would add a server (Redis) for nothing. Separate processes mean one crash doesn't affect the others |
-| API | Express | Fastest to build in a time-limited task. *For a production API, Fastify would be the better choice* (built-in validation and logging) |
-| Frontend | React + Vite | List → click → detail view; fast dev server |
-| Tests | `node:test` (built in) with fakes for Google News and Ollama | Tests run offline and fast |
-
----
-
-## System challenges, solutions and trade-offs
-
-Each design choice solves a specific problem. For each one: the problem, what we do about it, and what it costs.
-
-### 1. There is no official Google News API
-- **Problem:** Google shut down its News API in 2016. The Custom Search API is closed to new customers. Paid wrappers (SerpApi etc.) cost money after 100–250 searches, far below our ~7,700 searches/month.
-- **Solution:** use the **Google News RSS search feed** (`news.google.com/rss/search?q=...`). It's free, needs no key, and returns Google's news results.
-- **Trade-offs:**
-  - The feed is undocumented and could change or break at any time.
-  - Its terms say it's for personal, non-commercial feed readers, and Google's `robots.txt` disallows it. We accept this knowingly for a non-commercial take-home and document it here.
-  - Results come from Google News (news.google.com). They may differ slightly from the "News" tab of Google Search.
-
-### 2. Each search returns only ~100 results
-- **Problem:** one RSS search returns about 100 articles at most, with no next page. For a big company like Anthropic, that covers only the last ~3 days, not 90.
-- **Solution:** **split the time range.** The feed supports date filters (`after:` / `before:`, tested). We start with one 90-day window per company, and any window that comes back full (≥95 results) is split in half, down to single days. Windows overlap slightly because Google's date edges are fuzzy by about a day.
-- **Trade-offs:**
-  - More requests for big companies.
-  - A very big company can still hit 100 articles in a *single day*. That is an accepted ceiling.
-  - Completeness is limited to what Google returns (known limitation).
-
-### 3. Google blocks aggressive scraping
-- **Problem:** Google publishes no rate limit. Going too fast leads to HTTP 429 errors, CAPTCHA pages or temporary IP blocks.
-- **Solution:**
-  - One request at a time, **1 second apart** with a little random jitter. The daily job uses **5 seconds** (see below).
-  - On 429 or CAPTCHA, **back off exponentially** (wait longer each time), then retry the same company until it's done.
-  - On 403 (blocked), wait 5 s for the first 3 tries, then use the same growing waits (up to 10 min), so a real block isn't hammered.
-  - A broken or cut-off XML answer is treated like a 429: growing waits, then the same search again.
-  - On **400** (or another 4xx such as 404 or 410, but not 403, 408 or 429): wait 1 minute and try again, **3 tries in total**. After the 3rd, that company is marked `failed` with the reason and its group goes on with the next company. Nothing else fails a company.
-  - **Every** Google error is logged with its HTTP code and the company name, e.g. `Google error for Acme Bio: Google rejected the search (HTTP 400 Bad Request) (try 1 of 3); retrying the same search in 1 min.`, so the real run's logs show exactly what Google answered.
-  - Companies are fetched **one at a time**.
-- **What happened in real runs:** the 90-day collection (745 searches, spread out because it kept pausing for the AI) was never blocked. The first two daily runs searched ~200 companies in a row at 1 per second and were blocked (HTTP 503) for about 2 hours each. So the daily job now waits **5 seconds** between searches (~22 minutes per run, owner decision, D108).
-- **Trade-offs:**
-  - 1 second is faster than the 3–5 seconds commonly reported as safe, so a block is more likely. We accept that risk for the 90-day collection, which was never blocked. The daily job was blocked at 1 s (twice, for about 2 hours), so it uses 5 s (D108).
-  - During the 90-day backfill the local LLM is the slow part, so the faster pace barely changes the total time (a few hours).
-
-### 4. Ambiguous company names bring junk results
-- **Problem:** names like *Harvey*, *Island*, *Silo*, *Bites*, *Rewire*, *Glean* are everyday words, and *Groq* collides with xAI's *Grok*. Searching the bare name returns mostly unrelated articles.
-- **Solution, in three layers:**
-  1. **12 industry sections.** Each company is placed in one section (`filtered_ourcrowd_companies.txt`), and each section adds a few context words to the search:
-     - High-Tech (Information Technology)
-     - Health (Healthcare & Biotechnology)
-     - Sports, Fitness & Entertainment
-     - Financials (Banking & Insurance)
-     - Consumer Staples (Essential Goods)
-     - Consumer Discretionary (Luxury & Leisure)
-     - Industrials (Manufacturing & Logistics)
-     - Communication Services
-     - Energy
-     - Utilities
-     - Materials
-     - Real Estate
-  2. **Search hints for the hard names.** Some companies need more than section words, so they get a hint used in the search: the name the press actually writes ("Harvey AI", "Wave Financial", "Launchpad Build AI"), a product, a founder, or a very specific word. Unique names like *Cerebras* need no hint. The hints live in `company_hints.json`: 108 of the 258 names needed one.
-     - Example: `after:2026-06-29 before:2026-09-28 "Flash Forest" (section words)`, or, with a hint, `after:… before:… "Peak AI" (section words)`. The date part always goes first.
-     - **How the three files come together:**
-       ```
-       filtered_ourcrowd_companies.txt   company_hints.json    section_keywords.json
-         Harvey → section 1                Harvey → "Harvey AI"  1 → (company OR AI OR …)
-                  └──────────────────────────┬─────────────────────────┘
-                                             ▼
-                        SEED LOADER (collector's first step at start-up)
-                                             ▼
-                  Company table: query_param = "Harvey AI" (company OR AI OR …)
-                                             ▼
-                  COLLECTOR: date window + query_param → Google News
-       ```
-     - **How it's wired:** at start-up a small seed loader reads the three files (`filtered_ourcrowd_companies.txt`, `company_hints.json`, `section_keywords.json`), builds each company's search once, and saves it in the database. The collector reads that search and puts the date window at the front, e.g. `after:2026-07-01 before:2026-07-15 "Harvey AI" (company OR AI OR …)`. Edit a file and the searches are rebuilt on the next start.
-     - **Why:** fewer junk articles enter the queue, so the LLM checks fewer articles (less load on the slowest stage) and more of the 100 results per search are real. In our test, the plain search "Harvey" gave 25 real articles out of 100, and the search with context gave 86.
-  3. **LLM relevance check.** The local model confirms that each article is really about *this* company before it counts.
-- **Trade-offs:**
-  - We favor **precision over recall**: a wrong article on the dashboard hurts trust more than a missed one, so some real mentions may be filtered out.
-  - Every company has to be assigned a section, and hard names need a hint that was researched by hand. A new company with a confusing name needs a hint added.
-  - A hint that is too narrow can drop real articles that don't use it.
-
-### 5. Throughput: collection is much faster than the LLM
-- **Problem:** the stages run at very different speeds:
-  - The collector brings in up to ~20–30 articles/second, even with pacing.
-  - The local LLM handles about 3–4 articles/second.
-  - Left alone, unclassified articles would pile up.
-- **Solution: a buffer queue with a cap.**
-  - Fetched articles go into a **BufferQueue table** in SQLite.
-  - Each search result is inserted as **one chunk**, and only if the whole chunk fits under the **CAP**. Example: with CAP 10,000 and 9,999 waiting, a chunk of 100 waits until the queue drops to 9,900.
-  - The collector **holds** while the queue is full and the LLM catches up.
-  - The collector and classifier are separate services that meet only in this table. No queue library is needed.
-  - **Speeding up the LLM: parallel requests (measured on REAL DATA).** The classifier sends **4 articles to Ollama at the same time** (Ollama's `OLLAMA_NUM_PARALLEL` = 4, plus 4 workers in the classifier, `LLM_CONCURRENCY`). We measured 1 to 8 at once on the 598 real headlines: 4 at once is **1.66× faster** (2.45 → 4.08 articles/s) with the same accuracy, taking the ~20k-article backfill from about 2.3 h to 1.4 h. Details: [LLM research, section 7](#7-speeding-up-the-llm-parallel-requests).
-- **Trade-offs:**
-  - The collector sometimes sits idle.
-  - Parallel requests don't scale for free: each one uses extra GPU memory, and on one GPU the gain is usually well below 2× per doubling. Too many can push the model partly onto the CPU and make it slower. Workers must never pick the same article, so each worker claims its rows in the queue first.
-  - The CAP is **10,000** rows, and relevant rows move to the Mention table **1,000 at a time**. The CAP must be at least the largest chunk (~100), or the loop would wait forever.
-  - The CAP limits the *queue*, **not** the number of mentions: every relevant mention is kept.
-
-### 6. Memory: articles piling up in RAM
-- **Problem:** holding thousands of waiting articles in memory risks running out of memory, and a crash would lose them.
-- **Solution:**
-  - The queue lives **in the database, not in RAM**. The queue size is simply the number of rows in BufferQueue.
-  - Collection runs **one company at a time** (no parallel fetches).
-  - The companies are split into **10 groups of ~25**, and each group is collected by **its own process**, which exits when its group is done, so whatever memory it used is freed before the next group starts.
-- **Trade-off:** a DB count before each chunk, which is cheap with an index and happens once every few seconds.
-
-### 7. Database write load
-- **Problem:** writing each article or LLM result individually means thousands of tiny writes, and writing everything at once is a risk.
-- **Solution:** **all writes are chunked, and each chunk is one transaction:**
-  - one search result per insert
-  - one LLM batch per update
-  - one group of relevant articles per move from BufferQueue to Mention
-- **Trade-off:** results show up in batches rather than instantly. Fine for a daily job.
-
-### 8. The local LLM is slow for a 90-day backfill
-- **Problem:** roughly 10k–20k candidate articles × up to 2 questions each could take hours on a local GPU.
-- **Solution:**
-  - **One end-to-end step per article:** first "is it about the company?"; if not, the sentiment question is skipped and the article is deleted.
-  - **Classify once:** a stored article is never sent to the LLM again.
-  - The run is **resumable**, so an interruption loses no finished work.
-- **Trade-off:** the first backfill is still long (hours). Later daily runs only handle ~1/90 of that.
-
-### 9. Irrelevant articles
-- **Problem:** keeping every rejected article grows the database with data we never show.
-- **Solution:** irrelevant articles are **deleted**. The daily search covers only the last ~24 hours, so the same article rarely comes back.
-- **Trade-offs:**
-  - Google's fuzzy date edges and reruns after a crash can occasionally bring a rejected article back for one more LLM check.
-  - We don't keep rejected samples in the database. For validation, the samples are collected separately.
-
-### 10. Duplicates
-- **Problem:** the same article can arrive again: tomorrow's search, overlapping date windows, a rerun after a crash, or a different search query.
-- **Solution: two checks at insert time, across both tables:**
-  1. **Same company + same Google article ID (`guid`)** = duplicate.
-     - Tested: the same search run twice gave 100/100 identical guids.
-     - Different searches gave 16/17 identical.
-  2. **Backup: same company + same publisher + same title** = duplicate.
-- **Why not publisher + date?** We tested it: Google often rounds publication times (e.g. `07:00:00 GMT`), and 22 *different* articles in our sample shared publisher + date. Title is what tells same-day articles apart.
-- **Trade-offs:**
-  - Google doesn't document that guids are stable (we measured instead).
-  - Two genuinely different articles with an identical title from the same publisher would be merged. That's rare.
-- **Not duplicates:** an article about two companies is one mention *per company*. The same story syndicated on different sites counts separately, since each is a real press appearance.
-
-### 11. Google links are not the real article URL, and there's no snippet
-- **Problem:**
-  - RSS links are Google redirect pages (`news.google.com/rss/articles/...`), not the publisher's URL.
-  - The "description" field is not a real snippet, just the title and publisher again.
-- **Solution:**
-  - We **keep the Google link**. It opens the real article in a browser (checked by hand).
-  - Decoding it into the publisher URL (e.g. `politico.com/...`) was tested and works, but it costs 2 extra Google requests per article: about 20,000 requests and 5.5 hours for the backfill, plus a higher risk of being blocked. Not worth it (D60).
-  - The LLM classifies from the **title** (and publisher).
-- **Trade-offs:**
-  - Links show `news.google.com` instead of the publisher's site; the publisher name is shown next to each mention.
-  - Classifying from titles only is less accurate than full text. The model choice and validation take this into account.
-
-### 12. Crashes and failures
-- **Problem:** long runs meet real failures: the internet drops, Google blocks, Ollama stops, the PC restarts, the model returns garbage.
-- **Why it matters:** the collector, classifier and database writes together carry the whole throughput. If one process ran everything, one crash would stop it all.
-- **Solution: 3 independent services + a supervisor, with 4 layers of protection.**
-  ```
-  npm start
-    └─ orchestrator  (restarts any service that dies)
-         ├─ collector    → group runner: group 1 process → group 2 process → … (one at a time)
-         │                   each group: ~25 companies → Google News → BufferQueue
-         ├─ classifier   → BufferQueue → Ollama → Mention → data/
-         └─ api          → API + dashboard   (next step, not built yet)
-  ```
-  1. **One item fails → retry it.** A temporary Google error (no internet, 429, 5xx, timeout, broken XML) is retried on the **same company until it's done**, with growing waits capped at ~10 minutes. Google 400 (or another 4xx except 403/408/429) is tried 3 times, 1 minute apart; then that company is marked `failed`, reported, and its group goes on. Invalid LLM JSON is retried, then marked `failed`.
-  2. **A loop fails → only that loop restarts.**
-  3. **A process dies → the supervisor restarts only that service.** The others keep running: if the internet drops, the collector waits **while the classifier keeps working through the queue**. A service that keeps crashing is stopped with a clear error instead of looping forever. An article that crashes the classifier is counted *before* processing; after a crash the articles are retried one at a time, so only the one that really causes it reaches 3 tries and is set aside as `failed`.
-  4. **After a restart → resume, don't start over.** A `JobRun` table (a lock + a heartbeat written every 5 minutes. On a crash or stop, the service writes one last **emergency heartbeat** with the error, which releases the lock so the restart resumes at once. If even that can't be written, e.g. on power loss, a dead owner process is detected at once and a frozen one after 15 minutes without a beat), a per-run company checklist (`JobRunCompany`, each company `not_started` → `fetching` → `finished`, or `failed`) and a per-run group list (`JobRunGroup`, each group `pending` → `in_progress` → `complete`, or `failed`) record where we stopped. The companies and groups of a run are fixed when it starts; a company added to the list later waits for the next run. The collection ends when every group is `complete` or `failed`. Every write is a transaction and inserts skip existing rows, so redoing the interrupted company is safe.
-  - **Groups: a crash stays inside its group.** The collector's main process (the *group runner*) holds the lock and fetches nothing itself; it starts one **group process** at a time. Example: group 2 has finished 12 of its 26 companies and its process dies. The runner starts group 2 again (after 1 s, 2 s, 5 s, 10 s, 30 s …); it skips the 12 finished companies and goes on from company 13. Groups 1 and 3–10 are not touched.
-    - **5 crashes in a row with no progress** (no company finished or failed in between) → the group has failed a round and is **tried again, 3 more times** (`GROUP_FAILED_RETRIES`), each time with a fresh count. After that it is `failed`, skipped, and the next group starts; it is listed in the end log and `run.json`. The runner never stops because groups fail. Progress resets the count. A crash of the runner itself doesn't count against the group.
-    - **A company that crashes its group process 3 times** (`COMPANY_MAX_GROUP_CRASHES`; the company being fetched when the process died, or was killed as stuck) is marked `failed` ("crashed the group process 3 times (last: …)") and the group goes on with its next company, so one bad feed can't fail the rest of its group. That `failed` doesn't count as progress for the group's crash count.
-    - **Stuck, not just slow:** a group process tells the runner "still alive" before each Google request, every 30 s while it waits to retry Google, and every 5 s while the queue is full. **No signal for 5 minutes** = stuck: the runner kills it and counts a crash. Waiting for Google or for the queue is never "stuck".
-    - Stopping (Ctrl+C) first stops the group process (6 s, then a forced kill), then writes the runner's emergency heartbeat.
-  - The services share only the SQLite file. There's **no database service**: SQLite is a file, not a server, so there's nothing to crash.
-  - **Exit codes** tell the orchestrator why a service stopped, so it only restarts real crashes:
-
-    | Code | Meaning | What the orchestrator does |
-    |---|---|---|
-    | `0` | Finished normally (e.g. the collection is done) | Doesn't restart it |
-    | `3` | Refused, nothing wrong (another live process holds the run, the previous run is still being classified, another process took the run over, or `--groups` can't be used now: a bad value, no such group, or the last run is being classified or a live collector is working on it) | Logs the reason, doesn't restart it |
-    | `1` | Crashed | Restarts it: 1 s → 2 s → 5 s → 10 s → 30 s → 60 s; more than 5 crashes in 10 minutes → gives up on that service with a clear error |
-    | `130` | Stopped with Ctrl+C | Expected during shutdown |
-    | `143` | Stopped by a stop request | Expected during shutdown |
-  - **Every stop or restart writes the emergency heartbeat first.** The orchestrator sends the service a "stop" message (Windows has no soft stop signal between programs), the service writes its last heartbeat to the database and exits, and only if it hasn't exited after 10 s is it force-killed. Every restart is logged, e.g. `[orchestrator] classifier crashed (exit 1), restart #2 in 5 s`.
-  - Articles that failed for good (3 failed rounds) don't count toward the queue limit, so they can't block collection. How many were skipped is logged.
-  - When there is no `.env` file, Node prints `.env not found. Continuing without it.` That's expected: `.env` is optional.
-  - If the PC was turned off mid-run, the next `npm start` resumes the unfinished collection.
-  - (Daily job, planned) The alert will be marked "sent" only after it actually sends.
-- **Trade-offs:**
-  - Alerts are *at-least-once*. In the rare case of a crash between sending and marking, the next digest may repeat a mention. We prefer that over missing one.
-  - Our own small supervisor instead of **PM2** (the standard Node process manager): no extra tool for the reviewer to install, but PM2 would be the choice in production.
-  - Three processes write to one SQLite file. WAL mode and short transactions make them take turns, which is fine at our write rate but wouldn't scale to many writers.
-  - "Retry until done" can hold one company for a long time if Google blocks us for hours. The classifier keeps working meanwhile.
-
-### 13. Multi-hour runs are hard to follow
-- **Problem:** a backfill runs for hours. Without feedback, it's unclear whether it's working, waiting or stuck.
-- **Solution:** a live progress display:
-  - the stage and a % bar
-  - the current company and how many are left
-  - queue size and LLM rate
-  - any retry state (e.g. "Google unreachable, retrying in 60 s · LLM still working: 1,240 in queue")
-- **Log files** (`db/logs/run-<id>/`): the same events are kept after the window is closed, one file per process and per group, each line with the date and time, and `orchestrator.log` tells the whole run in a few lines. This is where Google's errors are studied after a real run.
-
-### 14. Keeping "N days ago" correct
-- **Problem:** a stored "3 days ago" is wrong tomorrow.
-- **Solution:** the status is **computed when the dashboard asks** (latest mention date vs today), never stored. A snapshot is exported to `data/` at the end of each run.
-
-### 15. Reviewing results without re-running everything
-- **Problem:** the full pipeline needs Ollama, a GPU and hours of runtime.
-- **Solution:**
-  - After each group of the collection (once its articles are classified) and at the end of each run, the classifier exports the results to **`data/` as JSON**, readable directly on GitHub:
-    - `companies.json`: every company with its status (days since last mention, or "no coverage found")
-    - `mentions.json`: every relevant mention from the last 90 days, with sentiment, publisher, date and link
-    - `run.json`: a run summary (counts fetched / relevant / deleted / failed; groups complete / failed / exported; failed companies)
-  - Only relevant, classified mentions are exported. Each run rewrites a full snapshot, so `data/` always matches the database.
-  - Each file is written to a temp file and then renamed, so a crash can never leave a half-written file.
-  - The daily job writes `data/` again after each run with new mentions (old + new mentions, new totals, and a `lastDailyRun` part in `run.json`), after the Discord message, so `run.json` can say whether the alert went out.
-  - When the API starts on an empty database, it **imports `data/` automatically**, so the dashboard works right away from the committed results.
-- **Docker (D116):** `docker compose up -d` runs everything (dashboard, daily job, the AI with the model inside, and the backfill on demand) on the CPU, with the database shipped in the image. See [0. The fastest way: Docker](#0-the-fastest-way-docker-one-command).
-
-### 16. Other deliberate limits
-- **Old data is filtered, not deleted.** Queries use the last 90 days, which keeps the door open for longer ranges later.
-- **Former names aren't searched** ("formerly Plantish", etc.): only current names, to avoid noise. Known limitation.
-- **No authentication or company editing.** Not required; the seed file is the source of truth. The API only listens on this computer (127.0.0.1).
-
----
-
-## LLM research: model choice and validation
-
-> **TL;DR**
-> - We needed a small local AI model that reads a news headline and answers: "Is this about our company? If yes, is it good, neutral or bad news?"
-> - No published benchmark tests this exact task, so we built our own test: 598 real Google News headlines, run through 4 models that fit on our 8 GB graphics card.
-> - **All testing used REAL DATA.** Every search, every headline and every score here comes from live Google News results fetched on 27 Sep 2026, the same feed the system uses. No mock, synthetic or made-up examples were used anywhere in this research.
-> - **Chosen model: `qwen3:4b`.** It scores 97.7% on both relevance precision and recall, gets sentiment right 82.2% of the time, and would process the first 90 days of news in about 1.8 hours.
-> - Visual summary: [`research/model-test/results-page.html`](research/model-test/results-page.html). All numbers: [`research/model-test/summary.md`](research/model-test/summary.md).
-
-### Words used in this section
-
-| Term | Meaning |
-|---|---|
-| **LLM** | Large Language Model: an AI model that reads and writes text (like ChatGPT, but smaller). |
-| **Ollama** | A free program that runs LLMs on your own computer, so no data leaves the machine and there is no cost per request. The brief requires a local model. |
-| **Relevance** | Is the headline really about *this* company, or about something else with the same name? |
-| **Sentiment** | Is the news good (positive), bad (negative) or neither (neutral) for the company? |
-| **Precision** | Of the headlines the model called "relevant", how many really were. High precision = little junk on the dashboard. |
-| **Recall** | Of the headlines that really are relevant, how many the model caught. High recall = few real mentions missed. |
-| **VRAM** | The memory on the graphics card (GPU). A model runs fast only if it fits completely in VRAM. |
-| **Backfill** | The first run, which processes the last 90 days of news at once: about 20,000 articles. Later daily runs are much smaller. |
-| **JSON** | A simple, strict text format that programs can read, e.g. `{"relevant": true, "sentiment": "positive"}`. |
-
-### 1. The problem
-
-The system follows 258 portfolio companies. For every headline Google News returns, the local model must decide two things:
-
-1. **Is it relevant?** Is it really about this company?
-2. **If yes, what is the sentiment?** Positive, neutral or negative.
-
-This is harder than it sounds:
-
-- **Many company names are everyday words or shared names.** "Harvey" is a legal AI startup, but also Steve Harvey. "Astra" is a rocket company, but also OpenAI's new "GPT-6 Astra" model and a Vauxhall car. "Lemonade" is an insurance company, but also a drink.
-- **We only get the headline and the publisher.** Google News gives no article text (see challenge 11), so the model can't read further to check.
-
-Real headlines from our test, with the answer we expect:
-
-| Company | Headline (publisher) | Expected answer |
-|---|---|---|
-| Harvey | "Legal AI startup Harvey reaches $15.5 billion valuation in new funding round" (Reuters) | relevant, **positive** |
-| Harvey | "Winston Weinberg: The 100 Most Influential People in AI 2026" (Time Magazine) | **not relevant**: Weinberg leads Harvey, but the headline never names the company |
-| Astra | "Small Satellite Launch Company Astra Launches But Fails To Reach Orbit" (SpaceRef) | relevant, **negative** |
-| Astra | "OpenAI launches Astra, its powerful (and controversial) new model" (techcrunch.com) | **not relevant**: a different "Astra" |
-| Lemonade | "Is It Too Late to Buy Lemonade Stock?" (The Motley Fool) | relevant, **neutral** (an open question) |
-| Lemonade | "Why Lemonade (LMND) Stock Is Nosediving" (Yahoo Finance) | relevant, **negative** |
-| Lemonade | "6-year-old entrepreneur creates Rich Girl Lemonade company, shares story behind her brand" (fox2detroit.com) | **not relevant**: a lemonade stand |
-
-We care most about **precision**: a wrong article on the dashboard hurts trust more than a missed one (challenge 4). But recall matters too, since the whole point is to find mentions.
-
-### 2. Step 1: looking for published benchmarks
-
-A benchmark is a public test that compares models on a task. We searched for one that matches our task: real headlines, headline only, "is this about company X?", then sentiment toward X.
-
-**Result: none matches.** The closest ones each cover only part of the task:
-
-| Benchmark | What it has | Why it doesn't fit |
-|---|---|---|
-| **SEntFiN** | Real financial headlines, with sentiment per company | Only sentiment, and no scores for recent open models |
-| **RepLab 2013** | Real tweets about companies with ambiguous names | Only relevance, tweets instead of headlines, no LLM results |
-| **Financial PhraseBank**, **FiQA**, **Twitter Financial News** | Real financial text with sentiment | They rate the whole text, not one target company |
-
-Also:
-- The newest Ollama models have no published scores on any of these.
-- Two studies found that "thinking" (the model reasoning step by step before answering) doesn't help simple classification and costs 10–100× more text. So we turn thinking off.
-
-**First shortlist** (from the literature search): `qwen3.5:35b-a3b` (top pick), `gemma4:26b`, `qwen3.5:9b` (fast baseline) and `gemma4:31b` (quality ceiling). Later we added smaller models (`gpt-oss:20b`, `gemma3:4b`, `qwen3:4b`, `llama3.2:3b`) and newer ones (`qwen3.6:27b`, `qwen3.8:27b`) to test them all.
-
-Since no benchmark fits, **the only way to choose is to test the models ourselves on our own real data.**
-
-### 3. Step 2: our own test
-
-#### The data
-
-We collected **598 real Google News headlines (REAL DATA, not mock data)** from the last 90 days: about 100 each for 1 company from each of the 6 largest sections. We picked a mix of confusing names (Harvey, Astra, Lemonade) and clean, unique names (OpenEvidence, Beyond Meat, Klook), so we see both hard and normal cases.
-
-| Section | Company | Headlines | Relevant | Not relevant | Positive | Neutral | Negative |
-|---|---|---|---|---|---|---|---|
-| High-Tech | Harvey | 100 | 88 | 12 | 64 | 24 | 0 |
-| Health | OpenEvidence | 100 | 90 | 10 | 76 | 10 | 4 |
-| Consumer Staples | Beyond Meat | 100 | 94 | 6 | 36 | 31 | 27 |
-| Industrials | Astra | 100 | 7 | 93 | 4 | 2 | 1 |
-| Financials | Lemonade | 100 | 80 | 20 | 39 | 20 | 21 |
-| Consumer Discretionary | Klook | 98 | 72 | 26 | 30 | 41 | 1 |
-| **Total** | | **598** | **431** | **167** | **249** | **128** | **54** |
-
-The dataset file ([`dataset.json`](research/model-test/dataset.json)) is 583 KB. The exact searches are in [`queries.json`](research/model-test/queries.json).
-
-![Dataset bars: for each company, the share of positive, neutral and negative headlines, and the grey share that is not about the company](research/model-test/screenshots/04-dataset.png)
-*The test data. Look at Astra: only 7 of its 100 headlines are really about the rocket company.*
-
-#### The reference answers
-
-To score a model we need the "correct" answer for every headline.
-
-- **They were made by an AI (Claude), not by a human.** Claude labeled all 598 headlines with written rules ([`labeling-rules.md`](research/model-test/labeling-rules.md)), using only the headline and publisher, the same input the models get.
-- All labels were written **before any model ran**, so no model answer could influence them.
-- **Limitation:** AI labels can be wrong, so the scores measure agreement with Claude, not with a human. A human spot-check is advised (see [section 8](#8-limits-and-next-steps)).
-
-#### The method
-
-Every model got exactly the same conditions:
-
-- **One fixed prompt** for all models ([`prompt.txt`](research/model-test/prompt.txt)). It gives the company name, section, a one-line description, the headline and the publisher.
-- **Strict JSON answer**, e.g. `{"relevant": true, "sentiment": "negative"}`. Ollama is given a schema, so the model can only answer in that shape. Every answer is also checked, and a bad one is retried once.
-- **Temperature 0**: no randomness, so the same input gives the same answer.
-- **Thinking off**.
-- **One request at a time**, on an RTX 4070 Laptop GPU with 8 GB of VRAM.
-
-We measured relevance precision and recall, sentiment accuracy (how often the sentiment matches the reference), how often the JSON was valid, and speed.
-
-### 4. Excluded models: "does not fit the system"
-
-The dev machine's GPU has **8 GB of VRAM**. A model bigger than that doesn't fit, so part of it runs on the CPU, which is much slower.
-
-We measured this with `gpt-oss:20b` (13 GB): it ran **56% on the CPU** at **0.42 articles/s**. At that speed the 20,000-article backfill would take **about 13 hours**. We stopped it partway, and its partial results are not scored. The other big models weren't run at all.
-
-| Model | Size | Status |
-|---|---|---|
-| gpt-oss:20b | 13 GB | Measured: 56% CPU, 0.42 articles/s, about 13 h for 20k. Stopped, not scored |
-| qwen3.5:35b-a3b | 24 GB | Not run: larger than 8 GB VRAM |
-| gemma4:26b | 18 GB | Not run: larger than 8 GB VRAM |
-| gemma4:31b | 20 GB | Not run: larger than 8 GB VRAM |
-| qwen3.6:27b | ~18 GB | Not run: larger than 8 GB VRAM |
-| qwen3.8:27b | ~18 GB | Not run: larger than 8 GB VRAM |
-
-This includes the original top pick from the literature search. The rule now is simple: **only models that fit fully in GPU memory are candidates.**
-
-![Model size compared with the 8 GB of GPU memory: 4 small models fit, 6 large ones cross the red 8 GB line](research/model-test/screenshots/05-does-not-fit.png)
-*The red line is the 8 GB of GPU memory. Only the 4 green models fit, so only they were tested.*
-
-### 5. Results for the 4 models that fit
-
-| Model | Relevance precision | Relevance recall | Sentiment accuracy | JSON valid | Runtime (598 articles) | Articles/s | Est. 20k backfill |
-|---|---|---|---|---|---|---|---|
-| llama3.2:3b | 96.2% | 87.9% | 62.3% | 100% | 1.8 min | 5.54 | ~1 h (60.1 min) |
-| **qwen3:4b** | **97.7%** | **97.7%** | **82.2%** | 100% | 3.3 min | 3.06 | ~1.8 h |
-| gemma3:4b | 80.4% | 99.8% | 84.4% | 100% | 2.7 min | 3.67 | ~1.5 h |
-| qwen3.5:9b | 86.2% | 100% | 83.8% | 100% | 6.3 min | 1.57 | ~3.5 h |
-
-Every model returned valid JSON for all 598 headlines, with no retries needed.
-
-![Recommended model qwen3:4b with its four key numbers, and one card per model with bars for junk kept out, nothing missed and sentiment right](research/model-test/screenshots/01-verdict-and-models.png)
-*The recommendation and the 4 models. Compare the three bars: only qwen3:4b is high on all three.*
-
-**What this means in plain words:**
-
-- **qwen3:4b is the most balanced.** It rarely lets junk in (10 wrong "relevant" answers), rarely misses a real article (10 missed out of 431), and gets sentiment right about 4 times in 5.
-- **llama3.2:3b is the fastest, but it misses a lot.** It missed 52 of the 431 real articles (about 1 in 8) and got sentiment wrong about 4 times in 10.
-- **gemma3:4b and qwen3.5:9b say "relevant" too easily.** They almost never miss a real article, but gemma3:4b let in 105 junk headlines and qwen3.5:9b let in 69. qwen3.5:9b is also the slowest.
-
-![Estimated hours for the 20,000-article backfill per model, from 60 minutes for llama3.2:3b to 3.5 hours for qwen3.5:9b](research/model-test/screenshots/02-speed.png)
-*Estimated time for the first 90-day run, one request at a time. qwen3:4b (green) needs about 1.8 hours. Daily runs are much smaller.*
-
-#### Per company: Astra was the hardest
-
-The table below shows relevance precision per company. The number in brackets is how many junk headlines the model wrongly called relevant.
-
-| Model | Harvey | OpenEvidence | Beyond Meat | Astra | Lemonade | Klook |
-|---|---|---|---|---|---|---|
-| llama3.2:3b | 100.0% (0) | 97.6% (2) | 97.7% (2) | 40.0% (9) | 97.2% (2) | 100.0% (0) |
-| **qwen3:4b** | 100.0% (0) | 96.7% (3) | 97.9% (2) | 58.3% (5) | 100.0% (0) | 100.0% (0) |
-| gemma3:4b | 93.5% (6) | 90.9% (9) | 94.9% (5) | 11.5% (54) | 85.1% (14) | 80.9% (17) |
-| qwen3.5:9b | 98.9% (1) | 95.7% (4) | 95.9% (4) | 14.0% (43) | 87.0% (12) | 93.5% (5) |
-
-![Heat table of relevance precision per model and company; the Astra column is red for every model](research/model-test/screenshots/03-per-company.png)
-*Where junk slipped through. The Astra column is red for every model.*
-
-**Why Astra?** 93 of its 100 headlines are about something else, mostly OpenAI's new "GPT-6 Astra" model. With so much junk, even a few mistakes pull precision down. The test searched for "Astra" plus a few section words, without a search hint. In the real system, the search hint `"Astra Space"` (challenge 4) keeps most of this junk out before the model ever sees it.
-
-### 6. The choice
-
-**Recommended model: `qwen3:4b`.**
-
-Our original rule was "pick the fastest model with at least 95% relevance precision". Two models pass it: llama3.2:3b and qwen3:4b. The rule would pick **llama3.2:3b**, because it is faster.
-
-But that rule only looks at precision and speed. llama3.2:3b:
-- misses about **1 in 8** real articles (87.9% recall), so the dashboard would show fewer mentions than exist, and
-- gets sentiment right only **62.3%** of the time.
-
-qwen3:4b is slower (3.06 vs 5.54 articles/s), but it is better on every quality measure: 97.7% precision, 97.7% recall and 82.2% sentiment accuracy. The extra backfill time (about 1.8 h instead of about 1 h) happens once, and daily runs take minutes either way. So we choose by **precision, recall and sentiment together**, not by precision alone.
-
-*Status: **confirmed.** The project owner chose qwen3:4b on 27 Sep 2026.*
-
-### 7. Speeding up the LLM: parallel requests
-
-> **REAL DATA:** the same 598 real, labelled headlines as the model test. No Google requests. Full results: [`research/parallel-test/results.md`](research/parallel-test/results.md).
-
-**The problem.** The LLM is the slowest stage: at one request at a time, the ~20,000-article backfill takes over 2 hours, and the collector keeps waiting for the queue to drain (challenge 5). Ollama can answer several requests at once (`OLLAMA_NUM_PARALLEL`), but each extra one needs more GPU memory, and too many push the model partly onto the CPU.
-
-**What we did.** Ran all 598 headlines through qwen3:4b with 1, 2, 3, 4, 6 and 8 requests at the same time, and measured speed, errors, GPU memory, whether the model stayed fully on the GPU, and accuracy against the labels.
-
-| At once | Articles/s | Speed vs 1 | GPU memory for the model | Model on GPU | Errors | Relevance precision / recall | Sentiment |
-|---|---|---|---|---|---|---|---|
-| 1 | 2.45 | 1.00× | 3.2 GB (40%) | 100% | 0 | 96.6% / 97.4% | 80.7% |
-| 2 | 3.32 | 1.35× | 3.9 GB (49%) | 100% | 0 | 96.8% / 97.7% | 81.0% |
-| 3 | 3.75 | 1.53× | 4.5 GB (55%) | 100% | 0 | 96.8% / 97.4% | 81.4% |
-| **4** | **4.08** | **1.66×** | **5.1 GB (62%)** | **100%** | **0** | **96.6% / 97.4%** | **81.0%** |
-| 6 | 4.39 | 1.79× | 6.3 GB (79%) | 100% | 0 | 96.8% / 97.4% | 81.4% |
-| 8 | 2.94 | 1.20× | doesn't fit | 81% (19% on CPU) | 0 | 97.0% / 97.4% | 80.7% |
-
-**What it shows.**
-- Each step up to 6 is faster, but the gain shrinks. At 8 the model no longer fits in the 8 GB card, part of it runs on the CPU, and it gets **slower**.
-- **Accuracy doesn't depend on the setting**, and there were 0 errors and 0 invalid answers at every step.
-- GPU *busy time* stays around 75–85% at every setting (about 30% of it is other programs on the PC), so it can't be tuned. GPU *memory* is what grows with each extra request.
-
-**The choice: 4 at once.** 1.66× faster (backfill about **2.3 h → 1.4 h**), the model uses about 60% of the GPU's memory, and it leaves room for other programs. 6 is only 8% faster but nearly fills the card.
-
-**Side result: no company descriptions needed.** The model test gave the AI a hand-written line on what each company does. The real system has no such line for 258 companies, so the classifier gives the company name and its full section name instead (e.g. `Ukko` · `Health (Healthcare & Biotechnology)`). Compared on the same 598 headlines: precision 96.6% vs 97.7%, recall 97.4% vs 97.7%, sentiment 80.7% vs 82.2%. Slightly weaker, still above the 95% precision target.
-
-**Note:** after this test the classifier also caps each answer's length (`num_predict` = 64, D75), so a stuck answer can't hold a worker. The answers here are 17 tokens on average, so the cap doesn't change them.
-
-**How to use it.** Ollama must run with `OLLAMA_NUM_PARALLEL=4` (set it as a user environment variable and restart the Ollama app), and the classifier with `LLM_CONCURRENCY=4`.
-
-### 8. Limits and next steps
-
-- **The reference answers are AI-made.** Claude, not a human, wrote the correct answers. A human should spot-check a sample of them.
-- **Only 6 companies were tested.** They cover the 6 largest sections and include both confusing and clean names, but the other 252 companies may behave differently.
-- **Headline only.** The model never sees the article text, so some headlines are truly unclear even for a human.
-- **Parallel speeds depend on the PC.** The parallel test ran while other programs used about 30% of the GPU, so absolute speeds will differ on another machine; the pattern (gain up to ~6 at once, slower once the model spills to the CPU) is what carries over.
-
-### 9. How to reproduce the test
-
-**You need:**
-- Node.js 24. The research scripts in `research/model-test/` use only built-in modules, so they run without `npm install` (the app itself needs it, see [How to run](#how-to-run)).
-- [Ollama](https://ollama.com) installed and running on its default address, `http://127.0.0.1:11434`. The `ollama` command must be on your PATH (the runner calls `ollama ps` to record GPU vs CPU use).
-- A GPU with about 8 GB of VRAM to get similar speeds.
-
-**Steps** (run from the project root):
-
-```bash
-cd research/model-test
-
-# 1. Download the 4 models (once)
-ollama pull llama3.2:3b
-ollama pull qwen3:4b
-ollama pull gemma3:4b
-ollama pull qwen3.5:9b
-
-# 2. Run every headline in dataset.json through each model, one request at a time.
-#    Answers go to results/<model>.jsonl, timing and `ollama ps` output to results/<model>.meta.json.
-#    The run can be stopped and restarted: finished headlines are skipped.
-#    Remove or rename the existing results/ folder first for a fresh run.
-node run-models.mjs llama3.2:3b qwen3:4b gemma3:4b qwen3.5:9b
-
-# 3. Score the answers against the reference labels and rewrite summary.md.
-node score.mjs llama3.2:3b qwen3:4b gemma3:4b qwen3.5:9b
-```
-
-Notes:
-- For a quick smoke test on a small sample, set `LIMIT` and a separate output folder, e.g. `LIMIT=20 OUT=results-smoke node run-models.mjs qwen3:4b`. (The scorer always reads `results/`.)
-- `score.mjs` rewrites all of `summary.md`. The "Excluded: does not fit the system" part at the end was added by hand, so back up `summary.md` first and copy that part back afterwards.
-- The dataset itself was built with `fetch-dataset.mjs` (Google News searches) and `build-dataset.mjs` (joins the headlines with the `labels-*.txt` files). You don't need to run them to repeat the test, and a new fetch would return different headlines.
-
-**Files in [`research/model-test/`](research/model-test/):**
-
-| File | What it is |
-|---|---|
-| [`results-page.html`](research/model-test/results-page.html) | Visual results page (the screenshots above) |
-| [`summary.md`](research/model-test/summary.md) | All numbers, including confusion counts and per-company recall |
-| [`dataset.json`](research/model-test/dataset.json) | The 598 headlines with their reference answers |
-| [`labeling-rules.md`](research/model-test/labeling-rules.md) | How the reference answers were decided |
-| [`prompt.txt`](research/model-test/prompt.txt) | The prompt and JSON schema sent to every model |
-| [`queries.json`](research/model-test/queries.json) | The Google News search used for each company |
-| [`run-models.mjs`](research/model-test/run-models.mjs), [`score.mjs`](research/model-test/score.mjs) | The runner and the scorer |
-| [`results/`](research/model-test/results/) | Each model's raw answers, plus the partial gpt-oss run in `results/excluded/` |
-
-## Known limitations
-
-See challenges 1, 2, 4, 9, 10, 11 and 16 above. This section will be finalized after the real run.
-
-- **The daily job re-checks yesterday's irrelevant articles.** The daily search covers 2 days, and articles the AI found irrelevant are deleted (not kept), so the next day finds and checks them again. They never become mentions; the cost is a few extra AI checks a day.
-- **`data/` is written only on days with new mentions.** On a quiet day `data/` keeps the last snapshot, so its "days ago" gets older. The dashboard is always correct (it reads the database and works the numbers out on every request).
-- **Many dashboard tabs:** each open tab keeps one live-updates connection. With 6 or more tabs open in the same browser, the browser's connection limit can make the page slow to load; close the extra tabs.
-- **No webhook set:** without `DISCORD_WEBHOOK_URL`, the daily job still runs, and the new mentions wait; they all go out in the first message once the webhook is set.
-- **The daily "last 24 hours" is really about 2 days.** Google News search takes dates, not hours, so the daily job searches yesterday + today. Articles already stored are skipped by the duplicate checks, so nothing is counted or alerted twice; the cost is a little extra search and AI work.
+| Database | SQLite via built-in `node:sqlite` | Relations, unique rules against duplicates, transactions; one file, no server |
+| News source | Google News RSS search | The only free, structured access to Google's news results |
+| LLM | Ollama, `qwen3:4b` | Local model required; chosen by our own test |
+| Orchestration | Own small supervisor; the database is the queue | No extra server or tool to install |
+| API | Express | Fast to build |
+| Frontend | React + Vite, TanStack Query, Recharts | List → detail view, charts, fast dev server |
+| Scheduling | node-cron (03:00 Asia/Jerusalem) | Runs inside `npm run daily` |
+| Alerts | Discord webhook | Visible, free, simple |
+| Tests | `node:test` (460) and Vitest (126), with fakes for Google, Ollama and Discord | Offline and fast |
+| Delivery | Docker Compose | One command, runs anywhere |
+
+## FAQ and where to find things
+
+**TL;DR:** quick answers and pointers (to just see it: `docker compose up -d`, then http://localhost:3000).
+
+- **I don't want to run anything.** Read the [`data/`](data/) JSON files, and [docs/run-results.md](docs/run-results.md).
+- **Where are the settings?** `src/config.js` (all defaults); `.env` to override (see `.env.example`).
+- **Why wasn't a company found?** Check its search hint in `company_hints.json` and its section in `filtered_ourcrowd_companies.txt`; about half the companies simply had no coverage in 90 days.
+- **How do I re-collect a failed group?** `npm start -- --groups 2,5` (see [operations](docs/operations.md#the-90-day-collection-npm-start)).
+- **Day-to-day steps for the owner:** [GUIDE.md](GUIDE.md).
+- **Why was X decided?** [PLAN.md](PLAN.md) (decision log, D-numbers).
+- **The AI prompts used to build this project:** [`prompts/ai-assistant-prompts.md`](prompts/ai-assistant-prompts.md).
+
+[↑ Back to contents](#contents)

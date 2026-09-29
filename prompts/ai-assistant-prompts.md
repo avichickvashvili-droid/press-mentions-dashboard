@@ -4348,3 +4348,25 @@ fix
 ```
 ok prapre a commit
 ```
+
+---
+
+## Prompt 374 — Agents to make the README and the GUIDE shorter and readable
+
+```
+what i want from you now
+the README is too fucking long same for the guide
+first i want you to send an agent to fix the readme and an agent to fix the guide
+each one before they start have to go over it and read it
+they can drop any unrelevant data
+and add relevent data
+the goal is to make the README and guide more readable as of now its just a huge chunk of information maybe add chapters links to other parts of the readme or in the guide aswell will be nice
+```
+
+---
+
+## Prompt 375 — Commit
+
+```
+commit
+```

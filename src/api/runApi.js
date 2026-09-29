@@ -15,8 +15,9 @@
 //      error is printed and the server still starts, on the database as it is (the page then
 //      shows "no companies"). It does not exit, so it can't end up in a crash loop.
 //   3. Close that connection and open a READ-ONLY one for serving: the api can never write.
-//   4. Listen on API_PORT (default 3000), on 127.0.0.1 only (API_HOST, D106): nobody else on
-//      the network can reach it. A port that is already taken gives a clear message.
+//   4. Listen on API_PORT (default 3000), on 127.0.0.1 only (API_LISTEN_HOST, D106): nobody else
+//      on the network can reach it. A port that is already taken gives a clear message. (Docker
+//      listens on 0.0.0.0 inside the container and publishes the port on 127.0.0.1 only, D116.)
 //
 // Exit codes (src/shared/exitCodes.js): 1 = crashed (the database can't be opened, the port is
 // taken, an unexpected error), 130 = Ctrl+C, 143 = stop request (SIGTERM, or SIGHUP when the
@@ -97,7 +98,7 @@ function startServer() {
   db = openDatabaseReadOnly(config.DB_PATH);
   events = createEventHub();
   const app = createApp({ db, events });
-  server = app.listen(config.API_PORT, config.API_HOST);
+  server = app.listen(config.API_PORT, config.API_LISTEN_HOST);
   server.on('listening', () => {
     console.log(`Dashboard: http://localhost:${config.API_PORT}  (api: /api/companies). Stop with Ctrl+C.`);
     if (!fs.existsSync(path.join(config.WEB_DIST_DIR, 'index.html'))) {

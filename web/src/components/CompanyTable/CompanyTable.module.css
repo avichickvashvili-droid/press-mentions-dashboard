@@ -1,14 +1,18 @@
-/* CompanyTable.module.css — the company table and its rows (owner's design, D110). */
+/* CompanyTable.module.css — the company table and its rows (owner's design, D110).
+   Every row is its own white block with a border and rounded ends, 8 px apart on a light
+   background, so the companies are clearly separated (owner, Prompt 337). */
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  padding: 0 10px 4px;
+  background: var(--list-bg);
 }
 
 .table th,
 .table td {
   text-align: left;
-  padding: 10px 7px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 7px;
   vertical-align: middle;
 }
 
@@ -16,9 +20,35 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--card-bg);
+  padding-top: 12px;
+  padding-bottom: 6px;
+  background: var(--list-bg);
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* The row block: top and bottom border on every cell, the sides and the round corners on the
+   first and last cell. */
+.table td {
+  background: var(--card-bg);
+  border-top: 1px solid var(--item-border);
+  border-bottom: 1px solid var(--item-border);
+}
+
+.table td:first-child {
+  border-left: 1px solid var(--item-border);
+  border-radius: 10px 0 0 10px;
+  padding-left: 14px;
+}
+
+.table td:last-child {
+  border-right: 1px solid var(--item-border);
+  border-radius: 0 10px 10px 0;
+  padding-right: 12px;
+}
+
+.table th:first-child {
+  padding-left: 15px;
 }
 
 /* Mentions: left-aligned under its header, with room on both sides (owner's design, Prompt 328). */
@@ -49,13 +79,16 @@
   cursor: pointer;
 }
 
-.row:hover {
-  background: var(--header-bg);
+/* Hover and the open company colour the whole border, the rounded ends too (Prompt 338: the
+   end cells' own side borders must not keep the grey, or the corners look cut off). */
+.table .row:hover td {
+  border-color: var(--item-hover-border);
 }
 
-.selected,
-.selected:hover {
+.table .selected td,
+.table .selected:hover td {
   background: var(--selected-bg);
+  border-color: var(--accent);
 }
 
 .company {

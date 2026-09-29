@@ -26,6 +26,11 @@
   --card-bg: #ffffff;
   --card-shadow: 0 1px 3px rgba(31, 35, 40, 0.08);
   --radius: 10px;
+  /* Lists (owner, Prompt 337): each company / mention is its own white block with a border, with
+     a gap between blocks on this light background. */
+  --list-bg: #f3f5f8;
+  --item-border: #e3e7ed;
+  --item-hover-border: #b9c6d8;
 }
 
 * {

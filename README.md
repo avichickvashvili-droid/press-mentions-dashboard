@@ -45,6 +45,86 @@ Collection (1), classification (3) and the API (5) are separate services, kept a
 
 **Short version for the owner:** [GUIDE.md](GUIDE.md): set up, run, follow progress, and what to do when something fails.
 
+### 0. The fastest way: Docker (one command)
+
+**TL;DR:** install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then in the project folder:
+```
+docker compose up -d
+```
+and open **http://localhost:3000**. Nothing else to install: no Node, no Ollama, no model download by hand.
+
+**What it starts** (D116):
+
+| Container | What runs in it |
+|---|---|
+| `ollama` | The local AI (Ollama 0.34.4) with **`qwen3:4b` already inside the image**. Runs on the CPU, so it works on any computer |
+| `app` | The **dashboard** (API + page, http://localhost:3000, this computer only) **and the daily job** (every day at 03:00 Israel time), side by side |
+
+- **The data comes with it.** The image carries a copy of the database (258 companies, 12,016 mentions) and `data/`. The first start copies them into two Docker volumes (`db`, `data`). From then on the daily job adds to them, and they survive restarts and rebuilds.
+- **The daily job doesn't re-run a day that already ran.** At start it checks the last successful run in the database. It runs at once only when that was more than 24 hours ago (a missed day), then every day at 03:00.
+- **Discord (optional):** copy `.env.example` to `.env` and set `DISCORD_WEBHOOK_URL`. Docker reads `.env` when it starts. It's never copied into the image.
+- **The first start builds the images:** about 5–10 minutes, because it downloads the model (~2.5 GB). Later starts take seconds. Disk: about **16 GB** for the images (most of it is the Ollama image and the model).
+
+**Step by step (first time):**
+1. Install **Docker Desktop** and open it (Start menu → Docker Desktop). Wait until the bottom left says **Engine running**. On Windows it asks for WSL2 the first time; accept it and restart the computer if asked.
+2. Make sure nothing else uses **port 3000** (for example stop `npm run api` / `npm run dashboard`).
+3. Open a terminal **in the project folder**. Either:
+   - **VS Code:** top menu **Terminal → New Terminal** (it opens in the project folder), or
+   - **PowerShell:** Windows key → type `PowerShell` → Enter, then `cd <path to>\press-mentions-dashboard`.
+4. Type `docker compose up -d` and press Enter. The first time, many lines scroll by for 5–10 minutes. It ends with `Container press-mentions-ollama-1 Healthy` and `Container press-mentions-app-1 Started`.
+5. Open **http://localhost:3000** in the browser.
+
+"docker is not recognized"? The terminal was opened before Docker was installed. Close it (or VS Code) and open a new one.
+
+**Check that everything works:**
+
+| # | Do this | You should see |
+|---|---|---|
+| 1 | Open http://localhost:3000 and click a company | The full page: 258 companies, "138 / 258", the new mentions of the last daily run, logos; the company's mentions open on the right |
+| 2 | `docker compose ps` | Both `ollama` and `app` say **Up … (healthy)** (the app takes about 20 s) |
+| 3 | `docker compose logs app` | `Dashboard: http://localhost:3000` and `Daily job started … runs every day at 03:00`. **No** "running now" line when the last daily run was less than 24 h ago. No "DISCORD_WEBHOOK_URL is not set" warning when `.env` has the webhook |
+| 4 | `docker compose exec app node -e "import('./src/classifier/ollamaClient.js').then(async m => console.log(await m.createOllamaClient().selfCheck()))"` | `{ ok: true, detail: 'answer { "relevant": true, "sentiment": "positive" }' }`: the AI answers inside Docker (a few seconds the first time) |
+| 5 | `docker compose exec app npm start`, then **Ctrl+C** | The backfill starts: "Last collection finished … the collector is not started" (the shipped database already has it), then `Ollama 0.34.4 is ready with qwen3:4b`. Ctrl+C stops only the backfill; the dashboard keeps running |
+| 6 | `docker compose restart app`, wait ~20 s, refresh the page | The page works again with the same data |
+| 7 | `docker compose down`, then `docker compose up -d` | Starts in seconds this time; the same data (it lives in the volumes) |
+| 8 | When done: `docker compose down` | Everything stops; the data is kept |
+
+**Discord while it runs:** with the webhook in `.env`, Docker's daily job posts the real digest at 03:00. Don't run `npm run daily` outside Docker at the same time (two digests). Run `docker compose down` first if you don't want tonight's message.
+
+**Everyday commands:**
+
+| Command | What it does |
+|---|---|
+| `docker compose up -d` | Build (first time only) and start everything in the background |
+| `docker compose ps` | What's running (both should say `healthy`) |
+| `docker compose logs -f app` | Watch the dashboard and daily job live (Ctrl+C stops watching, not the app) |
+| `docker compose exec app npm start` | **The backfill:** the 90-day collection + classifier, in the running app container. On the shipped database it says the collection is already done and only the classifier runs. It fetches again only on an empty database (see below) |
+| `docker compose exec app npm run progress` | The progress summary (same as [Tracking progress](#tracking-progress)) |
+| `docker compose down` | Stop everything. The data is kept |
+| `docker compose down -v` | Stop and **delete the data volumes**: the next `up` starts again from the shipped database |
+| `docker compose up -d --build` | Rebuild after a code change |
+
+**A full new backfill:** with the app running, remove the database and restart:
+```
+docker compose exec app sh -c "rm -f db/press-mentions.sqlite*"
+docker compose restart app
+docker compose exec app npm start
+```
+After the restart the dashboard loads `data/` into the new database (like a fresh clone), then the daily job starts. `npm start` then runs the full 90-day collection, because this database has no collection yet. On the CPU this takes many hours: about 6.5 s per article, while the real run classified ~20k articles on the GPU in under an hour.
+
+**With an NVIDIA GPU (optional, much faster):** Docker Desktop with the WSL2 engine and a current NVIDIA driver, then start with both files:
+```
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
+
+**Why one container for the dashboard and the daily job:** the daily job tells the dashboard "new data" over 127.0.0.1, which only works on the same computer (D106), and the "is that process still alive?" lock checks only see processes in the same container. The daily job starts once the dashboard answers, so on an empty database the dashboard has loaded `data/` first. If either program stops, the container restarts both (tested: killed the daily job, both were back within about 20 s). The backfill runs in the same container with `exec` for the same reason.
+
+**For the owner:** before a delivery, refresh the shipped database with `npm run docker:snapshot`. It reads the live database read-only and writes `docker/seed/press-mentions.sqlite`.
+
+**Files:** [Dockerfile](Dockerfile) (the app image), [docker/ollama.Dockerfile](docker/ollama.Dockerfile) (Ollama + the model), [docker-compose.yml](docker-compose.yml), [docker-compose.gpu.yml](docker-compose.gpu.yml), [.dockerignore](.dockerignore) (keeps `.env` and the live database out of the image), [src/docker/runApp.js](src/docker/runApp.js) (starts the two programs).
+
+The steps below are the same project **without Docker**.
+
 ### 1. What you need
 - **Node.js 24** or newer.
 - **Ollama** (local AI), with the model downloaded once:
@@ -117,8 +197,9 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 442 backend tests (pipeline + API + daily job). Offline: Google News, Ollama and Discord are replaced with fakes |
+| `npm test` | Runs all 453 backend tests (pipeline + API + daily job + the Docker starter and snapshot). Offline: Google News, Ollama and Discord are replaced with fakes |
 | `npm run test:web` | Runs the dashboard page's 102 tests (Vitest, in a simulated browser) |
+| `npm run docker:snapshot` | Refreshes the database copy that ships with Docker (`docker/seed/press-mentions.sqlite`), reading the live database read-only (D116) |
 | `npm run daily` | Starts the daily job; it stays up and runs every day at 03:00 Israel time (see [the daily job](#6-the-daily-job)) |
 | `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
 | `npm run api` | Starts only the API + the already-built page |
@@ -149,6 +230,7 @@ Then open **http://localhost:3000**. The dashboard is its own command, separate 
   - The list is **grouped by day** ("Wed 30 Sep (4)", Israel time), newest first, **20 per page** (four small arrow buttons, first « / previous ‹ / next › / last », around "3 / 161"; hover a button to see its name). Each mention: its sentiment (✓ Positive, – Neutral, ! Negative), the headline on one line (the whole headline on hover), "TechCrunch · 10:35 IST" and ↗ to open the article.
   - The open company is kept in the address (`http://localhost:3000/?company=spacex`), so a refresh (F5) keeps it open and you can send the link to open the same company.
 - **Logos:** collected once into `web/public/logos/` (one image per company, plus `logos.json`: where each came from and how sure). The browser keeps each logo for 30 days, so after the first visit they load from its cache; only the rows on screen load theirs. After collecting new logos, restart the dashboard. 245 of the 258 companies have a logo; the other 13 show the letter badge.
+- **Clear lists:** every company row and every mention is its own white block with a border and rounded corners, with a gap between blocks on a light grey background and more room inside, so the items are clearly apart. The open company's row has a blue border.
 - **Font:** Inter, bundled with the page (the `@fontsource-variable/inter` package), so it works offline.
 - **Smaller screens:** below 1200 px wide the panel goes above the table when a company is open (the page scrolls to it), and the table scrolls sideways inside its card.
 - **Data:** it reads `db/press-mentions.sqlite` (read-only). If the database is empty (a fresh clone), it first imports the committed `data/` folder, so the real run's results show right away. The data of a database that already has data is never changed (at start-up the api may only switch it to WAL mode and add missing tables or columns).
@@ -672,7 +754,7 @@ Each design choice solves a specific problem. For each one: the problem, what we
   - Each file is written to a temp file and then renamed, so a crash can never leave a half-written file.
   - The daily job writes `data/` again after each run with new mentions (old + new mentions, new totals, and a `lastDailyRun` part in `run.json`), after the Discord message, so `run.json` can say whether the alert went out.
   - When the API starts on an empty database, it **imports `data/` automatically**, so the dashboard works right away from the committed results.
-- **Optional:** a Docker image for the API + dashboard only. The pipeline stays local, because Ollama needs the GPU.
+- **Docker (D116):** `docker compose up -d` runs everything (dashboard, daily job, the AI with the model inside, and the backfill on demand) on the CPU, with the database shipped in the image. See [0. The fastest way: Docker](#0-the-fastest-way-docker-one-command).
 
 ### 16. Other deliberate limits
 - **Old data is filtered, not deleted.** Queries use the last 90 days, which keeps the door open for longer ranges later.

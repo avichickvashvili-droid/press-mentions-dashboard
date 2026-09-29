@@ -1,0 +1,15 @@
+# docker-compose.gpu.yml — optional: gives the Ollama container an NVIDIA GPU (owner, Prompt 347,
+# D116). Plain `docker compose up -d` runs on the CPU and works on any computer; with an NVIDIA
+# card (and Docker's GPU support, see the README) start with both files instead:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

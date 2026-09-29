@@ -73,12 +73,14 @@
   color: var(--muted);
 }
 
+/* Days are clearly apart; each mention is its own white block with a border, 8 px apart on a
+   light background (owner, Prompt 337). */
 .day {
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .dayHeading {
-  margin: 0 0 4px;
+  margin: 0 0 10px;
   font-size: 1rem;
 }
 
@@ -91,14 +93,24 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--item-border);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+
+.item:hover {
+  border-color: var(--item-hover-border);
 }
 
 .itemText {

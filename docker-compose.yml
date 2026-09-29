@@ -1,0 +1,71 @@
+# docker-compose.yml — the whole project with one command (owner, Prompts 344–347, D116):
+#
+#   docker compose up -d                  build (first time only) and start everything
+#   docker compose exec app npm start     the full collection + classifier (backfill), when needed
+#   docker compose down                   stop everything (the data stays in the volumes)
+#
+# What runs:
+#   ollama  the AI model server, with qwen3:4b already inside the image (CPU by default; for an
+#           NVIDIA GPU add docker-compose.gpu.yml, see the README)
+#   app     the dashboard (api + page) on http://localhost:3000 (this computer only) AND the daily
+#           job (every day at 03:00 Israel time, at once when a day was missed), side by side
+#           (src/docker/runApp.js). The backfill also runs in this container, with exec.
+#
+# Why the dashboard, the daily job and the backfill share one container: they must see each other
+# like programs on one computer: the daily job's "new data" signal goes to the api on 127.0.0.1
+# (D106 unchanged), and the lock checks ("is that process still alive?") work only inside one
+# process list. If one of the two programs stops, the container restarts both.
+#
+# Settings and secrets come from .env on this computer (optional; never put into the image).
+# The database, logs and data/ exports live in two volumes (db, data): they survive restarts and
+# rebuilds. The first start fills them from the image (the shipped database and data/).
+
+name: press-mentions
+
+services:
+  ollama:
+    build:
+      context: .
+      dockerfile: docker/ollama.Dockerfile
+    image: press-mentions-ollama:latest
+    environment:
+      # Must match LLM_CONCURRENCY (4 by default, config.js).
+      OLLAMA_NUM_PARALLEL: "4"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    image: press-mentions-app:latest
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      API_PORT: "3000"
+      # Listen inside the container; the port below is published on this computer only.
+      API_LISTEN_HOST: 0.0.0.0
+      OLLAMA_URL: http://ollama:11434
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - db:/app/db
+      - data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/companies').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  db:
+  data:

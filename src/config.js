@@ -4,8 +4,9 @@
 //
 // Where it sits: read by every other file (database, seed loader, Google News client, queue
 // writer, lock, company loop, classifier, api, orchestrator). Nothing else holds a "magic number".
-// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL, LLM_CONCURRENCY, API_PORT and
-// DISCORD_WEBHOOK_URL environment variables (all optional, from .env if present).
+// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL, LLM_CONCURRENCY, API_PORT,
+// API_LISTEN_HOST and DISCORD_WEBHOOK_URL environment variables (all optional, from .env if
+// present; the Docker setup sets some of them in docker-compose.yml).
 // Writes: nothing.
 //
 // To change how the program behaves, change a value here. Each value has a plain-language
@@ -364,6 +365,11 @@ export const config = {
   // The address the api listens on: 127.0.0.1 = this computer only (D106, code review #2).
   // Nobody else on the network can open the dashboard or send it the daily job's signal.
   API_HOST: '127.0.0.1',
+
+  // The address the api listens on. Normally the same 127.0.0.1. Inside Docker it must be
+  // 0.0.0.0, or Docker's port mapping can't reach it; docker-compose.yml sets that and publishes
+  // the port on 127.0.0.1 of the computer only, so the D106 rule still holds (D116).
+  API_LISTEN_HOST: process.env.API_LISTEN_HOST || '127.0.0.1',
 
   // The only addresses the api answers to (a request's Host, without the port): this computer's
   // names. Anything else gets 403. This blocks "DNS rebinding", where a web page on another site

@@ -2,6 +2,32 @@
 
 The quick version. Everything else (setup, all commands, logs, how failures are handled) is in [README.md](README.md). Type every command in the project folder.
 
+## Run with Docker (one command)
+
+**TL;DR:** Docker Desktop open ("Engine running") → terminal in the project folder → `docker compose up -d` → open **http://localhost:3000**. It starts the dashboard, the daily job and the AI (with the model inside), on the data we ship.
+
+**Start it:**
+1. Open **Docker Desktop** and wait for **Engine running** (bottom left).
+2. Port 3000 must be free: stop `npm run api` / `npm run dashboard` if they run.
+3. In VS Code: **Terminal → New Terminal** (it opens in the project folder). Or PowerShell: `cd C:\Users\maypl\Desktop\press-mentions-dashboard`.
+4. `docker compose up -d`. First time: 5–10 min (it builds and downloads the model), then `Container press-mentions-app-1 Started`.
+5. Open **http://localhost:3000**.
+
+"docker is not recognized" → open a new terminal (or restart VS Code).
+
+**Check it works:**
+- Page: 258 companies, "138 / 258", logos; click a company → its mentions.
+- `docker compose ps` → both `(healthy)`.
+- `docker compose logs app` → `Daily job started … 03:00`, no "running now" (a run happens at once only if the last one was over 24 h ago).
+- `docker compose exec app npm start` → the backfill: "collector is not started" (already done), `Ollama … is ready with qwen3:4b`. **Ctrl+C** stops it; the dashboard keeps running.
+- `docker compose restart app` → ~20 s later the page works with the same data.
+
+**Every day:** `docker compose logs -f app` = watch it live (Ctrl+C stops watching only). `docker compose down` = stop (data kept). `docker compose down -v` = stop and delete the data (the next start begins again from the shipped database).
+
+**Discord:** with `DISCORD_WEBHOOK_URL` in `.env`, Docker posts the real digest at 03:00. Don't also run `npm run daily` (two digests). `docker compose down` before 03:00 if you don't want it.
+
+Before delivering: `npm run docker:snapshot` refreshes the shipped database. Full details, the GPU option and a full new backfill: [README](README.md#0-the-fastest-way-docker-one-command).
+
 ## Run
 
 1. First time only: [install](README.md#1-what-you-need) Node 24, Ollama and `qwen3:4b`, then `npm install`.

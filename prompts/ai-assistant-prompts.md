@@ -4006,3 +4006,205 @@ would have their reverse option when reselected
 ```
 looks good first of all commit and make sure to commit everything
 ```
+
+---
+
+## Prompt 337 — More space and clear separation between list items
+
+```
+ok ur next task
+i want to have more space between companies and also between posts
+i want our design to be more clear since all the site is just lists we need clear seperations between list items
+```
+
+---
+
+## Prompt 338 — The selected row's corners are cut off
+
+```
+[image: the selected Anthropic row: the blue border runs to the edges and its rounded far corners are not visible]
+almost good but when selected see what happend
+the far corners are not seen
+```
+
+---
+
+## Prompt 339 — Who updates the "Last 90 days" dates?
+
+```
+[image: the top section's window: "Last 90 days / 1 Jul 2026 – 29 Sep 2026"]
+question who updates the last 90 days? after the daily job?
+```
+
+---
+
+## Prompt 340 — Think together on a cool feature for the main panel
+
+```
+ok think with me on a cool feature we can add to the main panel
+```
+
+---
+
+## Prompt 341 — None of the first ideas
+
+```
+didnt like any of those
+```
+
+---
+
+## Prompt 342 — Sketch: where the mentions come from (sites)
+
+```
+[image: a "Mentions by Source" donut chart: 48,292 mentions in the middle; legend Online News 52% 25,111, Blogs 18% 8,640, TV / Broadcast 12% 5,794, Print 8% 3,862, Social Media 7% 3,379, Other 3% 1,506]
+maybe something like this where top data is coming from like which sites
+dont do anything yet we are sketching
+```
+
+---
+
+## Prompt 343 — Drop the sources idea
+
+```
+ok never mind
+```
+
+---
+
+## Prompt 344 — Deliver the project with Docker (design first)
+
+```
+I want as part of the delivarable to be able to deliver docker
+(im not completley familiar with the syntax)
+so im gonna need your help withe the design
+so when a comman like :
+docker compose up -d
+docker compose ymal 
+
+does that say anything to you?
+```
+
+---
+
+## Prompt 345 — Docker answers: explain Q1, ship the DB, include everything
+
+```
+1. explain to me i didnt understand whats the Q
+2. ship with the data and DB ofcourse
+3. everything that can run, also have option for backfill yes
+the daily job, dashboard classification every thing we built
+```
+
+---
+
+## Prompt 346 — Ollama inside Docker: the reviewer runs only docker compose up -d
+
+```
+1. b i want the reviewr to not run anything other than docker compose up -d
+```
+
+---
+
+## Prompt 347 — Pre-download the model; CPU by default; install Docker; explain how it all works
+
+```
+cant we predownload it to the docker?, 1.c i want it to run anywhere
+2. install
+
+i need you to give me a full detailed explanation on how this works how will docker by one command have the dashboard up? the daily job running? how will we run DC if needed im missing this part
+```
+
+---
+
+## Prompt 348 — Start by installing Docker
+
+```
+yes lets start by installing
+```
+
+---
+
+## Prompt 349 — Docker is installed and running
+
+```
+should be done
+```
+
+---
+
+## Prompt 350 — Does the daily job skip a day that already ran?
+
+```
+i have a question, the daily job process should start right away
+but that day daily job may have ran alraady
+i dont want it to start fetching for hours for no need
+we should have in the DB if the daily job ran already right?
+```
+
+---
+
+## Prompt 351 — Status update
+
+```
+give update
+```
+
+---
+
+## Prompt 352 — Continue
+
+```
+continue where you last stopped
+continue where you last stopped
+```
+
+---
+
+## Prompt 353 — How do I test Docker myself?
+
+```
+ok so if i want to test the docker myself how do i do that
+i want to check my self that everything is working
+```
+
+---
+
+## Prompt 354 — Send an agent to clear port 3000
+
+```
+send an agent to clear port 3000 for me
+```
+
+---
+
+## Prompt 355 — Where do I type docker compose up -d?
+
+```
+im missing cruical part how do i even start it where do i type the command? docker compose up -d
+```
+
+---
+
+## Prompt 356 — Ran the command, now what?
+
+```
+ok i ran the command now what
+```
+
+---
+
+## Prompt 357 — Put the Docker start and test steps in the GUIDE and README
+
+```
+ok make sure to add all of this down into the guide
+and readme
+```
+
+---
+
+## Prompt 358 — Prepare a commit
+
+```
+nice prapre a commit
+```

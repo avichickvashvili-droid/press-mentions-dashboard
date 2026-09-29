@@ -13,6 +13,7 @@
     "collect": "node --env-file-if-exists=.env src/collector/runCollect.js",
     "classifier": "node --env-file-if-exists=.env src/classifier/runClassifier.js",
     "progress": "node --env-file-if-exists=.env src/tools/progress.js",
+    "docker:snapshot": "node --env-file-if-exists=.env src/tools/makeDockerSnapshot.js",
     "api": "node --env-file-if-exists=.env src/api/runApi.js",
     "build": "vite build --config web/vite.config.js",
     "dashboard": "npm run build && npm run api",

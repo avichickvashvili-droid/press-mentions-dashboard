@@ -1,5 +1,8 @@
 /* App.module.css — the page layout: the table and the mentions panel side by side, stacked on
-   narrow screens. The panel stays in view while the table scrolls. */
+   narrow screens. The panel stays in view while the table scrolls.
+   The table needs about 750 px for its columns (owner's design, D110), the panel 360-500 px, so
+   below 1200 px they stack; then (and on a phone) the table scrolls sideways inside its card
+   instead of being cut off (Prompt 328). */
 .page {
   max-width: 1400px;
   margin: 0 auto;
@@ -8,9 +11,18 @@
 
 .columns {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(750px, 1fr) minmax(360px, 500px);
   gap: 16px;
   align-items: start;
+}
+
+/* The table sits on a white card (owner's design, D110). */
+.tableArea {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  overflow: clip;
 }
 
 .panelArea {
@@ -20,13 +32,27 @@
   overflow-y: auto;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1199px) {
   .columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tableArea {
+    overflow-x: auto;
   }
 
   .panelArea {
     position: static;
     max-height: none;
+  }
+
+  /* Stacked: the open company's mentions go above the table (not under 258 rows), and the
+     "Click a company" hint is not needed there (Prompt 328). */
+  .panelOpen {
+    order: -1;
+  }
+
+  .panelEmpty {
+    display: none;
   }
 }

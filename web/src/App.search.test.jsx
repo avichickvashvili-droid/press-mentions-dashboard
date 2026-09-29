@@ -83,11 +83,10 @@ describe('company search', () => {
     expect(within(screen.getByRole('table')).getByText('No companies match "xyz"')).toBeInTheDocument();
   });
 
-  it('the search text survives a reload of the data (Refresh)', async () => {
-    const { input, calls } = await renderApp();
+  it('the search text survives a reload of the data (a live update)', async () => {
+    const { input, calls, queryClient } = await renderApp();
     typeInto(input, 'lamb');
-    await act(() => fireEvent.click(screen.getByRole('button', { name: 'Refresh' })));
-    await screen.findByRole('button', { name: 'Refresh' });
+    await act(() => queryClient.invalidateQueries({ queryKey: ['companies'] })); // what a live update does
     expect(calls.list).toBe(2);
     expect(input).toHaveValue('lamb');
     expect(tableNames()).toEqual(['Lambda']);

@@ -29,7 +29,7 @@ test('a day with new mentions: the lean digest (title, one line per company, tot
   assert.equal(payload.embeds[0].description, [
     '━━━━━━━━━━━━━━',
     '**Anthropic** · 14   🟢 6  ⚪ 7  🔴 1',
-    '**BeeHero** · 3   🟢 2  ⚪ 1',
+    '**BeeHero** · 3   🟢 2  ⚪ 1  🔴 0',
     '━━━━━━━━━━━━━━',
     '**17** new · [Open the dashboard ↗](http://localhost:3000)',
   ].join('\n'));
@@ -74,15 +74,21 @@ test('every company is listed: a long list goes on in more messages, each under 
   assert.ok(messages.at(-1).payload.embeds[0].description.includes('**774** new'));
 });
 
-test('a line leaves out zero counts, and formats big numbers', () => {
-  assert.equal(companyLine({ name: 'OpenEvidence', total: 6, positive: 6, neutral: 0, negative: 0 }), '**OpenEvidence** · 6   🟢 6');
-  assert.equal(companyLine({ name: 'Big', total: 1234, positive: 1234, neutral: 0, negative: 0 }), '**Big** · 1,234   🟢 1,234');
+test('a line always shows all three circles, and formats big numbers', () => {
+  assert.equal(companyLine({ name: 'OpenEvidence', total: 6, positive: 6, neutral: 0, negative: 0 }), '**OpenEvidence** · 6   🟢 6  ⚪ 0  🔴 0');
+  assert.equal(companyLine({ name: 'Big', total: 1234, positive: 1234, neutral: 0, negative: 0 }), '**Big** · 1,234   🟢 1,234  ⚪ 0  🔴 0');
+});
+
+test('a 0 sentiment still shows its circle with 0, so the total is never read as a count (Prompt 325)', () => {
+  const line = companyLine({ name: 'CarDekho', total: 2, positive: 1, neutral: 1, negative: 0 });
+  assert.equal(line, '**CarDekho** · 2   🟢 1  ⚪ 1  🔴 0');
+  assert.equal(line.match(/🟢|⚪|🔴/gu).length, 3);
 });
 
 test('names are escaped: a * or _ in a name can not change the formatting', () => {
   assert.equal(escapeMarkdown('A*B_C~D`E|F<G>H[I](J)\\K'), 'A\\*B\\_C\\~D\\`E\\|F\\<G\\>H\\[I\\]\\(J\\)\\\\K');
   assert.equal(escapeMarkdown('Scale AI'), 'Scale AI');
-  assert.equal(companyLine({ name: '**Evil**', total: 1, positive: 1, neutral: 0, negative: 0 }), '**\\*\\*Evil\\*\\*** · 1   🟢 1');
+  assert.equal(companyLine({ name: '**Evil**', total: 1, positive: 1, neutral: 0, negative: 0 }), '**\\*\\*Evil\\*\\*** · 1   🟢 1  ⚪ 0  🔴 0');
 });
 
 test('describeCronTime: a simple daily time, or null', () => {

@@ -1,8 +1,10 @@
 /* global.css — the colours and fonts of the whole page (plain CSS, no library). The components
-   use these colour names (var(--...)) in their own CSS Modules. */
+   use these colour names (var(--...)) in their own CSS Modules.
+   One set of sentiment colours for the whole page (owner, Prompt 318): --positive / --neutral /
+   --negative for the table's bar and the panel's buttons, with their light -bg and dark -text. */
 :root {
-  --text: #1f2328;
-  --muted: #656d76;
+  --text: #111827;
+  --muted: #6b7280;
   --border: #d0d7de;
   --link: #0a58ca;
   --header-bg: #f6f8fa;
@@ -13,26 +15,82 @@
   --negative-text: #a40e26;
   --neutral-bg: #eaeef2;
   --neutral-text: #424a53;
+  --amber-bg: #fff4d6;
+  --amber-text: #8a5a00;
+  --positive: #2da44e;
+  --neutral: #8c959f;
+  --negative: #cf222e;
+  --accent: #0969da;
+  --accent-text: #ffffff;
+  --page-bg: #f6f8fa;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(31, 35, 40, 0.08);
+  --radius: 10px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Inter everywhere (owner, Prompt 330), with the system font only as a fallback. */
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.45;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--text);
-  background: #ffffff;
+  background: var(--page-bg);
 }
 
 a {
   color: var(--link);
 }
 
-button {
+/* A plain button (e.g. Try again) has a thin border and rounded corners. Components with their
+   own look (the table's name buttons, the ×, the icon buttons and their menus) set their own. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+button,
+input,
+select {
   font: inherit;
+  letter-spacing: inherit;
+}
+
+button {
   cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 12px;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* Read by screen readers but not shown (e.g. a label the placeholder already says). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

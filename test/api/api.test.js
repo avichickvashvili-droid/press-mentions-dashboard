@@ -33,11 +33,13 @@ test('GET /api/companies: every company in the list with status, days ago, secti
       id: 'harvey', name: 'Harvey', section: 1, sectionName: 'High-Tech', hint: '"Harvey AI"',
       status: 'mentioned', lastMentionAt: '2026-09-27T08:00:00.000Z', daysAgo: 0, mentionCount: 3,
       sentimentCounts: { positive: 1, neutral: 1, negative: 1 },
+      weekCount: 2, prevWeekCount: 1, logoUrl: null,
     },
     {
       id: 'ukko', name: 'Ukko', section: 2, sectionName: 'Health', hint: null,
       status: 'no_coverage', lastMentionAt: null, daysAgo: null, mentionCount: 0,
       sentimentCounts: { positive: 0, neutral: 0, negative: 0 },
+      weekCount: 0, prevWeekCount: 0, logoUrl: null,
     },
   ], 'Gone is not in the list (D79); the June mention is outside the 90 days');
 });
@@ -82,7 +84,7 @@ test('GET /api/companies/:id/mentions: a company with no mentions gets an empty 
   const { baseUrl } = await setup(t);
   const { status, body } = await get(baseUrl, '/api/companies/ukko/mentions');
   assert.equal(status, 200);
-  assert.deepEqual(body, { company: { id: 'ukko', name: 'Ukko' }, mentions: [] });
+  assert.deepEqual(body, { company: { id: 'ukko', name: 'Ukko' }, asOf: new Date(API_NOW).toISOString(), mentions: [] });
 });
 
 test('unknown company id and unknown /api address: 404 with a JSON error', async (t) => {
@@ -146,8 +148,9 @@ test('the api and the data/ export give the same company status for the same dat
   const { body } = await get(baseUrl, '/api/companies');
   assert.equal(body.asOf, exported.asOf);
   assert.equal(body.windowStart, exported.windowStart);
-  // The api adds only sectionName; everything else is the same as data/companies.json.
-  const withoutSectionName = body.companies.map(({ sectionName, ...rest }) => rest);
+  // The api adds only sectionName, the Recent activity counts and logoUrl; everything else is the
+  // same as data/companies.json.
+  const withoutSectionName = body.companies.map(({ sectionName, weekCount, prevWeekCount, logoUrl, ...rest }) => rest);
   assert.deepEqual(withoutSectionName, exported.companies);
 });
 

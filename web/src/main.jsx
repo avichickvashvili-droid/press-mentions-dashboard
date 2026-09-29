@@ -10,6 +10,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QUERY_DEFAULTS } from './api/queryClient.js';
 import { ErrorBoundary } from './components/common/ErrorBoundary.jsx';
 import { App } from './App.jsx';
+// Inter, a modern font, bundled with the page (owner, Prompt 330: the system font looked old).
+import '@fontsource-variable/inter';
 import './styles/global.css';
 
 // One cache for the whole page. The daily job (Step 6) will later call

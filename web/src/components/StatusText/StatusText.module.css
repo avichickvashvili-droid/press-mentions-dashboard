@@ -1,12 +1,40 @@
-/* StatusText.module.css — the status text: normal when mentioned, grey when there is no coverage.
-   Kept on one line so the table rows stay short. */
-.mentioned {
-  color: var(--text);
+/* StatusText.module.css — the Last mentioned label: a soft rounded label with a coloured dot
+   (green = today / yesterday, amber = this week, grey = older). One line, so rows stay short. */
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
   white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.fresh {
+  background: var(--positive-bg);
+  color: var(--positive-text);
+}
+
+.recent {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+}
+
+.old {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
 }
 
 .noCoverage {
   color: var(--muted);
-  font-style: italic;
+  font-size: 0.82rem;
   white-space: nowrap;
 }

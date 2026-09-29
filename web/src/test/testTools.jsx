@@ -39,10 +39,12 @@ export const COMPANIES_ANSWER = {
     {
       id: 'ukko', name: 'Ukko', section: 2, sectionName: 'Health', hint: null, status: 'no_coverage',
       lastMentionAt: null, daysAgo: null, mentionCount: 0, sentimentCounts: { positive: 0, neutral: 0, negative: 0 },
+      weekCount: 0, prevWeekCount: 0, logoUrl: null,
     },
     {
       id: 'harvey', name: 'Harvey', section: 1, sectionName: 'High-Tech', hint: null, status: 'mentioned',
       lastMentionAt: '2026-09-25T09:00:00.000Z', daysAgo: 2, mentionCount: 3, sentimentCounts: { positive: 1, neutral: 1, negative: 1 },
+      weekCount: 1, prevWeekCount: 2, logoUrl: '/logos/harvey.png',
     },
   ],
 };
@@ -50,6 +52,7 @@ export const COMPANIES_ANSWER = {
 // A mentions answer for Harvey.
 export const HARVEY_MENTIONS = {
   company: { id: 'harvey', name: 'Harvey' },
+  asOf: '2026-09-27T10:00:00.000Z',
   mentions: [
     { title: 'Harvey raises money - Example News', url: 'https://news.google.com/a', publisher: 'Example News', publishedAt: '2026-09-25T09:00:00.000Z', sentiment: 'positive' },
     { title: 'Harvey sued - Other News', url: 'https://news.google.com/b', publisher: 'Other News', publishedAt: '2026-09-20T09:00:00.000Z', sentiment: 'negative' },

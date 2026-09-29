@@ -1,11 +1,12 @@
 // components.test.jsx — the main components, kept short for the sample (owner, Phase 2):
-// StatusText wording (FR5), SentimentBadge, CompanyTable (every company, click selects),
+// StatusText wording (FR5, Prompt 332), SentimentBadge, CompanyTable (every company, the D110 columns, click
+// selects),
 // MentionsPanel states and link attributes (FR2-FR4), Header (the window length from the api),
 // ErrorBoundary. The fetch is a fake.
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { statusWords, StatusText } from './StatusText/StatusText.jsx';
+import { freshness, lastMentionTitle, statusWords, StatusText } from './StatusText/StatusText.jsx';
 import { SentimentBadge } from './SentimentBadge/SentimentBadge.jsx';
 import { CompanyTable } from './CompanyTable/CompanyTable.jsx';
 import { Header } from './Header/Header.jsx';
@@ -20,34 +21,59 @@ function renderWithQuery(element, options) {
 }
 
 describe('StatusText', () => {
-  it('says today / 1 day / N days / no coverage found', () => {
-    expect(statusWords('mentioned', 0)).toBe('last mentioned today');
-    expect(statusWords('mentioned', 1)).toBe('last mentioned 1 day ago');
-    expect(statusWords('mentioned', 12)).toBe('last mentioned 12 days ago');
-    expect(statusWords('no_coverage', null)).toBe('no coverage found');
+  it('says < 24h / Nd ago / Nw ago / Nmo ago / No coverage (Prompt 332), with a freshness colour', () => {
+    expect(freshness(0)).toBe('fresh');
+    expect(freshness(1)).toBe('fresh');
+    expect(freshness(7)).toBe('recent');
+    expect(freshness(8)).toBe('old');
+    const words = [0, 1, 6, 7, 13, 14, 29, 30, 59, 60, 89].map((days) => statusWords('mentioned', days));
+    expect(words).toEqual(['< 24h', '1d ago', '6d ago', '1w ago', '1w ago', '2w ago', '4w ago', '1mo ago', '1mo ago', '2mo ago', '2mo ago']);
+    expect(statusWords('no_coverage', null)).toBe('No coverage');
+    expect(statusWords('mentioned', null)).toBe('No coverage');
     render(<StatusText status="no_coverage" daysAgo={null} />);
-    expect(screen.getByText('no coverage found')).toBeInTheDocument();
+    expect(screen.getByText('No coverage')).toBeInTheDocument();
+    expect(screen.getByText('No coverage')).not.toHaveAttribute('title');
+  });
+
+  it('the label keeps its colour and shows the exact last mention in Israel time on hover', () => {
+    render(<StatusText status="mentioned" daysAgo={3} lastMentionAt="2026-09-28T23:53:00.000Z" />);
+    const label = screen.getByText('3d ago');
+    expect(label).toHaveClass('recent');
+    expect(label).toHaveAttribute('title', 'Last mention: 29 Sep 2026, 02:53 IST');
+    expect(lastMentionTitle(null)).toBe('');
   });
 });
 
 describe('SentimentBadge', () => {
-  it('shows the sentiment with its colour class', () => {
-    render(<SentimentBadge sentiment="negative" />);
-    expect(screen.getByText('negative')).toHaveClass('negative');
+  it('shows the sentiment with its icon and colour class; an unknown value plainly', () => {
+    const { container } = render(<><SentimentBadge sentiment="negative" /><SentimentBadge sentiment="odd" /></>);
+    expect(screen.getByText('Negative')).toHaveClass('negative');
+    expect(screen.getByText('Negative')).toHaveTextContent('!Negative');
+    expect(screen.getByText('odd')).not.toHaveClass('negative');
+    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
   });
 });
 
 describe('CompanyTable', () => {
-  it('shows every company with its status and totals (no section column); clicking a name selects it', () => {
+  it('shows every company with the D110 columns (no section column); clicking a name or the row selects it', () => {
     const onSelect = vi.fn();
     render(<CompanyTable companies={COMPANIES_ANSWER.companies} selectedId={null} onSelect={onSelect} />);
     expect(screen.getAllByRole('row')).toHaveLength(3); // header + 2 companies
+    const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent);
+    expect(headers.slice(0, 5)).toEqual(['Company', 'Recent activityⓘ', 'Mentions (90 days)', 'Sentiment (90 days)', 'Last mentioned']);
     expect(screen.queryByText('Health')).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Section' })).not.toBeInTheDocument();
-    expect(screen.getByText('no coverage found')).toBeInTheDocument();
-    expect(screen.getByText('last mentioned 2 days ago')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Positive' })).not.toBeInTheDocument();
+    expect(screen.getByText('No coverage')).toBeInTheDocument();
+    expect(screen.getByText('2d ago')).toHaveAttribute('title', 'Last mention: 25 Sep 2026, 12:00 IST');
+    expect(screen.getByText('1 this week')).toBeInTheDocument();
+    // The arrow is drawn (plus a hidden ↓ for screen readers), so the text is in two pieces.
+    expect(screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === '↓ 1 vs prev week')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Positive 1 · Neutral 1 · Negative 1' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Harvey' }));
-    expect(onSelect).toHaveBeenCalledWith('harvey');
+    expect(onSelect).toHaveBeenLastCalledWith('harvey');
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('No coverage'));
+    expect(onSelect).toHaveBeenLastCalledWith('ukko');
   });
 
   it('the open company is marked on its name button (aria-current), not with aria-selected on the row', () => {
@@ -60,9 +86,10 @@ describe('CompanyTable', () => {
 
 describe('Header', () => {
   it('shows the window length the api sends (windowDays), not a fixed 90', () => {
-    render(<Header asOf="2026-09-27T10:00:00.000Z" windowStart="2026-08-28T10:00:00.000Z" windowDays={30} onRefresh={() => {}} isRefreshing={false} />);
-    expect(screen.getByText(/Last 30 days:/)).toBeInTheDocument();
+    render(<Header asOf="2026-09-27T10:00:00.000Z" windowStart="2026-08-28T10:00:00.000Z" windowDays={30}/>);
+    expect(screen.getByText('Last 30 days')).toBeInTheDocument();
     expect(screen.queryByText(/90/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
   });
 });
 
@@ -83,7 +110,7 @@ describe('MentionsPanel', () => {
     expect(links[0]).toHaveAttribute('href', 'https://news.google.com/a');
     expect(links[0]).toHaveAttribute('target', '_blank');
     expect(links[0]).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(screen.getByText('positive')).toBeInTheDocument();
+    expect(screen.getByText('Positive')).toBeInTheDocument();
   });
 
   it('no mentions: "No coverage found in the last N days." with N from the api', async () => {
@@ -94,14 +121,15 @@ describe('MentionsPanel', () => {
     expect(screen.getByText('No coverage found in the last 30 days.')).toBeInTheDocument();
   });
 
-  it('the title says "1 mention" for one and "N mentions" for more', async () => {
+  it('the title is the name, and under it "1 mention" / "N mentions" in the last N days', async () => {
     stubFetch((url) => jsonResponse(url.includes('/one/')
       ? { company: { id: 'one', name: 'One' }, mentions: HARVEY_MENTIONS.mentions.slice(0, 1) }
       : HARVEY_MENTIONS));
     const { rerender } = renderWithQuery(<MentionsPanel companyId="one" companyName="One" />);
-    expect(await screen.findByRole('heading', { name: 'One · 1 mention' })).toBeInTheDocument();
-    rerender(<MentionsPanel companyId="harvey" companyName="Harvey" />);
-    expect(await screen.findByRole('heading', { name: 'Harvey · 2 mentions' })).toBeInTheDocument();
+    expect(await screen.findByText('1 mention in last 90 days')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'One' })).toBeInTheDocument();
+    rerender(<MentionsPanel companyId="harvey" companyName="Harvey" windowDays={90} />);
+    expect(await screen.findByText('2 mentions in last 90 days')).toBeInTheDocument();
   });
 
   it('only an http(s) address becomes a link; any other shows the headline as plain text, unchanged', async () => {

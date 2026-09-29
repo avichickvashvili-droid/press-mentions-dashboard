@@ -39,28 +39,28 @@ describe('MentionsPanel pages', () => {
     fakeApi();
     const { wrapper } = makeQueryWrapper();
     render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper });
-    await screen.findByText('Page 1 of 3');
+    await screen.findByText('1 / 3');
     expect(MENTIONS_PER_PAGE).toBe(20);
     expect(headlines()).toHaveLength(20);
     expect(headlines()[0]).toBe('harvey story 1');
-    expect(button('« First')).toBeDisabled();
-    expect(button('‹ Previous')).toBeDisabled();
-    expect(button('Next ›')).toBeEnabled();
+    expect(button('First page')).toBeDisabled();
+    expect(button('Previous page')).toBeDisabled();
+    expect(button('Next page')).toBeEnabled();
 
-    fireEvent.click(button('Next ›'));
-    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+    fireEvent.click(button('Next page'));
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
     expect(headlines()[0]).toBe('harvey story 21');
 
-    fireEvent.click(button('Last »'));
-    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    fireEvent.click(button('Last page'));
+    expect(screen.getByText('3 / 3')).toBeInTheDocument();
     expect(headlines()).toEqual(['harvey story 41', 'harvey story 42', 'harvey story 43', 'harvey story 44', 'harvey story 45']);
-    expect(button('Next ›')).toBeDisabled();
-    expect(button('Last »')).toBeDisabled();
+    expect(button('Next page')).toBeDisabled();
+    expect(button('Last page')).toBeDisabled();
 
-    fireEvent.click(button('‹ Previous'));
-    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
-    fireEvent.click(button('« First'));
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    fireEvent.click(button('Previous page'));
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+    fireEvent.click(button('First page'));
+    expect(screen.getByText('1 / 3')).toBeInTheDocument();
   });
 
   it('20 or fewer mentions: no page nav', async () => {
@@ -75,12 +75,12 @@ describe('MentionsPanel pages', () => {
     fakeApi();
     const { wrapper } = makeQueryWrapper();
     const { rerender } = render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper });
-    await screen.findByText('Page 1 of 3');
-    fireEvent.click(button('Last »'));
-    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    await screen.findByText('1 / 3');
+    fireEvent.click(button('Last page'));
+    expect(screen.getByText('3 / 3')).toBeInTheDocument();
 
     rerender(<MentionsPanel companyId="anthropic" companyName="anthropic" />);
-    expect(await screen.findByText('Page 1 of 4')).toBeInTheDocument();
+    expect(await screen.findByText('1 / 4')).toBeInTheDocument();
     expect(headlines()[0]).toBe('anthropic story 1');
   });
 
@@ -94,10 +94,10 @@ describe('MentionsPanel pages', () => {
     Object.defineProperty(scrollArea, 'scrollTop', { value: 0, writable: true, configurable: true });
     try {
       render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper, container: scrollArea });
-      await screen.findByText('Page 1 of 3');
+      await screen.findByText('1 / 3');
       scrollArea.scrollTop = 750; // the user scrolled down the list
-      fireEvent.click(button('Next ›'));
-      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+      fireEvent.click(button('Next page'));
+      expect(screen.getByText('2 / 3')).toBeInTheDocument();
       expect(scrollArea.scrollTop).toBe(0);
     } finally {
       scrollArea.remove();
@@ -108,7 +108,7 @@ describe('MentionsPanel pages', () => {
     fakeApi();
     const { wrapper } = makeQueryWrapper();
     render(<MentionsPanel companyId="harvey" companyName="harvey" />, { wrapper });
-    await screen.findByText('Page 1 of 3');
+    await screen.findByText('1 / 3');
     const panel = screen.getByRole('complementary', { name: 'Mentions of harvey' });
     // Only this element gets the fake layout and scroll method (jsdom has neither), so nothing
     // leaks into other tests even if an assertion fails.
@@ -116,13 +116,13 @@ describe('MentionsPanel pages', () => {
     panel.getBoundingClientRect = () => ({ top, bottom: top + 2000, left: 0, right: 0, width: 0, height: 2000 });
     panel.scrollIntoView = vi.fn(() => { top = 0; });
 
-    fireEvent.click(button('Next ›'));
+    fireEvent.click(button('Next page'));
     expect(panel.scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
     expect(panel.getBoundingClientRect().top).toBe(0);
 
     panel.scrollIntoView.mockClear();
-    fireEvent.click(button('Next ›'));
-    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    fireEvent.click(button('Next page'));
+    expect(screen.getByText('3 / 3')).toBeInTheDocument();
     expect(panel.scrollIntoView).not.toHaveBeenCalled();
   });
 });

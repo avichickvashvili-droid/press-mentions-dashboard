@@ -12,7 +12,7 @@ Stop: Ctrl+C. Resume: `npm start` again. It continues where it stopped.
 
 ## Open the dashboard
 
-`npm run dashboard`, then open **http://localhost:3000**. It shows the database; if the database is empty (a fresh clone), it first loads the committed `data/`. Stop: Ctrl+C.
+`npm run dashboard`, then open **http://localhost:3000**. The table: search, and two icons on the right: Sort (Most mentions / Last mentioned / Company A–Z) and Filter (All / Mentioned this week / Mentioned / No coverage); a blue dot and a small "×" pill show a choice that is not the default. Last mentioned says "< 24h", "3d ago", "2w ago" or "1mo ago" (hover for the exact time). Recent activity = mentions in the last 7 days and the change vs the 7 days before. Click a company to see its mentions (filter them with the clock icon by 24h / 7d / 30d / 90d, with the lines icon by sentiment, or by a word in the headline; × closes the panel); the address becomes e.g. `http://localhost:3000/?company=spacex`, a link that opens that company. It shows the database; if the database is empty (a fresh clone), it first loads the committed `data/`. Stop: Ctrl+C.
 Port 3000 taken? Set `API_PORT=3001` in `.env`. More in [README](README.md#5-the-dashboard).
 
 ## Daily job
@@ -38,7 +38,7 @@ Daily run 1: searching 258 companies for 2026-09-28 to 2026-09-29 (UTC) ...
 Searched 50 of 258 companies (12 new articles so far).       ← every 50 companies
 Search done: 40 new articles, 310 already known. Classifying done.
 New mentions: 25 (14 companies).
-Dashboard told about the new data (1 open page).              ← or "not told": fine, the page shows it on Refresh
+Dashboard told about the new data (1 open page).              ← or "not told": fine, the page shows it when reloaded (F5)
 Discord message sent.
 data/ updated with the new mentions.
 Daily run 1 done: 25 new mentions, Discord sent.
@@ -93,7 +93,7 @@ FROM Mention;
 ```
 
 ### Discord
-- `📰 New press mentions · Tue 29 Sep`: every company with new mentions (count, 🟢 / ⚪ / 🔴), then the total and a dashboard link. A long list goes on in a second message.
+- `📰 New press mentions · Tue 29 Sep`: every company with new mentions (count, then 🟢 / ⚪ / 🔴 counts, all three always shown, zeros too), then the total and a dashboard link. A long list goes on in a second message.
 - `☕ All quiet on the press front`: nothing new today; the job ran fine.
 - `⚠️ Daily job problem` (red): something has been stuck for 3 hours, or a run gave up. The message says what; check the window or `daily.log`.
 - No message at all by the morning: `npm run daily` was not open (run it: it catches up), or Discord refused the webhook (see `last_error` in query 1).

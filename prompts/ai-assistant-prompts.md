@@ -3496,3 +3496,513 @@ do a 5sec, mention it in the docs that it was decided due to 2 runs that was blo
 ```
 prapre a commit and commit
 ```
+
+---
+
+## Prompt 310 — Push
+
+```
+push
+```
+
+---
+
+## Prompt 311 — Start the dashboard
+
+```
+ok lets start by you starting the site so i can view the dashboard
+```
+
+---
+
+## Prompt 312 — Which endpoint does a company click use
+
+```
+when im clicking on a company which endpoint does it go? because i dont see a change in the url
+is it expected?
+```
+
+---
+
+## Prompt 313 — Yes: company in the address
+
+```
+ok
+```
+
+---
+
+## Prompt 314 — No changes for now
+
+```
+great. that now expected
+dont do any changes now
+```
+
+---
+
+## Prompt 315 — QoL / nice-to-have: discuss with ChatGPT (theoretical)
+
+```
+heres what i want you to do
+prapre a promt with everything that can be QOL or nice to have in the site
+I want you than to explain the site and the dashboard to chat gpt
+than i want you both to discuss it and give me the best feature nice to have and QOL
+dont do any changes its a theoretic step
+```
+
+---
+
+## Prompt 316 — ChatGPT's answer (pasted)
+
+````
+Claude’s list is strong, but it slightly overvalues **visual polish** and undervalues **triage**. For an investment team, the dashboard’s main job is not “show me press data”; it’s **“tell me what changed, what deserves attention, and let me investigate quickly.”**
+
+### 1. Ideas I’d deprioritize
+
+**#10 Dark mode — low priority.** Nice polish, almost no product value for this use case. Do it only if implementation is nearly free via CSS variables and `prefers-color-scheme`.
+
+**#11 Persist sort/search in URL — mostly unnecessary.** Keeping `?company=...` is valuable because it creates a shareable state. Encoding every transient filter/search into the URL adds complexity without much payoff for a single-user local dashboard.
+
+**#8 Group mentions by day — moderate, not essential.** Helpful when browsing many articles, but the pagination already breaks the feed into manageable chunks. I'd implement this after better filtering/triage.
+
+**#17 Top publishers per company — weak as a standalone feature.** Interesting analytically, but unlikely to affect day-to-day decisions unless publisher/source quality becomes an explicit requirement.
+
+**#18 CSV export — only if someone actually asks for it.** Classic feature that sounds useful but often goes unused. Very cheap later, so don't build preemptively.
+
+**#16 Story clustering — valuable but expensive.** It solves a real problem—“12 articles” may actually be one story syndicated everywhere—but reliable clustering introduces normalization/fuzzy matching/possibly embeddings and creates new edge cases. Good V2 feature, not take-home scope.
+
+**#19 “Not about this company” — valuable, but I would not put it in the first QoL pass.** It directly addresses a known system weakness, so it's more valuable than several visual features. But it changes the dashboard from read-only analytics into a moderation workflow. Once you add it, you need to define whether the mention is deleted, hidden, excluded from counts, auditable, reversible, etc.
+
+---
+
+## 2. What I think is missing
+
+The biggest missing concept is **change over time**.
+
+Right now `1,240 mentions` tells me SpaceX is heavily covered. It doesn't tell me whether something unusual is happening **today**.
+
+I'd add a simple **Recent activity / change signal**:
+
+> SpaceX — 47 mentions last 7d ↑ 68% vs previous 7d  
+> Anthropic — 32 ↑ 12%  
+> Company X — 8 ↑ from 1
+
+This is much more actionable than raw lifetime/90-day volume.
+
+I'd also add **date-range filtering** to the mentions panel: `24h | 7d | 30d | 90d`. An investment user will frequently ask “what happened recently?” rather than wanting to page through 3,000 articles.
+
+Another useful improvement is **combined filtering** on the company list. Rather than only:
+
+`All | Mentioned this week | Mentioned | No coverage`
+
+consider allowing:
+
+`Search + coverage/status + sentiment signal`
+
+For example, “show companies with negative coverage in the last 7 days.” That turns the dashboard into an investigation tool rather than just a directory.
+
+Finally, I would expose **data freshness / pipeline health** more clearly. You already have `DailyRun`, so something like:
+
+> ✓ Last scan completed today 03:14 · 91 new mentions · 258 companies scanned
+
+and an obvious warning if today's run failed is high-value and cheap.
+
+---
+
+# 3. My ranked top 5
+
+| Rank | Feature | Why it matters | Effort | Backend |
+|---|---|---|---|---|
+| **1** | **What's New / Recent Activity** | Immediately answers “what changed since the last scan?” | M | Small API |
+| **2** | **Recent negative coverage / attention section** | Gives the investment team an immediate triage queue | M | API/query |
+| **3** | **7d trend + sentiment visualization** | Makes 258 companies scannable instead of forcing users to interpret numbers | M | API aggregation |
+| **4** | **Mention investigation filters** | Sentiment + 24h/7d/30d/90d + headline search makes the detail panel dramatically more useful | S–M | Minimal/none at current scale |
+| **5** | **False-positive feedback** | Directly attacks a known weakness in the actual system | M | DB + write API |
+
+### #1 — What's New / Recent Activity
+
+I would slightly change Claude's idea.
+
+Don't merely put tiny `NEW` badges everywhere. Give the user an explicit **“Since last run” state**:
+
+**Since today's scan**
+- 91 new mentions
+- 24 companies affected
+- 6 negative
+- 3 companies with unusually high activity
+
+Then mark relevant companies/mentions.
+
+This matches the user's actual workflow: open dashboard → understand what happened overnight → investigate.
+
+You already have `first_seen_at` and `DailyRun`, so you have most of the underlying information.
+
+---
+
+### #2 — Recent negative coverage
+
+Claude is right that this is valuable, but I'd avoid making it a dramatic “NEGATIVE NEWS 🚨” section.
+
+I'd call it something like **Needs Attention** or **Recent Negative Coverage**.
+
+For example:
+
+> **Recent Negative Coverage · Last 7 days**  
+> Company A — 4 negative mentions  
+> Company B — 2  
+> Company C — 1
+
+Clicking a company opens the panel already filtered to Negative + 7 days.
+
+That makes the component actionable.
+
+---
+
+### #3 — Trend + sentiment visualization
+
+I agree with Claude's idea, but I'd emphasize **recent trend**, not a dense 90-day sparkline for every row.
+
+Something like:
+
+`SpaceX      1,243     +42 this week ↑     █████░  78% positive`
+
+The absolute 90-day count tells you scale; recent change tells you activity; the sentiment bar tells you composition.
+
+That's enough information to scan 258 companies quickly.
+
+I would **not** display:
+
+`Positive 941 | Neutral 227 | Negative 75`
+
+as three equally prominent numeric columns forever. It forces the user to mentally calculate the distribution.
+
+Keep exact numbers accessible via hover/detail if needed.
+
+---
+
+### #4 — Better mention investigation
+
+Combine several of Claude's ideas into one feature rather than treating them independently.
+
+When I open SpaceX:
+
+**90 days ▾**  `All 3,214` `Positive 2,100` `Neutral 900` `Negative 214`  
+`🔍 Search headlines...`
+
+Date options:
+
+`24h | 7d | 30d | 90d`
+
+Now I can answer things like:
+
+> “Show me negative Anthropic press this week.”
+
+in seconds.
+
+Given only ~12k total mentions, client-side filtering is completely reasonable initially. No need to build sophisticated server-side search infrastructure.
+
+---
+
+### #5 — False-positive feedback
+
+This is the one I'd move **up** compared with Claude.
+
+You already know false positives are a real weakness:
+
+> “to scale AI” → Scale AI
+
+A dashboard that beautifully visualizes incorrect data isn't as useful as one that lets the owner correct obvious mistakes.
+
+I'd keep V1 extremely simple:
+
+`Not relevant`
+
+Click → hide from dashboard and aggregates.
+
+You could add a field such as:
+
+`manually_excluded_at`
+
+or even just:
+
+`is_excluded INTEGER DEFAULT 0`
+
+No separate table is necessary initially.
+
+Later, these manual corrections become a useful evaluation dataset for improving your filtering/model.
+
+---
+
+## 4. What I'd change in the current design
+
+The biggest thing I'd change is the **information hierarchy**.
+
+Currently the main screen begins immediately with a searchable list of 258 companies. That's closer to a database browser than an investment-monitoring dashboard.
+
+I'd structure the page roughly like this:
+
+```text
+PRESS MENTIONS                         Updated today 03:14 ✓
+
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 91 NEW       │ │ 24 COMPANIES │ │ 6 NEGATIVE   │
+│ since scan   │ │ with updates │ │ new mentions │
+└──────────────┘ └──────────────┘ └──────────────┘
+
+RECENT NEGATIVE COVERAGE
+Company A  4 negative     Company B  2     Company C  1
+
+──────────────────────────────────────────────────────
+
+PORTFOLIO
+
+[ Search companies... ] [ All ▾ ] [ Last 7 days ▾ ]
+
+Company        Recent activity      Mentions     Sentiment
+SpaceX         +47 ↑68%             1,243        █████░
+Anthropic      +32 ↑12%               934        ████░░
+Company C       +8 ↑700%               24        ██░░░░
+...
+```
+
+Then clicking the company opens your existing right-hand investigation panel.
+
+That gives you a much clearer product story:
+
+**Overview → detect something interesting → identify company → investigate articles.**
+
+One other small change: **don't let SpaceX and Anthropic permanently dominate the default ranking just because they have huge historical coverage.** “Most mentions in 90 days” is useful as one sort, but I'd seriously consider **recent activity** as the default view. Otherwise the same giant companies will sit at the top every day and obscure the exact thing a monitoring product is supposed to surface: **what changed.**
+
+For a take-home, I'd implement **#1 + #2 + #4 + the small QoL bundle**, and design/mock #3 and #5 as logical next steps. That demonstrates product thinking without turning a deliberately simple local application into an overengineered analytics platform.
+````
+
+---
+
+## Prompt 317 — The table vision (with a picture)
+
+```
+[image: a mock-up of the company table: search box, filter chips All (258) / Mentioned this week (42) / Mentioned (186) / No coverage (72), a "Sort by: Recent activity" dropdown; columns Company (with logo), Recent activity (+32 this week, +68% vs prev 7d, ⓘ), Mentions (90 days), Sentiment (a green/grey/red bar with %), 7d trend (small bars), Last mentioned, a › at the row end]
+im going to tell you my vision
+i liked the view as shared here 
+sum up the changes in the ui to do for this to happen before doing anything, this is me making sure your not missing anything
+```
+
+---
+
+## Prompt 318 — Logos agent; answers on the table vision
+
+```
+send an agent to collect logos for all the companies now
+it should be saved in cache after first load to speed latency.
+2. mentions panel stays on the right side unchanged for now
+3. come up witha  rule and let me give the verdict
+4. ok
+5. can skip that 7d trend coulnm
+6. agree use unified colors
+7. agree
+8. its just the company panel your right
+```
+
+---
+
+## Prompt 319 — The mentions panel vision (with a picture)
+
+```
+[image: a mock-up of the mentions panel: logo + "Anthropic", "934 mentions in last 90 days", a × close; tabs Mentions / Overview / Publishers; range buttons 24h (12) / 7d (32) / 30d (128) / 90d (934); sentiment buttons All (32) / Positive (22) / Neutral (7) / Negative (3); "Search headlines..."; a day heading "Today Sep 30, 2025 (4)"; rows: a sentiment pill with an icon, the headline on one line, "TechCrunch · 10:42", an open-link icon]
+ok lets start discussing the sentiments panel
+i really like that design other than the TODAY
+```
+
+---
+
+## Prompt 320 — Answers on the mentions panel
+
+```
+1. ok
+2. it should be sorted in a way of  date: and under this date a list of the setniments
+3. all
+4. keep 20
+5. what you think in regard of UX, i think default
+6. yes mention 10:35 IST
+```
+
+---
+
+## Prompt 321 — Pros and cons of the Recent activity rule
+
+```
+1. give me pros and cons
+2. not yet
+```
+
+---
+
+## Prompt 322 — Keep "most mentions", show this week's change
+
+```
+keep as most mentions, but just add the increase/decrease of this week, what do you think?
+```
+
+---
+
+## Prompt 323 — The logo agent is not visible
+
+```
+i dont see the agent runnign
+```
+
+---
+
+## Prompt 324 — Go: build the table and panel
+
+```
+ok you can go with the development
+```
+
+---
+
+## Prompt 325 — Discord digest: 3 numbers but only 2 circles
+
+```
+send an agent to fix that i see it multilpe times in the discord message
+where you see 3 numbes but only 2 dots
+for example : Cerebras 2,1,1 only showing 2 circles
+[image: "CarDekho · 2 🟢1 ⚪1"]
+```
+
+---
+
+## Prompt 326 — Resend today's Discord message to check the fix
+
+```
+ok send me the discord message i got today again to validate fix
+```
+
+---
+
+## Prompt 327 — Panel: what looks wrong; the buttons jump when counts change
+
+```
+[image: the SpaceX panel with 24h (18) and Negative (18) chosen; the magnifier icon sits far below the "Search headlines..." box with a big empty gap; "Tue 29 Sep (4)"; "Fiery end for SpaceX Starship mission - Al Jazeera" / "Al Jazeera · 02:56 IST"]
+fixed
+
+
+what looks wrong here?
+also while playing with the filters because for example i switch filter some change the numbers in the sort
+24h can go from 120 to 18
+that losing digit makes the ui everytime move a bit and its annoying
+```
+
+---
+
+## Prompt 328 — Design polish: the Mentions column is not spaced properly
+
+```
+[image 1: the owner's design: "Mentions (90 days)" left-aligned, "934" under it, space before Sentiment; "72% 20% 8%" under their parts of the bar]
+[image 2: the built table: "Mentions (90 days)" and "3,470" right-aligned, pressed against the Sentiment column; "52% 18% 30%" spread across the bar]
+something in the design dont look good look mentions coulnm not spaced properly
+make sure this stuff dont happen those are obvious designs
+```
+
+---
+
+## Prompt 329 — Always check in headless, on the dev server
+
+```
+2 things:
+from now on always check on headless
+can run on dev server to save time
+```
+
+---
+
+## Prompt 330 — Modern font, a nicer "Last mentioned", no Refresh button
+
+```
+[images: the panel's time / sentiment buttons; the "Sort by" list open (Most mentions / Last mentioned / Company A–Z); the Stripe panel top; the page nav and a day of mentions — all examples of the font]
+i want yout to work on this font of last mentioned coulnm,
+today looks old and not pretty, think of something else
+
+i want you to remove that refresh button on the top right
+also the font of 2nd image and 3rd image
+work the whole site and fix the font to not look outdated all the images are example of the font
+```
+
+---
+
+## Prompt 331 — Icons instead of text: sort / filter icons, icon page nav; a new word for "Today"
+
+```
+[image 1: a filter icon (three lines, shorter each time)]
+[image 2: the page nav "« First  ‹ Previous  Page 1 of 173  Next ›  Last »"]
+ok fixes: i want you to stay available so send that to an agent
+1. i want a different word in last mentioned, not TODAY
+something like <24h, recent,  give me options here
+2. i want to replace the sort by with sort icons its both in company panel
+and in mentions panel
+instead of having all the 24h,7d,30d,90d have a filter icon
+same for all, pos, netureal, negative
+defaults stay the same
+3. 2nd image thats too much text in the row repalce this with only icons
+```
+
+---
+
+## Prompt 332 — Answers: "< 24h" wording; the panel's two "sorts"
+
+```
+Last mentioned wording: <24h, than days, than weeks, than months
+Panel sort: the mentions panel has a sort it has: 24h, 7d,30d, 90d this is 1st sort
+2nd sort: all, positive, neutral, naegative
+```
+
+---
+
+## Prompt 333 — The top of the page: last update, new mentions, companies with updates
+
+```
+[image: a mock-up of the top of the page: the OurCrowd logo, "Press Mentions / News coverage of 258 portfolio companies"; "Last data update ✓ Today 03:14 (Israel time) · 91 new mentions · 24 companies with updates · Discord sent"; "Last 90 days Jul 2 – Sep 30"; a Refresh button; cards "91 new mentions since last scan (+28%)", "24 companies with updates out of 258", "6 negative mentions across 5 companies", "3 unusually high activity vs previous 7 days", and a "Recent Negative Coverage · Last 7 days" list]
+i want you to work on the upper side of the side above the company panel and mentions table 
+make sure before you start to not conflict with the agent
+im going to tell you what i want there:
+last date updated, matching the daily job finish time
+new mentions from the daily job, matching the discord message
+companies with updates aswell
+negative mentions you can leave out
+and unusalley high activity you can leave out aswell
+```
+
+---
+
+## Prompt 334 — A card: how many companies are covered, out of how many
+
+```
+[image: a card "Companies Mentioned — 254 / 257 — ↑ 12 — companies mentioned this quarter" with a purple building icon]
+i want you to add to the main panel. how many companies total and out of how many are covered
+something like that without that
+uparrow 12 which i dont know what it represents
+```
+
+---
+
+## Prompt 335 — Sort bugs: no pill for Most mentions; choosing the same sort again should reverse it
+
+```
+[image: the Sort menu open with "Last mentioned" ✓ and the pill "Sort: Last mentioned ×"]
+ok bugs:
+1. company panel when selecting sort, last mentioned bubble is added works good for company a-z
+but when going back to most mentions there is no bubble
+2. by logic, when selecting last mentioned, and then selecting it again it should do reverse sort
+now it just stays the same , its like sorting a-z but than selecting again should be z-a
+i dont know how but handle it that way so this 3 sorts
+would have their reverse option when reselected
+```
+
+---
+
+## Prompt 336 — Commit everything
+
+```
+looks good first of all commit and make sure to commit everything
+```

@@ -113,7 +113,7 @@ test('a whole run: only the really new mentions reach the dashboard, Discord and
   assert.equal(sent.length, 1);
   const { title, description } = sent[0].embeds[0];
   assert.equal(title, '📰 New press mentions · Mon 28 Sep');
-  assert.match(description, /\*\*Harvey\*\* · 2 {3}🟢 1 {2}🔴 1\n\*\*Ukko\*\* · 1 {3}🔴 1\n/);
+  assert.match(description, /\*\*Harvey\*\* · 2 {3}🟢 1 {2}⚪ 0 {2}🔴 1\n\*\*Ukko\*\* · 1 {3}🟢 0 {2}⚪ 0 {2}🔴 1\n/);
   assert.match(description, /\*\*3\*\* new/);
 
   // Every mention is alerted now (the old one by the first-run marking).

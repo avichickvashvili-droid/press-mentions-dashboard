@@ -1,0 +1,188 @@
+/* IconMenu.module.css — the square icon buttons (sort / filter), their small menu card and the
+   removable pills of a non-default choice (owner, Prompt 331). The page's colours and Inter. */
+
+/* The icon button: as tall as the search box next to it. */
+.iconButton {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--muted);
+  transition: color 0.12s, border-color 0.12s, background-color 0.12s;
+}
+
+.iconButton:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.open,
+.open:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+
+.active {
+  color: var(--accent);
+}
+
+/* The dot on the icon when a non-default choice is on. */
+.badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--card-bg);
+}
+
+/* The menu card: drawn at the end of the page, fixed under its button, above everything. */
+.menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 220px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 28px rgba(31, 35, 40, 0.14), 0 2px 6px rgba(31, 35, 40, 0.08);
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.section + .section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.sectionTitle {
+  padding: 4px 10px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* One choice: ✓ | label | count. */
+.item {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.item:hover:not(:disabled),
+.item:focus-visible {
+  background: var(--header-bg);
+  outline: none;
+}
+
+.checked {
+  font-weight: 600;
+}
+
+.check {
+  display: flex;
+  color: var(--accent);
+}
+
+.itemLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.count {
+  padding-left: 16px;
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sentiment choices: a coloured dot and the page's sentiment text colours. */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.positive {
+  color: var(--positive-text);
+}
+
+.positive .dot {
+  background: var(--positive);
+}
+
+.neutral {
+  color: var(--neutral-text);
+}
+
+.neutral .dot {
+  background: var(--neutral);
+}
+
+.negative {
+  color: var(--negative-text);
+}
+
+.negative .dot {
+  background: var(--negative);
+}
+
+/* A non-default choice, e.g. "Mentioned this week ×": click to go back to the default. */
+/* A pill that only shows a choice (nothing to remove): no hover, no pointer. */
+.pillPlain {
+  cursor: default;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--selected-bg);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pill:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.pill svg {
+  opacity: 0.8;
+}

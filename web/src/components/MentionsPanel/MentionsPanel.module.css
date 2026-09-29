@@ -1,17 +1,90 @@
-/* MentionsPanel.module.css — the list of one company's mentions. */
+/* MentionsPanel.module.css — the mentions panel (owner's design, D111): a card with the company
+   at the top, the headline search with its two filter icons, and the list grouped by day. */
 .panel {
+  background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 12px;
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  padding: 20px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.titleBox {
+  flex: 1;
+  min-width: 0;
 }
 
 .title {
-  margin: 0 0 8px;
-  font-size: 1.1rem;
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.close {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.close:hover {
+  color: var(--text);
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* The headline search and the two filter icons on one line; the pills of any non-default choice under it. */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchSlot {
+  flex: 1;
+  min-width: 0;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .hint {
   color: var(--muted);
+}
+
+.day {
+  margin-bottom: 12px;
+}
+
+.dayHeading {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.dayCount {
+  color: var(--muted);
+  font-weight: normal;
 }
 
 .list {
@@ -21,33 +94,78 @@
 }
 
 .item {
-  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 
-.itemMeta {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 0.85rem;
-  margin-bottom: 2px;
+.itemText {
+  flex: 1;
+  min-width: 0;
 }
 
-.publisher {
+.headline {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+  text-decoration: none;
+}
+
+a.headline:hover {
+  color: var(--link);
+  text-decoration: underline;
+}
+
+.meta {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.open {
+  flex: none;
+  display: flex;
+  color: var(--link);
 }
 
 .pageNav {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 4px;
   margin-bottom: 8px;
 }
 
-.pageText {
-  padding: 0 6px;
+/* The four page buttons: small squares with a chevron. */
+.pageButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
   color: var(--muted);
+}
+
+.pageButton:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.pageButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* "1 / 173" between the buttons. */
+.pageText {
+  min-width: 64px;
+  padding: 0 6px;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

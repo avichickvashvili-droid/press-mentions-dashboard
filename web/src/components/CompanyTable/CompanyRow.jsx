@@ -1,32 +1,40 @@
-// CompanyRow.jsx — one company in the table: name, status, mention count and the
-// positive / negative / neutral totals (FR1, FR5, D99).
+// CompanyRow.jsx — one company in the table: logo and name, Recent activity, mentions in the
+// window, the sentiment bar, when it was last mentioned, and a › (FR1, FR5, D99, D110).
 //
 // Where it sits: drawn by CompanyTable.jsx for each company.
+// A click anywhere on the row opens the company. The name is also a button, so the keyboard
+// (Tab + Enter) and screen readers can open it; the open company is marked on it (aria-current).
 
+import { formatCount } from '../../utils/activity.js';
+import { CompanyLogo } from '../CompanyLogo/CompanyLogo.jsx';
+import { SentimentBar } from '../SentimentBar/SentimentBar.jsx';
 import { StatusText } from '../StatusText/StatusText.jsx';
+import { ActivityCell } from './ActivityCell.jsx';
 import styles from './CompanyTable.module.css';
 
-// `selected` highlights the row and marks the name button as the open company
-// (aria-current, so screen readers announce it); clicking the name selects the company.
+// `selected` highlights the row; `onSelect(id)` opens the company.
 export function CompanyRow({ company, selected, onSelect }) {
-  const { positive, negative, neutral } = company.sentimentCounts;
+  const quiet = !company.mentionCount && !company.weekCount && !company.prevWeekCount;
   return (
-    <tr className={selected ? styles.selected : undefined}>
+    <tr className={`${styles.row} ${selected ? styles.selected : ''}`} onClick={() => onSelect(company.id)}>
       <td>
-        <button
-          type="button"
-          className={styles.nameButton}
-          aria-current={selected ? 'true' : undefined}
-          onClick={() => onSelect(company.id)}
-        >
-          {company.name}
-        </button>
+        <div className={styles.company}>
+          <CompanyLogo name={company.name} logoUrl={company.logoUrl} />
+          <button
+            type="button"
+            className={styles.nameButton}
+            aria-current={selected ? 'true' : undefined}
+            onClick={(event) => { event.stopPropagation(); onSelect(company.id); }}
+          >
+            {company.name}
+          </button>
+        </div>
       </td>
-      <td><StatusText status={company.status} daysAgo={company.daysAgo} /></td>
-      <td className={styles.number}>{company.mentionCount}</td>
-      <td className={styles.number}>{positive}</td>
-      <td className={styles.number}>{negative}</td>
-      <td className={styles.number}>{neutral}</td>
+      <td>{quiet ? <span className={styles.muted}>—</span> : <ActivityCell week={company.weekCount} previous={company.prevWeekCount} />}</td>
+      <td className={`${styles.mentions} ${styles.count}`}>{formatCount(company.mentionCount)}</td>
+      <td><SentimentBar counts={company.sentimentCounts} /></td>
+      <td><StatusText status={company.status} daysAgo={company.daysAgo} lastMentionAt={company.lastMentionAt} /></td>
+      <td className={styles.chevron} aria-hidden="true">›</td>
     </tr>
   );
 }

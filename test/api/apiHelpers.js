@@ -81,6 +81,7 @@ export async function startApi(onCleanup, options) {
     getCompanyNames: () => ['Harvey', 'Ukko'],
     getSectionNames: () => SECTION_NAMES,
     webDistDir: path.join(os.tmpdir(), 'press-api-test-no-such-folder'),
+    logosDir: path.join(os.tmpdir(), 'press-api-test-no-logos'),
     logError: (text) => errors.push(text),
     ...options,
   });

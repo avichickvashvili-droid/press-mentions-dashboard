@@ -348,6 +348,19 @@ export const config = {
   // The built dashboard page (made by the Vite build) that the api serves.
   WEB_DIST_DIR: path.join(PROJECT_ROOT, 'web', 'dist'),
 
+  // "This week" in the company table's Recent activity column (owner, Prompts 317-322, D110):
+  // mentions published in the last ACTIVITY_DAYS days, compared with the ACTIVITY_DAYS before
+  // them. Rolling from the request time, like the 90-day window.
+  ACTIVITY_DAYS: 7,
+
+  // The company logos (collected once by an agent, Prompt 318, D112): one image per company plus
+  // logos.json ({ id: { file, domain, source, confidence } | null }). Served at /logos/<file>.
+  LOGOS_DIR: path.join(PROJECT_ROOT, 'web', 'public', 'logos'),
+
+  // How long the browser keeps a logo before asking again (30 days): after the first visit the
+  // logos load from the browser's cache, not from the server (owner, Prompt 318).
+  LOGO_CACHE_MAX_AGE_MS: 30 * 24 * 60 * 60 * 1000,
+
   // The address the api listens on: 127.0.0.1 = this computer only (D106, code review #2).
   // Nobody else on the network can open the dashboard or send it the daily job's signal.
   API_HOST: '127.0.0.1',

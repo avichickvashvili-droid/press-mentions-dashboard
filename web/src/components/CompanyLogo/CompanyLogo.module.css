@@ -1,0 +1,29 @@
+/* CompanyLogo.module.css — the logo square (or the letter badge in its place). */
+.logo {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--card-bg);
+}
+
+.small {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+}
+
+.large {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+.badge {
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

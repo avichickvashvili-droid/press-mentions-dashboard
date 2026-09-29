@@ -7,8 +7,8 @@
 //
 // A day with new mentions (the lean digest): one embed, title "📰 New press mentions · Tue 29 Sep"
 // (the day the message is sent, in DAILY_TIMEZONE), then EVERY company with new mentions, one
-// line each, most first (ties by name): bold name · count, then only the non-zero 🟢 positive /
-// ⚪ neutral / 🔴 negative counts. At the end: "**N** new · Open the dashboard ↗".
+// line each, most first (ties by name): bold name · count, then always all three 🟢 positive /
+// ⚪ neutral / 🔴 negative counts, zeros too. At the end: "**N** new · Open the dashboard ↗".
 // A long list goes on in more messages ("(2/3)" in the title), because Discord allows at most
 // 4,096 characters of text in one; the total and the link are in the last one. Each message
 // carries the ids of the mentions it lists, so they are marked alerted only when THAT message
@@ -48,15 +48,16 @@ function formatNumber(value) {
   return value.toLocaleString('en-US');
 }
 
-// One company's line: "**Anthropic** · 14   🟢 6  ⚪ 7  🔴 1" (zero counts left out).
+// One company's line: "**CarDekho** · 2   🟢 1  ⚪ 1  🔴 0". All three circles are always shown,
+// in the order 🟢 ⚪ 🔴, zeros too: when a 0 was left out, the total looked like one more count
+// without a circle (owner, Prompt 325).
 export function companyLine(company) {
   const maxChars = config.DISCORD_MAX_NAME_CHARS; // a safety net: one line must always fit in a message
   const name = company.name.length > maxChars ? `${company.name.slice(0, maxChars - 1)}…` : company.name;
   const counts = [['🟢', company.positive], ['⚪', company.neutral], ['🔴', company.negative]]
-    .filter(([, count]) => count > 0)
     .map(([icon, count]) => `${icon} ${formatNumber(count)}`)
     .join('  ');
-  return `**${escapeMarkdown(name)}** · ${formatNumber(company.total)}${counts ? `   ${counts}` : ''}`;
+  return `**${escapeMarkdown(name)}** · ${formatNumber(company.total)}   ${counts}`;
 }
 
 // One Discord message (the webhook's JSON body) with one embed.

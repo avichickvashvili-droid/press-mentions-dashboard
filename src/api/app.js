@@ -11,7 +11,13 @@
 // Endpoints (PLAN.md 1.4):
 //   GET /api/companies               every company in the list with its status and totals, and
 //                                    windowDays (how many days the window covers, for the page)
-//   GET /api/companies/:id/mentions  one company's mentions in the last 90 days, newest first
+//                                    (plus, per company, weekCount / prevWeekCount for Recent
+//                                    activity and logoUrl, D110, D112), and dailyRun: the daily
+//                                    job's latest run and its numbers for the top of the page (D113)
+//   GET /api/companies/:id/mentions  one company's mentions in the last 90 days, newest first,
+//                                    and asOf (the time they were read: the page counts its
+//                                    24h / 7d / 30d buttons from it, D111)
+//   GET /logos/<file>                a company logo (D112); the browser keeps it for 30 days
 //   GET /api/events                  live updates for an open page (Server-Sent Events, events.js):
 //                                    "data-updated" when the daily job has added new data
 //   POST /api/internal/data-updated  the daily job's signal (D106). Accepted only from this
@@ -45,8 +51,9 @@ import express from 'express';
 import { config } from '../config.js';
 import { readCompanyNames } from '../shared/companyList.js';
 import { loadSectionNames } from '../classifier/prompt.js';
-import { findCompany, readCompanyList, readCompanyMentions } from './queries.js';
+import { findCompany, readCompanyList, readCompanyMentions, readDailySummary } from './queries.js';
 import { createEventHub, DAILY_JOB_HEADER, isLocalRequest } from './events.js';
+import { readLogoUrls } from './logos.js';
 
 // The security headers of every answer (see the file header).
 const SECURITY_HEADERS = {
@@ -68,6 +75,8 @@ const READ_FAILED_MESSAGE = 'The dashboard data could not be read from the datab
 //   logError         where server-side errors are written
 //   events           the live-updates channel (events.js); runApi.js closes it when stopping
 //   allowedHosts     the Host names the api answers to (see the top)
+//   logosDir         the folder of the company logos and logos.json (read once, when first asked)
+//   activityDays     the length of "this week" for Recent activity
 export function createApp({
   db,
   now = () => Date.now(),
@@ -78,6 +87,8 @@ export function createApp({
   logError = (text) => console.error(text),
   events = createEventHub(),
   allowedHosts = config.API_ALLOWED_HOSTS,
+  logosDir = config.LOGOS_DIR,
+  activityDays = config.ACTIVITY_DAYS,
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -98,6 +109,14 @@ export function createApp({
     }
     res.status(403).json({ error: `This dashboard only answers on this computer: open http://localhost:${config.API_PORT}` });
   });
+
+  // The logo list, read once when first needed (the logos only change when collected again,
+  // then restart the api).
+  let logoUrls = null;
+  const getLogoUrls = () => {
+    logoUrls ??= readLogoUrls(logosDir, { logError });
+    return logoUrls;
+  };
 
   // Answers with a JSON error, and writes the details to the server log (never to the page).
   function sendServerError(res, where, error) {
@@ -120,8 +139,10 @@ export function createApp({
         windowDays,
         companyNames: getCompanyNames(),
         sectionNames: getSectionNames(),
+        activityDays,
+        logoUrls: getLogoUrls(),
       });
-      res.json(result);
+      res.json({ ...result, dailyRun: readDailySummary(db) });
     } catch (error) {
       sendServerError(res, 'GET /api/companies', error);
     }
@@ -135,8 +156,9 @@ export function createApp({
         res.status(404).json({ error: `No company with the id "${req.params.id}".` });
         return;
       }
-      const mentions = readCompanyMentions(db, company.id, { now: now(), windowDays });
-      res.json({ company: { id: company.id, name: company.name }, mentions });
+      const asOf = now();
+      const mentions = readCompanyMentions(db, company.id, { now: asOf, windowDays });
+      res.json({ company: { id: company.id, name: company.name }, asOf: new Date(asOf).toISOString(), mentions });
     } catch (error) {
       sendServerError(res, `GET /api/companies/${req.params.id}/mentions`, error);
     }
@@ -161,6 +183,11 @@ export function createApp({
   app.use('/api', (req, res) => {
     res.status(404).json({ error: `Unknown API address: ${req.method} ${req.originalUrl}` });
   });
+
+  // The company logos (D112). The browser keeps each one for LOGO_CACHE_MAX_AGE_MS (30 days), so
+  // after the first visit they load from its cache. A missing logo is a 404 (the page then shows
+  // a letter badge).
+  app.use('/logos', express.static(logosDir, { maxAge: config.LOGO_CACHE_MAX_AGE_MS, index: false }));
 
   // The built dashboard page and its files (JavaScript, CSS).
   app.use(express.static(webDistDir));

@@ -382,6 +382,14 @@ export const config = {
   // COLLECTION_DAYS back.
   DAILY_SEARCH_DAYS: 2,
 
+  // The daily job's pace on Google News: at most one search per this many milliseconds (5 s, plus
+  // the small random REQUEST_JITTER_MS), so a run of ~260 searches takes about 22 minutes. The
+  // 90-day collector keeps REQUEST_INTERVAL_MS (1 s). Why (owner, Prompt 308, D108): the first two
+  // real daily runs (29 Sep 2026) searched at 1 s and Google answered "503 busy / limiting us"
+  // after about 197 fast searches, for about 2 hours each time, so each run took 2 h 16 min
+  // instead of about 4 min. The job runs at 03:00, so a slower pace costs nothing.
+  DAILY_REQUEST_INTERVAL_MS: 5000,
+
   // "Missed run" check at start-up: when the last successful daily run started more than this
   // long ago (or there is none), `npm run daily` runs the job right away (Prompt 272).
   DAILY_MISSED_AFTER_MS: 24 * 60 * 60 * 1000,

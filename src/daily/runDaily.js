@@ -175,7 +175,11 @@ function main() {
     warn('DISCORD_WEBHOOK_URL is not set in .env: the daily job runs, but no Discord message is sent.');
   }
 
-  const googleClient = createGoogleNewsClient({ onRetry: (info) => warn(describeGoogleRetry(info)) });
+  // The daily job's own, slower pace (5 s per search, D108): 1 s got it blocked by Google.
+  const googleClient = createGoogleNewsClient({
+    onRetry: (info) => warn(describeGoogleRetry(info)),
+    requestIntervalMs: config.DAILY_REQUEST_INTERVAL_MS,
+  });
   const classifier = createClassifier({ db, client: createOllamaClient(), sectionNames, log, warn });
   scheduler = createDailyScheduler({
     runOnce: (reason) => runOnce({ googleClient, classifier }, reason),

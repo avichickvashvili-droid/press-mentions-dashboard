@@ -3420,3 +3420,79 @@ is the daily job ready for production? yes or no answer
 ```
 commit now
 ```
+
+---
+
+## Prompt 302 — Push
+
+```
+push
+```
+
+---
+
+## Prompt 303 — Overnight: an agent runs the real daily job and reports; update the guide
+
+```
+now im going to leave you a task:
+its 00:00 am here
+i want you to send an agent to run the daily job while im asleep
+you can start it now and let it run 
+i want a detailed run of how it went when i wake up with all the data it fetched and to see its updated in the db as expected while filtering out data 
+i want him to test it worked as expected and if not give me a detailed overview
+and ofc discord message
+
+mean while what i need you to do is to update the guide with how to run and check the progress of the daily job
+```
+
+---
+
+## Prompt 304 — Will it run at 3am?
+
+```
+will it run at 3am?
+```
+
+---
+
+## Prompt 305 — Why run the daily job now and not at 3am?
+
+```
+why are we running the daily job now and not in 3am?
+```
+
+---
+
+## Prompt 306 — Got it
+
+```
+got it
+```
+
+---
+
+## Prompt 307 — Slower pace for the daily job; stop the processes; today: the dashboard
+
+```
+Google limits us. Both runs were blocked (HTTP 503) after about 197 fast searches, for about 2 hours. The job waited and finished, as designed, but each run took about 2 h 16 min instead of about 4 minutes. A slower pace for the daily job (2–3 s per search, about 10 min in total) would likely avoid this.
+yeah lets think on a new slower time to do that
+the rest is fine
+you can stop the process running 
+today we are going to focus on the dashboard
+```
+
+---
+
+## Prompt 308 — Daily job pace: 5 s per search, documented with the reason
+
+```
+do a 5sec, mention it in the docs that it was decided due to 2 runs that was blocked by google because of going too fast
+```
+
+---
+
+## Prompt 309 — Commit
+
+```
+prapre a commit and commit
+```

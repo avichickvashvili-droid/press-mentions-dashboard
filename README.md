@@ -117,7 +117,7 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 434 backend tests (pipeline + API + daily job). Offline: Google News, Ollama and Discord are replaced with fakes |
+| `npm test` | Runs all 435 backend tests (pipeline + API + daily job). Offline: Google News, Ollama and Discord are replaced with fakes |
 | `npm run test:web` | Runs the dashboard page's 64 tests (Vitest, in a simulated browser) |
 | `npm run daily` | Starts the daily job; it stays up and runs every day at 03:00 Israel time (see [the daily job](#6-the-daily-job)) |
 | `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
@@ -170,7 +170,7 @@ It stays up (like the dashboard, in its own terminal) and runs **every day at 03
 **One daily run, step by step:**
 1. **Waits** if the 90-day collection (`npm start`) is still collecting or classifying, and tries again every 15 min. If that collection was stopped halfway and nothing is working on it, the log says so: run `npm start` to finish it.
 2. **First run ever only:** marks every mention already in the database as alerted, so the ~11,600 mentions of the real run never go to Discord.
-3. **Searches** every company for yesterday + today (Google takes dates only). A company that is in the list but not in the database yet is named in one warning (run `npm run seed` to add it). Articles already stored are skipped by the same duplicate checks as the 90-day run. The AI classifies at the same time: not about the company → deleted, about it → a mention with its sentiment.
+3. **Searches** every company for yesterday + today (Google takes dates only), **one search every 5 seconds** (about 22 minutes for all companies; see below). A company that is in the list but not in the database yet is named in one warning (run `npm run seed` to add it). Articles already stored are skipped by the same duplicate checks as the 90-day run. The AI classifies at the same time: not about the company → deleted, about it → a mention with its sentiment.
 4. **New mentions** = mentions not alerted yet (`Mention.alerted_at` empty), counted per company.
 5. **Updates the dashboard** (only when something is new): it calls the API, and every open page reloads its data: the new mentions appear, and anything older than 90 days drops out.
 6. **Discord:** one message listing **every** company with new mentions (count and 🟢 / ⚪ / 🔴), most first, with the total and a dashboard link; a long list goes on in a second message. A quiet day gets a short "☕ All quiet on the press front" message, so you know it ran. Only after Discord accepts a message are its mentions marked as alerted; if Discord fails, they go out with the next run.
@@ -187,6 +187,8 @@ It stays up (like the dashboard, in its own terminal) and runs **every day at 03
 - **Something stays wrong for hours:** Discord gets one "⚠️ Daily job problem" message (red) when a run has waited 3 hours (the 90-day collection is still open), has been going on for 3 hours (e.g. Ollama or Google is down; the message says the last problem), or gave up after its 3 retries. So a silent Discord never hides a problem.
 - **Stopped in the middle** (Ctrl+C, a crash, a closed window): the articles being classified go back to the queue, the run is marked failed, and the next start runs it again. An article left "being classified" by a program that is gone is given back, so it can never make a run wait forever.
 - **The database is busy** for a moment (another program is writing): the run's own writes wait and try again, so a message Discord already accepted is never sent twice.
+
+**Why 5 seconds per search:** the first two real daily runs (29 Sep 2026) searched at the collector's pace, 1 per second. Both times Google answered "503 busy / limiting us" after about 197 fast searches and blocked us for about 2 hours, so each run took 2 h 16 min instead of about 4 minutes. The job waited and finished by itself, but the owner decided on a slower pace for the daily job only (5 s, `DAILY_REQUEST_INTERVAL_MS` in `src/config.js`). It runs at 03:00, so the extra minutes cost nothing. The 90-day collection keeps 1 s.
 
 **Restarting it:** nothing restarts `npm run daily` by itself. After a crash, a closed window or a PC restart, just run `npm run daily` again: it runs the missed day right away (and searches every day since the last run).
 
@@ -468,15 +470,16 @@ Each design choice solves a specific problem. For each one: the problem, what we
 ### 3. Google blocks aggressive scraping
 - **Problem:** Google publishes no rate limit. Going too fast leads to HTTP 429 errors, CAPTCHA pages or temporary IP blocks.
 - **Solution:**
-  - One request at a time, **1 second apart** with a little random jitter.
+  - One request at a time, **1 second apart** with a little random jitter. The daily job uses **5 seconds** (see below).
   - On 429 or CAPTCHA, **back off exponentially** (wait longer each time), then retry the same company until it's done.
   - On 403 (blocked), wait 5 s for the first 3 tries, then use the same growing waits (up to 10 min), so a real block isn't hammered.
   - A broken or cut-off XML answer is treated like a 429: growing waits, then the same search again.
   - On **400** (or another 4xx such as 404 or 410, but not 403, 408 or 429): wait 1 minute and try again, **3 tries in total**. After the 3rd, that company is marked `failed` with the reason and its group goes on with the next company. Nothing else fails a company.
   - **Every** Google error is logged with its HTTP code and the company name, e.g. `Google error for Acme Bio: Google rejected the search (HTTP 400 Bad Request) (try 1 of 3); retrying the same search in 1 min.`, so the real run's logs show exactly what Google answered.
   - Companies are fetched **one at a time**.
+- **What happened in real runs:** the 90-day collection (745 searches, spread out because it kept pausing for the AI) was never blocked. The first two daily runs searched ~200 companies in a row at 1 per second and were blocked (HTTP 503) for about 2 hours each. So the daily job now waits **5 seconds** between searches (~22 minutes per run, owner decision, D108).
 - **Trade-offs:**
-  - 1 second is faster than the 3–5 seconds commonly reported as safe, so a block is more likely. We accept that risk for faster daily runs (a few minutes of collection instead of ~15–20), and the backoff handles blocks when they happen.
+  - 1 second is faster than the 3–5 seconds commonly reported as safe, so a block is more likely. We accept that risk for the 90-day collection, which was never blocked. The daily job was blocked at 1 s (twice, for about 2 hours), so it uses 5 s (D108).
   - During the 90-day backfill the local LLM is the slow part, so the faster pace barely changes the total time (a few hours).
 
 ### 4. Ambiguous company names bring junk results

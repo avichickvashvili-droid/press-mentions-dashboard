@@ -35,11 +35,14 @@ const LIST = {
 
 afterEach(() => window.history.replaceState(null, '', '/'));
 
-// Draws the page with a fake api (counting list loads) and waits for the table.
+// Draws the Companies page (?page=companies, D117) with a fake api (counting list loads) and
+// waits for the table.
 async function renderApp() {
+  window.history.replaceState(null, '', '/?page=companies');
   const calls = { list: 0 };
   stubFetch((url) => {
     if (url.includes('/mentions')) return jsonResponse({ company: { id: 'klook', name: 'Klook' }, asOf: LIST.asOf, mentions: [] });
+    if (url.includes('/api/overview')) return jsonResponse({ daily: [], recent: [], attention: [], totals: {} }); // the hero's (D118)
     calls.list += 1;
     return jsonResponse(LIST);
   });
@@ -165,10 +168,10 @@ describe('company table', () => {
   it('opening a company from a row, and the panel × closes it (and clears ?company)', async () => {
     await renderApp();
     fireEvent.click(screen.getByText('62'));
-    expect(window.location.search).toBe('?company=klook');
+    expect(window.location.search).toBe('?page=companies&company=klook');
     expect(await screen.findByRole('heading', { level: 2, name: 'Klook' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close the mentions' }));
-    expect(window.location.search).toBe('');
+    expect(window.location.search).toBe('?page=companies');
     expect(screen.getByText('Click a company to see its mentions.')).toBeInTheDocument();
   });
 });

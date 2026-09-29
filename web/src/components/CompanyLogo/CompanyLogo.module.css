@@ -6,7 +6,13 @@
   justify-content: center;
   border-radius: 6px;
   object-fit: contain;
-  background: var(--card-bg);
+  background: var(--logo-bg);
+}
+
+/* A picture logo gets a little room inside its light tile (most logos are dark on transparent,
+   so on the dark theme they need a light tile to be seen, D117). */
+img.logo {
+  padding: 2px;
 }
 
 .small {
@@ -23,7 +29,7 @@
 }
 
 .badge {
-  color: #ffffff;
+  color: var(--on-color);
   font-weight: 600;
   letter-spacing: 0.02em;
 }

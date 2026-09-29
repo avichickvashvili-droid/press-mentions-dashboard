@@ -197,8 +197,8 @@ npm start -- --groups 2,5
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs all 453 backend tests (pipeline + API + daily job + the Docker starter and snapshot). Offline: Google News, Ollama and Discord are replaced with fakes |
-| `npm run test:web` | Runs the dashboard page's 102 tests (Vitest, in a simulated browser) |
+| `npm test` | Runs all 458 backend tests (pipeline + API + daily job + the Docker starter and snapshot). Offline: Google News, Ollama and Discord are replaced with fakes |
+| `npm run test:web` | Runs the dashboard page's 124 tests (Vitest, in a simulated browser) |
 | `npm run docker:snapshot` | Refreshes the database copy that ships with Docker (`docker/seed/press-mentions.sqlite`), reading the live database read-only (D116) |
 | `npm run daily` | Starts the daily job; it stays up and runs every day at 03:00 Israel time (see [the daily job](#6-the-daily-job)) |
 | `npm run dashboard` | Builds the dashboard page and starts the API + page at http://localhost:3000 (see [the dashboard](#5-the-dashboard)) |
@@ -217,6 +217,20 @@ Each service ends with an exit code that says why it stopped (0 finished, 3 refu
 npm run dashboard
 ```
 Then open **http://localhost:3000**. The dashboard is its own command, separate from `npm start`, and needs neither Google News nor Ollama.
+
+**TL;DR (D117):** a dark, modern page (a light mode too) with a side menu and two pages: **Overview** (opens first: numbers, charts and lists across all companies) and **Companies** (the table and one company's mentions).
+
+- **Side menu:** Overview, Companies, the data status ("Data up to date · Today 05:16 IST") and the **Light mode / Dark mode** switch (dark by default, remembered in this browser). On a phone it becomes a bar across the top. The page is in the address (`?page=companies`), so a refresh stays and Back works.
+- **The hero band at the top of both pages (D118):** a slowly glowing band with today's date and the page title in a gradient; on the Overview a **briefing** written from the data ("This week: 1,657 mentions ↑ 55% vs last week. Anthropic leads with 535, SpaceX follows with 484. EquipmentShare turned 85% negative, and OpenEvidence spiked +475%.", the names open the company); **status pills** (Live · updated today 05:16 IST with a pulsing dot, amber when over 26 h old, red when the last run failed; the last run's new mentions and companies; Discord sent; the window); and a **ticker** of the newest 20 headlines (each opens its article; hover pauses it; it stands still for viewers who asked for less motion).
+- **Overview** (`GET /api/overview`, counted from the mentions when asked, nothing stored):
+  - **Four number cards:** total mentions in 90 days with the change of the last 30 days vs the 30 before and a mini chart; companies mentioned ("138 / 258") with a ring; the sentiment split (bar + % + counts); the last daily run (new mentions, companies, time, Discord). Numbers count up when the page opens.
+  - **Mentions over time:** per Israel day (or week) of the 90 days, stacked by sentiment, with the peak day, a Daily / Weekly switch, hover numbers, and a legend that hides or shows a sentiment.
+  - **Mentions by month:** stacked bars per month with the total on top.
+  - **Top companies:** the top 10 by Most mentioned / Trending (the biggest rise this week) / Most positive / Most negative (share of their 90 days, only companies with 20+ mentions).
+  - **Needs attention:** up to 6 companies picked automatically this week, one of each kind in turn: a **negative week** (50%+ of 10+ mentions negative), a **spike** (2× the week before, 10+ mentions), **went quiet** (none this week after 10+ in the 30 days before), a **very positive week** (85%+ positive). Each with a 14-day mini chart. The limits are in `src/config.js` (`OVERVIEW`).
+  - **Recent mentions:** the newest 20 across all companies, with All / Positive / Neutral / Negative buttons; the headline opens the article.
+  - Clicking a company anywhere opens it on the Companies page: the table scrolls to its row, which is selected and glows for a moment, with its mentions beside it. Going back to the Overview clears the Companies page (open company, search, filter, sort).
+- **The Companies page** (below): its top shows the page title, the last data update and the window.
 - **The top of the page:** "Last data update": when the daily job last finished (e.g. "Today 05:16 (Israel time)", the same time as its Discord message), with a mark: green ✓ done, blue = a daily run is going on now, red = the last daily run failed, amber = the last update is over 26 hours old (is `npm run daily` open?), grey = no daily run yet. Under it, and in two cards: that run's **new mentions** and **companies with updates** (out of 258), the same numbers as its Discord message, and whether Discord was sent. A third card shows **coverage**: how many of the watched companies were mentioned in the 90 days ("138 / 258"). On the right: the 90-day window.
 - **The table** shows every company in the list, also those with no coverage, **most mentions first** (no coverage last). Columns:
   - **Company:** its logo and name (a coloured letter badge, e.g. "SP", when there is no logo).

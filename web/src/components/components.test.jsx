@@ -1,7 +1,7 @@
 // components.test.jsx — the main components, kept short for the sample (owner, Phase 2):
 // StatusText wording (FR5, Prompt 332), SentimentBadge, CompanyTable (every company, the D110 columns, click
 // selects),
-// MentionsPanel states and link attributes (FR2-FR4), Header (the window length from the api),
+// MentionsPanel states and link attributes (FR2-FR4) (the window length from the api is in Hero.test.jsx),
 // ErrorBoundary. The fetch is a fake.
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -9,7 +9,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { freshness, lastMentionTitle, statusWords, StatusText } from './StatusText/StatusText.jsx';
 import { SentimentBadge } from './SentimentBadge/SentimentBadge.jsx';
 import { CompanyTable } from './CompanyTable/CompanyTable.jsx';
-import { Header } from './Header/Header.jsx';
 import { MentionsPanel } from './MentionsPanel/MentionsPanel.jsx';
 import { ErrorBoundary } from './common/ErrorBoundary.jsx';
 import { COMPANIES_ANSWER, HARVEY_MENTIONS, jsonResponse, makeQueryWrapper, stubFetch } from '../test/testTools.jsx';
@@ -81,15 +80,6 @@ describe('CompanyTable', () => {
     expect(screen.getByRole('button', { name: 'Harvey' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: 'Ukko' })).not.toHaveAttribute('aria-current');
     for (const row of screen.getAllByRole('row')) expect(row).not.toHaveAttribute('aria-selected');
-  });
-});
-
-describe('Header', () => {
-  it('shows the window length the api sends (windowDays), not a fixed 90', () => {
-    render(<Header asOf="2026-09-27T10:00:00.000Z" windowStart="2026-08-28T10:00:00.000Z" windowDays={30}/>);
-    expect(screen.getByText('Last 30 days')).toBeInTheDocument();
-    expect(screen.queryByText(/90/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
   });
 });
 

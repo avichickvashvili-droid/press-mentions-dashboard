@@ -1,5 +1,9 @@
 /* global.css — the colours and fonts of the whole page (plain CSS, no library). The components
    use these colour names (var(--...)) in their own CSS Modules.
+   Two themes (owner, Prompt 364, D117): dark (the default) and light, switched with the sun / moon
+   button (hooks/useTheme.js sets <html data-theme="dark|light">). The light values below are also
+   what the tests see (no data-theme). Every colour a component uses must be a variable here, so
+   both themes work.
    One set of sentiment colours for the whole page (owner, Prompt 318): --positive / --neutral /
    --negative for the table's bar and the panel's buttons, with their light -bg and dark -text. */
 :root {
@@ -31,6 +35,92 @@
   --list-bg: #f3f5f8;
   --item-border: #e3e7ed;
   --item-hover-border: #b9c6d8;
+  /* Added for the dark redesign (D117). */
+  --surface-2: #f3f5f8;
+  --accent-2: #0891b2;
+  --accent-soft: #e7f0ff;
+  --glow: rgba(9, 105, 218, 0.1);
+  --menu-shadow: 0 12px 28px rgba(31, 35, 40, 0.14), 0 2px 6px rgba(31, 35, 40, 0.08);
+  --tint-blue-bg: #e7f0ff;
+  --tint-blue: #0969da;
+  --tint-purple-bg: #efe9ff;
+  --tint-purple: #7c3aed;
+  --tint-teal-bg: #dff5f3;
+  --tint-teal: #0f766e;
+  --tint-amber-bg: #fff4d6;
+  --tint-amber: #b7791f;
+  --stale: #d4a72c;
+  --on-color: #ffffff;
+  --page-glow: none;
+  --sidebar-bg: #ffffff;
+  --grid-line: #e5e9ef;
+  --logo-bg: #ffffff;
+  /* The hero band at the top (D118). */
+  --hero-bg: linear-gradient(135deg, #ffffff 0%, #f3f6fc 60%, #eef3fb 100%);
+  --hero-glow-1: rgba(9, 105, 218, 0.18);
+  --hero-glow-2: rgba(8, 145, 178, 0.14);
+  --hero-title: linear-gradient(90deg, #0b1220 0%, #1f3a8a 55%, #0e7490 100%);
+  --hero-brief: #374151;
+  --pill-bg: rgba(15, 23, 42, 0.04);
+  --pill-border: rgba(15, 23, 42, 0.1);
+  color-scheme: light;
+}
+
+/* Dark (the default, D117): deep navy, lighter cards, soft glows and brighter sentiment colours. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --text: #e8edf6;
+  --muted: #8d9ab3;
+  --border: #243049;
+  --link: #8cb4ff;
+  --header-bg: #162038;
+  --selected-bg: #1a2b4f;
+  --positive-bg: rgba(52, 211, 153, 0.14);
+  --positive-text: #6ee7b7;
+  --negative-bg: rgba(248, 113, 113, 0.14);
+  --negative-text: #fca5a5;
+  --neutral-bg: rgba(148, 163, 184, 0.16);
+  --neutral-text: #cbd5e1;
+  --amber-bg: rgba(251, 191, 36, 0.14);
+  --amber-text: #fcd34d;
+  --positive: #34d399;
+  --neutral: #8b9bb4;
+  --negative: #f87171;
+  --accent: #6c8cff;
+  --accent-text: #ffffff;
+  --page-bg: #0a0f1d;
+  --card-bg: #111a2d;
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
+  --list-bg: #0d1426;
+  --item-border: #1f2b45;
+  --item-hover-border: #3a5288;
+  --surface-2: #17213a;
+  --accent-2: #22d3ee;
+  --accent-soft: rgba(108, 140, 255, 0.16);
+  --glow: rgba(108, 140, 255, 0.18);
+  --menu-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --tint-blue-bg: rgba(108, 140, 255, 0.16);
+  --tint-blue: #9db2ff;
+  --tint-purple-bg: rgba(167, 139, 250, 0.16);
+  --tint-purple: #c4b5fd;
+  --tint-teal-bg: rgba(45, 212, 191, 0.14);
+  --tint-teal: #5eead4;
+  --tint-amber-bg: rgba(251, 191, 36, 0.14);
+  --tint-amber: #fcd34d;
+  --stale: #e3b341;
+  --on-color: #ffffff;
+  --page-glow: radial-gradient(900px 500px at 15% -10%, rgba(108, 140, 255, 0.16), transparent 60%),
+    radial-gradient(700px 400px at 95% 0%, rgba(34, 211, 238, 0.1), transparent 60%);
+  --sidebar-bg: #0c1325;
+  --grid-line: #1c2740;
+  --logo-bg: #f1f4fa;
+  --hero-bg: linear-gradient(135deg, #121c34 0%, #0f1830 55%, #0c1428 100%);
+  --hero-glow-1: rgba(108, 140, 255, 0.5);
+  --hero-glow-2: rgba(34, 211, 238, 0.3);
+  --hero-title: linear-gradient(90deg, #ffffff 0%, #c7d4ff 45%, #7ee4f5 100%);
+  --hero-brief: #cfd8e8;
+  --pill-bg: rgba(255, 255, 255, 0.05);
+  --pill-border: rgba(255, 255, 255, 0.09);
 }
 
 * {
@@ -47,7 +137,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--text);
-  background: var(--page-bg);
+  background: var(--page-glow), var(--page-bg);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 a {

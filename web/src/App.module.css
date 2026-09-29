@@ -1,13 +1,22 @@
-/* App.module.css — the page layout: the table and the mentions panel side by side, stacked on
-   narrow screens. The panel stays in view while the table scrolls.
-   The table needs about 780 px for its columns and the gaps around its rows (owner's design, D110;
-   Prompt 337), the panel 340-480 px (its filters are icons now), so
-   below 1200 px they stack; then (and on a phone) the table scrolls sideways inside its card
-   instead of being cut off (Prompt 328). */
+/* App.module.css — the page frame (D117): the side menu on the left and the page beside it (the
+   menu becomes a bar across the top below 900 px).
+   The Companies page: the table and the mentions panel side by side. The table needs about 780 px
+   for its columns and the gaps around its rows (owner's design, D110; Prompt 337), the panel
+   340-480 px, so they stack when the page area (not the window: the menu takes room too) is
+   narrower than 1140 px; then the table scrolls sideways inside its card instead of being cut
+   off (Prompt 328), and the open company's mentions go above the table. */
+.shell {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
 .page {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 16px;
+  container-type: inline-size;
+  min-width: 0;
+  width: 100%;
+  max-width: 1560px;
+  padding: 22px 28px 40px;
 }
 
 .columns {
@@ -17,11 +26,11 @@
   align-items: start;
 }
 
-/* The table sits on a white card (owner's design, D110). */
+/* The table sits on a card. */
 .tableArea {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 14px;
   box-shadow: var(--card-shadow);
   overflow: clip;
 }
@@ -33,7 +42,7 @@
   overflow-y: auto;
 }
 
-@media (max-width: 1199px) {
+@container (max-width: 1139px) {
   .columns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -55,5 +64,15 @@
 
   .panelEmpty {
     display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .shell {
+    display: block;
+  }
+
+  .page {
+    padding: 16px;
   }
 }

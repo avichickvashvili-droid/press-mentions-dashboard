@@ -14,6 +14,9 @@
 //                                    (plus, per company, weekCount / prevWeekCount for Recent
 //                                    activity and logoUrl, D110, D112), and dailyRun: the daily
 //                                    job's latest run and its numbers for the top of the page (D113)
+//   GET /api/overview                the Overview page (D117): totals + trend, mentions per day and
+//                                    per month by sentiment (Israel days), "needs attention" with
+//                                    mini charts, the newest mentions of all companies
 //   GET /api/companies/:id/mentions  one company's mentions in the last 90 days, newest first,
 //                                    and asOf (the time they were read: the page counts its
 //                                    24h / 7d / 30d buttons from it, D111)
@@ -52,6 +55,7 @@ import { config } from '../config.js';
 import { readCompanyNames } from '../shared/companyList.js';
 import { loadSectionNames } from '../classifier/prompt.js';
 import { findCompany, readCompanyList, readCompanyMentions, readDailySummary } from './queries.js';
+import { readOverview } from './overview.js';
 import { createEventHub, DAILY_JOB_HEADER, isLocalRequest } from './events.js';
 import { readLogoUrls } from './logos.js';
 
@@ -145,6 +149,25 @@ export function createApp({
       res.json({ ...result, dailyRun: readDailySummary(db) });
     } catch (error) {
       sendServerError(res, 'GET /api/companies', error);
+    }
+  });
+
+  // GET /api/overview: the Overview page's numbers (D117): totals, per day and month, needs
+  // attention, the newest mentions. Built on the same company list as /api/companies.
+  app.get('/api/overview', (req, res) => {
+    try {
+      const asOf = now();
+      const list = readCompanyList(db, {
+        now: asOf,
+        windowDays,
+        companyNames: getCompanyNames(),
+        sectionNames: getSectionNames(),
+        activityDays,
+        logoUrls: getLogoUrls(),
+      });
+      res.json(readOverview(db, { list, now: asOf, activityDays }));
+    } catch (error) {
+      sendServerError(res, 'GET /api/overview', error);
     }
   });
 

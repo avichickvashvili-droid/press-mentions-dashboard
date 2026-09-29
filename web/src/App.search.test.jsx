@@ -4,7 +4,7 @@
 // mentions stay open while its row is hidden. The fetch is a fake.
 
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { App } from './App.jsx';
 import { jsonResponse, makeQueryWrapper, stubFetch } from './test/testTools.jsx';
 
@@ -29,6 +29,7 @@ function fakeApi() {
   const calls = { list: 0 };
   stubFetch((url) => {
     if (url.includes('/mentions')) return jsonResponse({ company: { id: 'klook', name: 'Klook' }, mentions: [] });
+    if (url.includes('/api/overview')) return jsonResponse({ daily: [], recent: [], attention: [], totals: {} }); // the hero's (D118)
     calls.list += 1;
     return jsonResponse(LIST);
   });
@@ -48,14 +49,17 @@ function typeInto(input, text) {
   }
 }
 
-// Draws the whole page and waits for the list.
+// Draws the Companies page (?page=companies, D117) and waits for the list.
 async function renderApp() {
+  window.history.replaceState(null, '', '/?page=companies');
   const calls = fakeApi();
   const { queryClient, wrapper } = makeQueryWrapper();
   render(<App />, { wrapper });
   await screen.findByRole('button', { name: 'Klook' });
   return { calls, queryClient, input: screen.getByRole('searchbox', { name: 'Search companies' }) };
 }
+
+afterEach(() => window.history.replaceState(null, '', '/'));
 
 describe('company search', () => {
   it('narrows the table on every keystroke, with no button, keeping the most-mentions order', async () => {

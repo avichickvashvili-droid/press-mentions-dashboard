@@ -38,6 +38,8 @@ Stop: Ctrl+C. Resume: `npm start` again. It continues where it stopped.
 
 ## Open the dashboard
 
+**New look (D117, D118):** a glowing band on top with this week's briefing (click a name to open it), the status pills and a ticker of the newest headlines (hover pauses it). Dark by default (the **Light mode** button bottom-left switches). The page opens on **Overview**: number cards, the mentions-over-time and by-month charts, Top companies, Needs attention and Recent mentions. Click any company to open it on **Companies** (side menu). What follows describes the Companies page.
+
 `npm run dashboard`, then open **http://localhost:3000**. The table: search, and two icons on the right: Sort (Most mentions / Last mentioned / Company A–Z) and Filter (All / Mentioned this week / Mentioned / No coverage); a blue dot and a small "×" pill show a choice that is not the default. Last mentioned says "< 24h", "3d ago", "2w ago" or "1mo ago" (hover for the exact time). Recent activity = mentions in the last 7 days and the change vs the 7 days before. Click a company to see its mentions (filter them with the clock icon by 24h / 7d / 30d / 90d, with the lines icon by sentiment, or by a word in the headline; × closes the panel); the address becomes e.g. `http://localhost:3000/?company=spacex`, a link that opens that company. It shows the database; if the database is empty (a fresh clone), it first loads the committed `data/`. Stop: Ctrl+C.
 Port 3000 taken? Set `API_PORT=3001` in `.env`. More in [README](README.md#5-the-dashboard).
 

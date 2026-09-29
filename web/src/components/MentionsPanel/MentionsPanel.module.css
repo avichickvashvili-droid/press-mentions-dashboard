@@ -118,11 +118,15 @@
   min-width: 0;
 }
 
+/* Up to two lines, then "…" (the panel is narrower beside the side menu, D117). */
 .headline {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-weight: 500;
+  line-height: 1.35;
   color: var(--text);
   text-decoration: none;
 }

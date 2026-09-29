@@ -2,7 +2,7 @@
 //
 // Where it sits: used by the hooks (src/hooks/useCompanies.js, useCompanyMentions.js), never by
 // components directly.
-// Reads: GET /api/companies and GET /api/companies/:id/mentions. Writes: nothing.
+// Reads: GET /api/companies, GET /api/overview and GET /api/companies/:id/mentions. Writes: nothing.
 //
 // Every problem becomes an ApiError with a message a person can read:
 //   - the server can't be reached (network down, api not running)
@@ -58,5 +58,15 @@ export async function fetchCompanies({ signal } = {}) {
 export async function fetchCompanyMentions(companyId, { signal } = {}) {
   const body = await getJson(`/api/companies/${encodeURIComponent(companyId)}/mentions`, { signal });
   if (!Array.isArray(body.mentions)) throw new ApiError('The server sent a mention list the page could not read.', 200);
+  return body;
+}
+
+// The Overview page's numbers (D117): { asOf, windowStart, windowDays, timeZone, totals, trend,
+// daily, monthly, attention, recent }.
+export async function fetchOverview({ signal } = {}) {
+  const body = await getJson('/api/overview', { signal });
+  if (!Array.isArray(body.daily) || !Array.isArray(body.recent) || !body.totals) {
+    throw new ApiError('The server sent overview numbers the page could not read.', 200);
+  }
   return body;
 }

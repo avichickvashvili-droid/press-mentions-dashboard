@@ -61,7 +61,7 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 12px 28px rgba(31, 35, 40, 0.14), 0 2px 6px rgba(31, 35, 40, 0.08);
+  box-shadow: var(--menu-shadow);
   font-family: inherit;
   font-size: 14px;
   color: var(--text);

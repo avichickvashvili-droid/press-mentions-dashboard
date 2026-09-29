@@ -3,12 +3,13 @@
 // sent to someone to open the same company.
 //
 // Where it sits: used by App.jsx instead of a plain useState (still no router, D98).
-// Reads: window.location once, when the page opens. Writes: the address, with
+// Reads: window.location when the page opens and on Back / Forward (the pages, D117, add Back
+// steps). Writes: the address, with
 // history.replaceState (no new Back-button step per click, and the page never reloads).
 // An id that is not a company (an old or mistyped link) is shown by the mentions panel as
 // "This company was not found".
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export const COMPANY_PARAM = 'company';
 
@@ -36,6 +37,13 @@ export function addressWithCompany(href, id) {
 // that blocks it); the selection still works, only the address stays the same.
 export function useSelectedCompany() {
   const [selectedId, setSelectedId] = useState(() => readCompanyFromSearch(window.location.search));
+
+  // Back / Forward: follow the company in the address.
+  useEffect(() => {
+    const onBack = () => setSelectedId(readCompanyFromSearch(window.location.search));
+    window.addEventListener('popstate', onBack);
+    return () => window.removeEventListener('popstate', onBack);
+  }, []);
 
   // Opens a company (or closes with null) and writes it into the address.
   const select = (id) => {

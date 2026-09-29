@@ -354,6 +354,30 @@ export const config = {
   // them. Rolling from the request time, like the 90-day window.
   ACTIVITY_DAYS: 7,
 
+  // The Overview page (owner, Prompt 364, D117): GET /api/overview. Everything is counted from
+  // the Mention table when asked, never stored.
+  OVERVIEW: Object.freeze({
+    // The days of the "Mentions over time" chart and the months of "By month" are Israel days.
+    TIME_ZONE: 'Asia/Jerusalem',
+    // "Total mentions" compares the last TREND_DAYS days with the TREND_DAYS before them.
+    TREND_DAYS: 30,
+    // How many of the newest mentions (all companies) the "Recent mentions" list gets.
+    RECENT_LIMIT: 20,
+    // "Needs attention": at most LIMIT items, each with a SPARK_DAYS-day mini chart.
+    ATTENTION_LIMIT: 6,
+    ATTENTION_SPARK_DAYS: 14,
+    // A company counts only with at least MIN_WEEK mentions in the last 7 days (ACTIVITY_DAYS)...
+    ATTENTION_MIN_WEEK: 10,
+    // ... "spike" = at least SPIKE_RATIO times the week before;
+    ATTENTION_SPIKE_RATIO: 2,
+    // ... "negative" = at least this share of its week negative; "positive" = at least this share positive;
+    ATTENTION_NEGATIVE_SHARE: 0.5,
+    ATTENTION_POSITIVE_SHARE: 0.85,
+    // "went quiet" = at least QUIET_MIN_BEFORE mentions in the QUIET_BEFORE_DAYS before this week, none this week.
+    ATTENTION_QUIET_BEFORE_DAYS: 30,
+    ATTENTION_QUIET_MIN_BEFORE: 10,
+  }),
+
   // The company logos (collected once by an agent, Prompt 318, D112): one image per company plus
   // logos.json ({ id: { file, domain, source, confidence } | null }). Served at /logos/<file>.
   LOGOS_DIR: path.join(PROJECT_ROOT, 'web', 'public', 'logos'),

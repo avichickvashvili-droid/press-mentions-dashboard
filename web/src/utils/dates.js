@@ -1,6 +1,6 @@
 // dates.js — how dates are shown on the page.
 //
-// Where it sits: used by the components (Header, MentionsPanel) and utils/mentionFilters.js.
+// Where it sits: used by the components (Hero, KPI cards, MentionsPanel) and utils/mentionFilters.js.
 // Reads/writes: nothing.
 //
 // Dates are shown in the viewer's own time zone, in a fixed English format, e.g. "28 Sep 2026"

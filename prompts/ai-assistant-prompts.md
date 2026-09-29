@@ -4208,3 +4208,143 @@ and readme
 ```
 nice prapre a commit
 ```
+
+---
+
+## Prompt 359 — Do .env and the DB need to be in the commit?
+
+```
+wait we dont need the .env and the db in the commit since they are inside the docker correct?
+```
+
+---
+
+## Prompt 360 — Does every code change need a new Docker image?
+
+```
+and now for every new code change we need to create new docker image?
+```
+
+---
+
+## Prompt 361 — How is Docker delivered? Do we push it?
+
+```
+so how am i delivering the docker? do we push it?
+```
+
+---
+
+## Prompt 362 — The reviewer should get the current DB: any action needed?
+
+```
+i want that the reviewr will have the current db
+is there any action i need to make?
+```
+
+---
+
+## Prompt 363 — Got it
+
+```
+got it
+```
+
+---
+
+## Prompt 364 — Redesign: a "WOW" overview with aggregations, modern, dark mode
+
+```
+[attached file: press-monitor-mockup.html — a "Portfolio Press Monitor" mockup with sample data: KPI strip (companies, with coverage, mentions in window, sentiment split bar, new today), status chips (Recent / Active / Quiet / No coverage), a table with a 13-week sparkline per company, sentiment bar, latest headline; a company drawer with a weekly stacked sentiment chart; tabs "Daily alert" (digest preview, console, history) and "How it works" (pipeline stages); light/dark theme tokens]
+[image: a dark-sidebar "Press Mentions" dashboard: Overview / Companies / Mentions / Insights / Settings nav; filters Q3 2026, all companies, all sentiment, all sources, Refresh; KPI cards Total Mentions 48,292 (↑18%), Companies Mentioned 254/257 (↑12), Sentiment Breakdown bar 58/24/18%, Avg. Mentions per Company 190 (↑14%); "Mentions Over Time" daily area chart by sentiment (Daily/Weekly/Monthly); "Mentions by Sentiment (Q3 2026)" stacked monthly bars; "Top Companies" table with tabs Most mentioned / Trending / Most positive / Most negative (mentions, trend vs Q2, sentiment bar, last mentioned); "Needs Attention" list with sparklines (negative spike, mention spike, high negative share, no mentions in 5 days, high positive); "Recent Mentions" table (time, company, title, source, sentiment) with All/Positive/Negative/Neutral]
+so i want to change our dashboard a little bit
+look at this samples
+i want the main panel to be with cool aggragtions of data
+i want the site to be modenr and in dark mode 
+take examples from this hereand make it as "WOW" as possbile so that pepole will have the wow effect
+make sure to test everything on headless
+```
+
+---
+
+## Prompt 365 — Sentiment breakdown alignment; ?company= link opens the old site
+
+```
+[image: the Sentiment breakdown card: "54% / Positive / 6,458" and "29% / Negative / 3,398" on two lines each, but "17% Neutral" on one line, so the three are not level]
+1. sentiment breakdown, they soppuse to be on same height and length why neutrel isnt same height with them
+2. http://localhost:3000/?company=anthropic usng that url sent me to the old site why?
+```
+
+---
+
+## Prompt 366 — Going to the Overview should close the open company
+
+```
+another bug
+clicking on a company from the top comapnies , sends us to the companies tab,
+when going back to overview
+and navigating back to companies that same company is open i want to reset companies when moving to overview so no company is selected
+```
+
+---
+
+## Prompt 367 — The top section looks basic: ideas to make it trendy
+
+```
+[image: the Overview's top section: "Overview" and "News coverage of 258 portfolio companies" on the left; a green check with "Last data update / Today 05:16 (Israel time) / 91 new mentions · 14 companies with updates · Discord sent"; "Last 90 days / 1 Jul 2026 – 29 Sep 2026" on the right]
+think on how to improve this upper section it looks very basic not trendy or cool
+```
+
+---
+
+## Prompt 368 — Show an example of all 3 ideas
+
+```
+i need to see an example of all 3 to decide can you do that
+```
+
+---
+
+## Prompt 369 — Build option 4 (hero + pills + briefing) with the ticker
+
+```
+hmmmm the ticker is a banger and option 4
+```
+
+---
+
+## Prompt 370 — LATEST colour; reset the search; jump to the company in the table
+
+```
+i didnt like the color of latest its a red colorish dot 
+and it resembels like negative in that site context, think on other color for that
+another fix in companies tab i had search when i move to overview and came back the search is still active
+another fix when clicking for example on a company  OpenEvidence  from the new overview panel
+i  see it open its sentiments but the company table dont show it 
+we need to think on a way on jumping to the company and showing its sentiments
+```
+
+---
+
+## Prompt 371 — A code review agent over the changes
+
+```
+great job 
+prapre a code review agent to go over our code changes
+```
+
+---
+
+## Prompt 372 — Fix the review findings
+
+```
+fix
+```
+
+---
+
+## Prompt 373 — Prepare a commit
+
+```
+ok prapre a commit
+```

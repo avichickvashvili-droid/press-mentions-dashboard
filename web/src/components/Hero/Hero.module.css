@@ -1,0 +1,307 @@
+/* Hero.module.css — the top band of every page (D118): a slowly drifting glow, the gradient title,
+   the briefing, glowing pills and the headline ticker. The colours come from the theme variables
+   (global.css), so the light theme works too. All movement stops for viewers who asked for less
+   motion. The glow only moves (transform), which the browser does cheaply on the GPU. */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--hero-bg);
+  box-shadow: var(--card-shadow);
+}
+
+/* Two soft blurred lights behind the content. */
+.glow::before,
+.glow::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.glow::before {
+  width: 440px;
+  height: 440px;
+  left: -140px;
+  top: -280px;
+  background: var(--hero-glow-1);
+}
+
+.glow::after {
+  width: 380px;
+  height: 380px;
+  right: -90px;
+  top: -220px;
+  background: var(--hero-glow-2);
+}
+
+.content {
+  position: relative;
+  padding: 24px 28px 18px;
+}
+
+.date {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
+.title {
+  margin: 4px 0 2px;
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  background: var(--hero-title);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  width: fit-content;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* The briefing. */
+.brief {
+  margin: 10px 0 0;
+  max-width: 980px;
+  padding-left: 14px;
+  border-left: 3px solid var(--accent);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--hero-brief);
+}
+
+.brief b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.briefCompany {
+  border: 0;
+  border-bottom: 1px dashed var(--link);
+  border-radius: 0;
+  background: none;
+  padding: 0;
+  color: var(--link);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.briefCompany:hover:not(:disabled) {
+  border-bottom-style: solid;
+}
+
+.up {
+  color: var(--positive-text);
+  font-weight: 700;
+}
+
+.down {
+  color: var(--negative-text);
+  font-weight: 700;
+}
+
+/* The pills. */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.pillNote {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.news { color: var(--tint-blue); }
+.sent { color: var(--positive-text); }
+.notSent { color: var(--amber-text); }
+.window { color: var(--accent-2); }
+
+/* The Live pill: its dot and border take the status colour. */
+.pulse {
+  position: relative;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.live_ok { color: var(--positive-text); border-color: var(--positive-bg); background: var(--positive-bg); }
+.live_running { color: var(--tint-blue); border-color: var(--tint-blue-bg); background: var(--tint-blue-bg); }
+.live_failed { color: var(--negative-text); border-color: var(--negative-bg); background: var(--negative-bg); }
+.live_stale { color: var(--amber-text); border-color: var(--amber-bg); background: var(--amber-bg); }
+.live_none { color: var(--muted); }
+
+/* The ticker. */
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pill-border);
+}
+
+.tickerTag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--tint-blue);
+}
+
+/* The LATEST dot: the accent blue, not a sentiment colour (red read as "negative", Prompt 370). */
+.liveDot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.liveDot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.trackBox {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 60px), transparent);
+}
+
+.track {
+  display: flex;
+  width: max-content;
+}
+
+.run {
+  display: flex;
+  gap: 34px;
+  padding-right: 34px;
+}
+
+.tickItem {
+  font-size: 0.83rem;
+  color: var(--hero-brief);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.tickItem:hover,
+a.tickItem:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.tickItem b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tickSource {
+  color: var(--muted);
+}
+
+.tickDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--neutral);
+}
+
+.dot_positive { background: var(--positive); }
+.dot_negative { background: var(--negative); }
+.dot_neutral { background: var(--neutral); }
+
+/* Movement (only for viewers who did not ask for less motion). */
+@media (prefers-reduced-motion: no-preference) {
+  .glow::before { animation: drift 14s ease-in-out infinite alternate; }
+  .glow::after { animation: drift 18s ease-in-out infinite alternate-reverse; }
+  .pulse::after, .liveDot::after { animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+  .track { animation: scroll linear infinite; }
+  .ticker:hover .track,
+  .ticker:focus-within .track { animation-play-state: paused; }
+
+  @keyframes drift {
+    from { transform: translate(0, 0); }
+    to { transform: translate(60px, 40px); }
+  }
+
+  @keyframes ping {
+    75%, 100% { transform: scale(2.6); opacity: 0; }
+  }
+
+  @keyframes scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+}
+
+/* Less motion: the ticker stands still and can be scrolled by hand. */
+@media (prefers-reduced-motion: reduce) {
+  .trackBox {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 18px 16px 14px;
+  }
+
+  .title {
+    font-size: 1.9rem;
+  }
+
+  .brief {
+    font-size: 0.95rem;
+  }
+}

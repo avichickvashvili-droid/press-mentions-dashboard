@@ -21,8 +21,10 @@ export const ACTIVITY_HELP = 'Mentions published in the last 7 days, and the cha
 
 // `companies` = the list to show; `selectedId` = the open company; `onSelect(id)` opens one;
 // `emptyMessage` = the text shown when the list is empty (e.g. no search match);
-// `windowDays` = the window length (for the Mentions header).
-export function CompanyTable({ companies, selectedId, onSelect, emptyMessage, windowDays = 90 }) {
+// `windowDays` = the window length (for the Mentions header); `flashId` = a company that was just
+// opened from the Overview: its row glows for a moment so the eye finds it (Prompt 370, D118);
+// `flashAt` = when: a new time draws that row anew, so the glow plays again (code review #6).
+export function CompanyTable({ companies, selectedId, onSelect, emptyMessage, windowDays = 90, flashId = null, flashAt = null }) {
   return (
     <table className={styles.table}>
       <thead>
@@ -45,7 +47,7 @@ export function CompanyTable({ companies, selectedId, onSelect, emptyMessage, wi
           </tr>
         )}
         {companies.map((company) => (
-          <CompanyRow key={company.id} company={company} selected={company.id === selectedId} onSelect={onSelect} />
+          <CompanyRow key={company.id === flashId ? `${company.id}-${flashAt}` : company.id} company={company} selected={company.id === selectedId} flash={company.id === flashId} onSelect={onSelect} />
         ))}
       </tbody>
     </table>

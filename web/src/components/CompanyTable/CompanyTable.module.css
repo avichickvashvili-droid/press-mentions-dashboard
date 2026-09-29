@@ -91,6 +91,21 @@
   border-color: var(--accent);
 }
 
+/* A company opened from the Overview: the row glows twice so the eye lands on it (Prompt 370).
+   The scroll puts it in the middle of the screen (App.jsx). */
+@media (prefers-reduced-motion: no-preference) {
+  .table .flash td {
+    animation: flash 0.9s ease-in-out 2;
+  }
+
+  @keyframes flash {
+    50% {
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--glow);
+    }
+  }
+}
+
 .company {
   display: flex;
   align-items: center;

@@ -12,11 +12,12 @@ import { StatusText } from '../StatusText/StatusText.jsx';
 import { ActivityCell } from './ActivityCell.jsx';
 import styles from './CompanyTable.module.css';
 
-// `selected` highlights the row; `onSelect(id)` opens the company.
-export function CompanyRow({ company, selected, onSelect }) {
+// `selected` highlights the row; `flash` makes it glow for a moment (opened from the Overview);
+// `onSelect(id)` opens the company. data-company-id lets the page find the row to scroll to.
+export function CompanyRow({ company, selected, flash = false, onSelect }) {
   const quiet = !company.mentionCount && !company.weekCount && !company.prevWeekCount;
   return (
-    <tr className={`${styles.row} ${selected ? styles.selected : ''}`} onClick={() => onSelect(company.id)}>
+    <tr className={`${styles.row} ${selected ? styles.selected : ''} ${flash ? styles.flash : ''}`} data-company-id={company.id} onClick={() => onSelect(company.id)}>
       <td>
         <div className={styles.company}>
           <CompanyLogo name={company.name} logoUrl={company.logoUrl} />

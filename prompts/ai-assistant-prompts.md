@@ -4378,3 +4378,71 @@ commit
 ```
 push]
 ```
+
+---
+
+## Prompt 377 — README visuals, DB structure, drop run-without-Docker
+
+```
+in general we need to add visualization to the readme
+we had that in previous versions for example ch11
+missing db structre in highlevel, what tables we use and each has its own use
+can remove chapter 5 from readme and guide, i dont it to be run without docker
+6. add screenshots from the dashboard
+7. add screenshots of discord mesage example: 
+9. should point to the guide
+11. we had graphs and screen shots visualizing why qwne4b
+[Image: a Discord message from the DailyJobRun app, 9:47 AM — "New press mentions · Tue 29 Sep", a list of companies with new-mention counts and green/white/red sentiment dots (Anthropic · 53, 22 positive, 14 neutral, 17 negative; SpaceX · 16; Databricks · 4; xAI · 4; Stripe · 3; CarDekho, Cerebras, Arbe Robotics, DreaMed Diabetes, Kodiak Robotics, Quantum Machines, Scale AI, The Trendlines Group, TubiTV), footer "91 new · Open the dashboard ↗"]
+```
+
+---
+
+## Prompt 378 — Show the README
+
+```
+show me the readme
+```
+
+---
+
+## Prompt 379 — Dashboard screenshots in chapter 1, ideas for GUIDE visuals
+
+```
+great job 1 small fix is : i want at the begining of the README the scrennshots of the dashboard aswell let them show twice its fine
+add them to the ch1 what it does
+in addition try to to tell me if u can think of a way to add visualization to the guide dont do it yet, just tell me what you have in mind
+```
+
+---
+
+## Prompt 380 — Screenshots as a showcase chapter at the start
+
+```
+it feels out of place let the README start with it with a fitting headline ch0 showcase or something
+```
+
+---
+
+## Prompt 381 — Fix the cut BufferQueue label, show the guide
+
+```
+10'000 got cut off ehre
+fix that and show me the new guide
+[Image: the README flow chart, the BufferQueue box reads "waiting headlines · max 10,(" — the end of 10,000 is cut off]
+```
+
+---
+
+## Prompt 382 — How to run section (2.1) pointing to the guide
+
+```
+add a section in the readme how to run : ch: 2.1 and let that point to the guide
+```
+
+---
+
+## Prompt 383 — Commit and push
+
+```
+can commit both and push
+```

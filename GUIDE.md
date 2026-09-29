@@ -7,13 +7,12 @@ This page is the short "how do I…". The full story is in [README.md](README.md
 
 1. [Common commands](#common-commands)
 2. [Start everything with Docker](#start-everything-with-docker)
-3. [Run without Docker](#run-without-docker)
-4. [Open the dashboard](#open-the-dashboard)
-5. [The daily job](#the-daily-job)
-6. [Follow a run](#follow-a-run)
-7. [Check things in the database](#check-things-in-the-database)
-8. [If something fails](#if-something-fails)
-9. [Before a delivery](#before-a-delivery)
+3. [Open the dashboard](#open-the-dashboard)
+4. [The daily job](#the-daily-job)
+5. [Follow a run](#follow-a-run)
+6. [Check things in the database](#check-things-in-the-database)
+7. [If something fails](#if-something-fails)
+8. [Before a delivery](#before-a-delivery)
 
 ## Common commands
 
@@ -26,11 +25,8 @@ This page is the short "how do I…". The full story is in [README.md](README.md
 | Watch the app live | `docker compose logs -f app` (Ctrl+C stops watching only) |
 | Stop everything (data kept) | `docker compose down` |
 | Rebuild after a code change | `docker compose up -d --build` |
-| Run the backfill in Docker | `docker compose exec app npm start` |
-| Dashboard without Docker | `npm run dashboard` |
-| Daily job without Docker | `npm run daily` |
-| 90-day collection without Docker | `npm start` |
-| Progress summary | `npm run progress` |
+| Run the 90-day backfill | `docker compose exec app npm start` |
+| Progress summary | `docker compose exec app npm run progress` |
 | Run the tests | `npm test` and `npm run test:web` |
 | Refresh the database shipped with Docker | `npm run docker:snapshot` |
 
@@ -39,7 +35,7 @@ This page is the short "how do I…". The full story is in [README.md](README.md
 **TL;DR:** open Docker Desktop, run `docker compose up -d`, open http://localhost:3000.
 
 1. Open **Docker Desktop**. Wait for **Engine running** (bottom left).
-2. Make sure port 3000 is free: stop `npm run api` / `npm run dashboard` if they run.
+2. Make sure port 3000 is free.
 3. Open a terminal in the project folder (VS Code: **Terminal → New Terminal**).
 4. Run:
    ```
@@ -63,23 +59,9 @@ This page is the short "how do I…". The full story is in [README.md](README.md
 - `docker compose down -v` stops **and deletes the data**. The next start begins again from the shipped database.
 - With an NVIDIA GPU: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d`.
 
-## Run without Docker
-
-**TL;DR:** Node 24 + Ollama with `qwen3:4b`, then `npm install` and `npm start`.
-
-1. First time only: install Node 24 and Ollama, then:
-   ```
-   ollama pull qwen3:4b
-   npm install
-   ```
-2. With Ollama running: `npm start`. The full 90-day collection takes about an hour.
-3. When you see `Run N is done`, press **Ctrl+C**. The results are in `data/`.
-
-Stopped halfway? Run `npm start` again: it continues where it stopped.
-
 ## Open the dashboard
 
-**TL;DR:** `npm run dashboard` (or Docker), then http://localhost:3000.
+**TL;DR:** with Docker running, open http://localhost:3000.
 
 - **Overview** opens first: the top band with this week's briefing, status pills and a ticker of the newest headlines; then number cards, charts, **Top companies**, **Needs attention** and **Recent mentions**.
 - Click a company anywhere on the Overview: it jumps to that company's row on the **Companies** page and opens its mentions.
@@ -89,15 +71,14 @@ Stopped halfway? Run `npm start` again: it continues where it stopped.
 
 ## The daily job
 
-**TL;DR:** in Docker it already runs. Without Docker: `npm run daily`, leave the window open. It runs every day at 03:00 (Israel time) and posts to Discord.
+**TL;DR:** it already runs inside Docker. Every day at 03:00 (Israel time) it adds the new mentions and posts to Discord.
 
-**Run it (without Docker):**
-1. Start Ollama. Put `DISCORD_WEBHOOK_URL=...` in `.env` (never commit `.env`).
-2. Run `npm run daily`. You should see `Daily job started … It runs every day at 03:00 (Asia/Jerusalem)`.
-3. Leave it open. If the last run is over 24 hours old, it runs right away.
-4. After a crash or a restart, run `npm run daily` again: it catches up by itself.
+**Turn on Discord:**
+1. Put `DISCORD_WEBHOOK_URL=...` in `.env` (never commit `.env`).
+2. Run `docker compose up -d` again, so Docker reads it.
+3. `docker compose logs app` shows `Daily job started … It runs every day at 03:00 (Asia/Jerusalem)`. If the last run is over 24 hours old, it runs right away.
 
-Do **not** run `npm run daily` while Docker runs: you get two Discord messages.
+After a crash or a PC restart, Docker starts it again and it catches up by itself.
 
 **Is it working?** A run takes about 25–40 minutes (one Google search every 5 s). The end of a good run looks like:
 ```
@@ -107,11 +88,7 @@ Daily run 1 done: 25 new mentions, Discord sent.
 ```
 `WARNING` lines mean it waits and retries by itself. After 3 failed tries (30 min apart) it waits for the next 03:00.
 
-**Log file:** `db\logs\daily\daily.log`. Watch it live (PowerShell):
-```
-Get-Content db\logs\daily\daily.log -Tail 20 -Wait
-```
-In Docker: `docker compose logs -f app`.
+Watch it live: `docker compose logs -f app` (Ctrl+C stops watching only).
 
 **Discord messages:**
 
@@ -126,22 +103,26 @@ In Docker: `docker compose logs -f app`.
 
 ## Follow a run
 
-**TL;DR:** `npm run progress` in a second terminal.
+**TL;DR:** `docker compose exec app npm run progress` in a second terminal.
 
-1. Run `npm run progress` (Docker: `docker compose exec app npm run progress`).
+1. Run `docker compose exec app npm run progress`.
 2. For more detail, open the database with the ready-made queries (next chapter) from [`queries/progress.sql`](queries/progress.sql).
-3. The full story of a run is in `db\logs\run-N\orchestrator.log` (N = the run number).
+3. The full story of a run: `docker compose exec app cat db/logs/run-N/orchestrator.log` (N = the run number).
 
 ## Check things in the database
 
-**TL;DR:** open it **read-only** in DB Browser for SQLite and paste a query.
+**TL;DR:** copy the database out of Docker, open the copy **read-only** in DB Browser for SQLite, and paste a query.
 
-1. Open it (PowerShell):
+1. Copy the database folder out of Docker (a snapshot; the copy is not in git):
    ```
-   & "C:\Program Files\DB Browser for SQLite\DB Browser for SQLite.exe" -R -s queries\progress.sql db\press-mentions.sqlite
+   docker compose cp app:/app/db ./db-docker
+   ```
+2. Open the copy (PowerShell):
+   ```
+   & "C:\Program Files\DB Browser for SQLite\DB Browser for SQLite.exe" -R -s queries\progress.sql db-docker\press-mentions.sqlite
    ```
    `-R` = read-only. `-s` loads the ready-made queries (the 5 most useful are at the top).
-2. In **Execute SQL**, select one query and press **Ctrl+Enter**.
+3. In **Execute SQL**, select one query and press **Ctrl+Enter**.
 
 **The daily runs** (newest first). `alert_sent_at` empty = Discord not sent yet; `last_error` says why.
 ```sql
@@ -165,11 +146,11 @@ GROUP BY c.name ORDER BY new_mentions DESC;
 
 | You see | Do this |
 |---|---|
-| A company or group ended `failed` | When the run is `done`: `npm start -- --groups N` (N from `npm run progress`) |
-| `Ollama unavailable` / `is the model pulled?` | Start Ollama, or `ollama pull qwen3:4b`. Nothing is lost |
-| No heartbeat for 15 min, or `It is NOT restarted any more` | Read the error lines, Ctrl+C, then `npm start` again. It resumes |
+| A company or group ended `failed` | When the run is `done`: `docker compose exec app npm start -- --groups N` (N from the progress summary) |
+| `Ollama unavailable` | `docker compose ps`: is `ollama` healthy? If not, `docker compose up -d`. Nothing is lost |
+| No heartbeat for 15 min, or `It is NOT restarted any more` | Read the error lines, Ctrl+C, then `docker compose exec app npm start` again. It resumes |
 | `Another daily job is already open` | One is already running. Use that one |
-| `npm start` refuses to start | A daily run is going on. Try again when it ends |
+| The backfill refuses to start | A daily run is going on. Try again when it ends |
 | Docker page does not open | `docker compose ps` and `docker compose logs app` |
 
 ## Before a delivery

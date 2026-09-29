@@ -223,7 +223,7 @@ qwen3:4b is slower (3.06 vs 5.54 articles/s), but it is better on every quality 
 ## 9. How to reproduce the test
 
 **You need:**
-- Node.js 24. The research scripts in `research/model-test/` use only built-in modules, so they run without `npm install` (the app itself needs it, see [the README](../README.md#run-locally-without-docker)).
+- Node.js 24. The research scripts in `research/model-test/` use only built-in modules, so they run without `npm install` (the app itself runs in Docker, see [the README](../README.md#quick-start-with-docker)).
 - [Ollama](https://ollama.com) installed and running on its default address, `http://127.0.0.1:11434`. The `ollama` command must be on your PATH (the runner calls `ollama ps` to record GPU vs CPU use).
 - A GPU with about 8 GB of VRAM to get similar speeds.
 

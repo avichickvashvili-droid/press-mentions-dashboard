@@ -4,13 +4,29 @@
 
 The owner's day-to-day steps are in [GUIDE.md](GUIDE.md). The design notes and the decision log (D-numbers) are in [PLAN.md](PLAN.md).
 
+## Showcase
+
+**TL;DR:** what you get after `docker compose up -d`: a live dashboard at http://localhost:3000 and one Discord message a day.
+
+![The Overview page: the hero band with the week's briefing, status pills and the news ticker; four number cards; mentions over time and by month; Top companies; Needs attention](docs/images/dashboard-overview.png)
+*The Overview page: the week in one sentence, the numbers, the charts, and the companies worth a look.*
+
+![The Companies page: the company table with search, sort and filter, and Anthropic's mentions open on the right](docs/images/dashboard-companies.png)
+*The Companies page: every company with its activity and sentiment; the clicked company's mentions open on the right.*
+
+![A real Discord digest: 14 companies with their new mentions and green / white / red sentiment counts, then "91 new · Open the dashboard"](docs/images/discord-digest.png)
+
+*The daily Discord digest (29 Sep 2026): 91 new mentions for 14 companies.*
+
 ## Contents
 
+0. [Showcase](#showcase)
 1. [What it does](#what-it-does)
 2. [How it works](#how-it-works)
+   - 2.1 [How to run](#how-to-run)
 3. [Project layout](#project-layout)
-4. [Quick start with Docker (one command)](#quick-start-with-docker)
-5. [Run locally without Docker](#run-locally-without-docker)
+4. [Database structure](#database-structure)
+5. [Quick start with Docker (one command)](#quick-start-with-docker)
 6. [The dashboard](#the-dashboard)
 7. [The daily job and Discord digest](#the-daily-job-and-discord-digest)
 8. [The `data/` folder](#the-data-folder)
@@ -39,27 +55,47 @@ For every company in `ourcrowd_companies.txt` (258 companies), the system:
 
 **TL;DR:** separate processes that meet in one SQLite file; the database table is the queue.
 
-```
-ourcrowd_companies.txt ─► filtered_ourcrowd_companies.txt (12 sections) + company_hints.json + section_keywords.json
-                                  │  seed loader builds one search per company
-                                  ▼
- npm start (orchestrator, restarts crashed services)
-   ├─ collector ──► Google News RSS (1 search/s, 10 groups of ~25 companies, one process per group)
-   │                   │ each search result = one chunk; waits while the queue is full (10,000)
-   │                   ▼
-   │               BufferQueue (SQLite table)
-   │                   │
-   └─ classifier ──► Ollama qwen3:4b (4 requests at once)
-                       │ not about the company → deleted
-                       │ about it → sentiment → Mention table ──► data/*.json (after each group + at the end)
-                       ▼
- npm run dashboard ──► API (Express, 127.0.0.1:3000) ──► dashboard page (React + Vite)
- npm run daily ──────► 03:00: search yesterday + today → classify → tell the API → Discord digest → data/
+```mermaid
+flowchart TB
+    list["📄 Company list<br/>258 companies · 12 sections<br/>search hints"]
+    google[("🌐 Google News RSS")]
+    backfill["<b>90-day backfill</b><br/>once · 1 search per second"]
+    daily["<b>Daily job</b><br/>every day 03:00 Israel time<br/>yesterday + today<br/>1 search per 5 s"]
+
+    list --> backfill & daily
+    google --> backfill & daily
+    backfill -->|new headlines| queue
+    daily -->|new headlines| queue
+    queue[("BufferQueue<br/>waiting headlines<br/>max 10,000")] --> classifier
+
+    classifier["Classifier<br/>4 headlines at once"] <-->|"about the company?<br/>positive / neutral / negative?"| ollama["🤖 Ollama · qwen3:4b"]
+    classifier -->|not about it| trash["🗑️ deleted"]
+    classifier -->|relevant + sentiment| mention[("Mention table")]
+
+    mention --> api["API + dashboard<br/>localhost:3000"] --> browser["🖥️ Browser"]
+    mention --> json["📦 data/*.json"]
+    daily -->|one digest a day| discord["💬 Discord"]
 ```
 
 - The collector, the classifier, the dashboard and the daily job are **separate processes**. One crash never stops the others.
 - Every write is a short transaction, and every run can be **stopped and resumed** with no duplicates.
 - Why each piece looks like this: [docs/design-challenges.md](docs/design-challenges.md).
+
+### How to run
+
+**TL;DR:** install Docker Desktop, then run one command in the project folder and open http://localhost:3000.
+
+```
+docker compose up -d
+```
+
+That starts everything: the AI (Ollama with `qwen3:4b`), the dashboard and the daily job. The step-by-step, the self-test and the everyday commands are in the guide:
+
+- [GUIDE.md → Start everything with Docker](GUIDE.md#start-everything-with-docker): first start, step by step
+- [GUIDE.md → Common commands](GUIDE.md#common-commands): stop, restart, logs, the backfill, progress
+- [GUIDE.md → If something fails](GUIDE.md#if-something-fails)
+
+More detail on the Docker setup: [Quick start with Docker](#quick-start-with-docker).
 
 ## Project layout
 
@@ -84,6 +120,79 @@ ourcrowd_companies.txt ─► filtered_ourcrowd_companies.txt (12 sections) + co
 | `docs/` | Long reference: [LLM research](docs/llm-research.md), [design challenges](docs/design-challenges.md), [run results](docs/run-results.md), [operations](docs/operations.md) |
 | `ourcrowd_companies.txt`, `filtered_ourcrowd_companies.txt`, `company_hints.json`, `section_keywords.json` | The company list, its 12 sections, search hints for 108 hard names, and the section words |
 
+## Database structure
+
+**TL;DR:** one SQLite file (`db/press-mentions.sqlite`) with 7 tables: 3 hold the data (companies, the queue, mentions) and 4 keep track of the runs.
+
+```mermaid
+erDiagram
+    Company ||--o{ BufferQueue : "headlines waiting"
+    Company ||--o{ Mention : "relevant news"
+    Company ||--o{ JobRunCompany : "per-run status"
+    JobRun ||--o{ JobRunCompany : "one row per company"
+    JobRun ||--o{ JobRunGroup : "one row per group"
+
+    Company {
+        text id PK "slug, e.g. spacex"
+        text name
+        int section "1-13"
+        text hint "search hint or empty"
+    }
+    BufferQueue {
+        int id PK
+        text company_id FK
+        text guid "Google article id"
+        text title
+        text status "pending / relevant / failed"
+    }
+    Mention {
+        int id PK
+        text company_id FK
+        text title
+        text publisher
+        text published_at
+        text sentiment "positive / neutral / negative"
+        text alerted_at "sent to Discord"
+    }
+    JobRun {
+        int id PK
+        text status "running / collected / done / failed"
+        int classified_count
+    }
+    JobRunCompany {
+        int run_id FK
+        text company_id FK
+        text status "not_started / fetching / finished / failed"
+    }
+    JobRunGroup {
+        int run_id FK
+        int group_number
+        text status "pending / in_progress / complete / failed"
+    }
+    DailyRun {
+        int id PK
+        text status "running / done / failed"
+        int new_mentions
+        text alert_sent_at
+    }
+```
+
+| Table | Kind | What it is for |
+|---|---|---|
+| `Company` | Data | The 258 portfolio companies: name, section and the ready-made Google search. Loaded from the company list files |
+| `BufferQueue` | Data | **The queue** between the collector and the AI: every new headline waits here until it is classified. Capped at 10,000 rows, so the collector pauses while the AI catches up |
+| `Mention` | Data | **What the dashboard shows:** every headline the AI said is really about the company, with its sentiment. `alerted_at` marks what already went to Discord |
+| `JobRun` | Tracking | One row per 90-day backfill: its status, a heartbeat (to spot a crash) and the counters (classified / relevant / deleted / failed) |
+| `JobRunCompany` | Tracking | Each company's status in a backfill, so a stopped run resumes where it left off |
+| `JobRunGroup` | Tracking | Each group of ~25 companies in a backfill, with its crash count, so one bad group never stops the others |
+| `DailyRun` | Tracking | One row per daily run: new mentions and when Discord accepted the message. It is also how the job knows today's run already happened |
+
+- A headline that is **not** about the company is deleted from `BufferQueue`; it never reaches `Mention`.
+- The same article can't be stored twice for a company (`UNIQUE (company_id, guid)`).
+- The full schema with comments: [`src/db/database.js`](src/db/database.js). Ready-made read-only queries: [`queries/progress.sql`](queries/progress.sql).
+
+[↑ Back to contents](#contents)
+
 <a id="0-the-fastest-way-docker-one-command"></a>
 
 ## Quick start with Docker
@@ -106,7 +215,7 @@ docker compose up -d
 
 **Step by step (first time):**
 1. Install **Docker Desktop** and open it. Wait until it says **Engine running**. On Windows, accept WSL2 if asked and restart.
-2. Make sure nothing else uses **port 3000** (stop `npm run api` / `npm run dashboard`).
+2. Make sure nothing else uses **port 3000**.
 3. Open a terminal **in the project folder** (VS Code: **Terminal → New Terminal**; or PowerShell, then `cd <path to>\press-mentions-dashboard`).
 4. Run `docker compose up -d`. It ends with `Container press-mentions-ollama-1 Healthy` and `Container press-mentions-app-1 Started`.
 5. Open **http://localhost:3000**.
@@ -127,83 +236,11 @@ docker compose up -d
 | 8 | When done: `docker compose down` | Everything stops; the data is kept |
 
 **Good to know:**
-- With the webhook in `.env`, Docker's daily job posts the real digest at 03:00. Don't also run `npm run daily` outside Docker (two digests).
+- With the webhook in `.env`, Docker's daily job posts the real digest at 03:00.
+- Every other command (progress, tests, snapshot) is in [GUIDE.md → Common commands](GUIDE.md#common-commands).
 - `docker compose logs -f app` follows the logs; `docker compose down -v` deletes the volumes (the next start uses the shipped database again); `docker compose up -d --build` rebuilds after a code change.
 - NVIDIA GPU (much faster): `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d`.
 - A full new backfill, all Docker commands, and why the dashboard and daily job share one container: [docs/operations.md](docs/operations.md#docker-extras).
-
-[↑ Back to contents](#contents)
-
-## Run locally without Docker
-
-**TL;DR:** Node 24 + Ollama with `qwen3:4b`, then `npm install`, `npm start` (backfill), `npm run dashboard`, `npm run daily`.
-
-<a id="1-what-you-need"></a>
-
-### What you need
-
-- **Node.js 24** or newer.
-- **Ollama** ([ollama.com/download](https://ollama.com/download)), running, with the model pulled once:
-  ```
-  ollama pull qwen3:4b
-  ```
-- **Ollama set to 4 requests at once** (the fastest setting we measured). Set it, then restart the Ollama app:
-  - Windows (PowerShell): `[Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL','4','User')`, then quit Ollama from the tray icon and start it again.
-  - macOS / Linux: `export OLLAMA_NUM_PARALLEL=4` in the shell that starts `ollama serve`.
-  - Less GPU memory (about 5.1 GB at 4; 4.5 GB at 3): set `OLLAMA_NUM_PARALLEL=3` **and** `LLM_CONCURRENCY=3` in `.env`. The two numbers must match.
-- An internet connection (Google News).
-
-### Install
-
-```
-git clone https://github.com/avichickvashvili-droid/press-mentions-dashboard.git
-cd press-mentions-dashboard
-npm install
-```
-
-### Settings (`.env`, all optional)
-
-Copy `.env.example` to `.env` to change a setting. Without it the defaults in `src/config.js` are used (Node prints `.env not found. Continuing without it.`, which is expected).
-
-| Variable | Default | What it does |
-|---|---|---|
-| `DB_PATH` | `db/press-mentions.sqlite` | The SQLite file |
-| `LOGS_DIR` | `db/logs` | Log folder (one folder per run) |
-| `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama listens |
-| `OLLAMA_MODEL` | `qwen3:4b` | The model |
-| `LLM_CONCURRENCY` | `4` | AI requests at once; must match `OLLAMA_NUM_PARALLEL` |
-| `API_PORT` | `3000` | Dashboard port |
-| `DISCORD_WEBHOOK_URL` | none | The Discord channel webhook for the daily digest. A secret: only in `.env`, never committed |
-
-### Run end to end
-
-```
-npm start            # 1. the 90-day collection + classification (about 1 hour on a GPU)
-npm run dashboard    # 2. build the page and open http://localhost:3000 (second terminal)
-npm run daily        # 3. the daily job, stays open, runs every day at 03:00 (third terminal)
-```
-
-- `npm start` runs the collector and the classifier side by side and restarts them if they crash. **Ctrl+C** stops it; run it again to resume where it stopped. After the collection is done it doesn't collect again (the daily job adds new articles).
-- The dashboard needs neither Google nor Ollama. On an empty database it first imports the committed `data/`, so it works right after `npm install`.
-- Details (the end log, re-running chosen groups with `--groups`, exit codes): [docs/operations.md](docs/operations.md#the-90-day-collection-npm-start).
-
-<a id="4-other-commands"></a>
-
-### All commands
-
-| Command | What it does |
-|---|---|
-| `npm start` | The 90-day collection + classifier, supervised (resumes an unfinished run) |
-| `npm run dashboard` | Builds the page and starts the API + page at http://localhost:3000 |
-| `npm run daily` | The daily job (every day at 03:00 Israel time) |
-| `npm run progress` | Read-only progress summary of the latest run (`-- --all` lists every company) |
-| `npm test` | The 460 backend tests, offline (Google News, Ollama and Discord are fakes) |
-| `npm run test:web` | The 126 dashboard tests (Vitest, simulated browser) |
-| `npm run collect` | Only the collector: a new 90-day collection; `npm run collect -- --groups 2,5` re-runs groups of the last run |
-| `npm run classifier` | Only the classifier (always on; Ctrl+C to stop) |
-| `npm run api` / `npm run build` / `npm run dev` | API + built page only / build only / page with hot reload (with `npm run api` in another terminal) |
-| `npm run seed` | Only load or update the company list in the database |
-| `npm run docker:snapshot` | Refresh the database copy shipped with Docker (reads the live database read-only) |
 
 [↑ Back to contents](#contents)
 
@@ -212,6 +249,19 @@ npm run daily        # 3. the daily job, stays open, runs every day at 03:00 (th
 ## The dashboard
 
 **TL;DR:** a dark, modern page (light mode too) at http://localhost:3000 with two pages, **Overview** and **Companies**, under a hero band with a briefing and a news ticker.
+
+![The Overview page: the hero band with the week's briefing, status pills and the news ticker; four number cards; mentions over time and by month; Top companies; Needs attention](docs/images/dashboard-overview.png)
+*The Overview page (dark mode): the week in one sentence, the numbers, the charts, and the companies worth a look.*
+
+![The Companies page: the company table with search, sort and filter, and Anthropic's mentions open on the right](docs/images/dashboard-companies.png)
+*The Companies page: every company with its activity and sentiment; the clicked company's mentions open on the right.*
+
+<details>
+<summary>Light mode</summary>
+
+![The Overview page in light mode](docs/images/dashboard-light.png)
+
+</details>
 
 - **Side menu:** Overview, Companies, the data status, and the Light / Dark switch (remembered in the browser). On a phone it becomes a top bar. The page is in the address (`?page=companies`), so refresh and Back work.
 - **Hero band (both pages):** the date and the page title; on the Overview a **briefing** written from the data (e.g. "This week: 1,657 mentions ↑ 55% vs last week. Anthropic leads with 535…", names open the company); **status pills** (Live / last update time, amber when over 26 h old, red when the last daily run failed; the last run's new mentions; Discord sent; the 90-day window); and a **ticker** of the newest 20 headlines (hover pauses it).
@@ -228,11 +278,11 @@ npm run daily        # 3. the daily job, stays open, runs every day at 03:00 (th
 
 ## The daily job and Discord digest
 
-**TL;DR:** `npm run daily` stays open and every day at 03:00 Israel time finds new mentions, updates open dashboards, and sends one Discord message.
+**TL;DR:** it runs by itself inside the Docker `app` container. Every day at 03:00 Israel time it finds the new mentions, updates open dashboards, and sends one Discord message.
 
-```
-npm run daily
-```
+![A real Discord digest: "New press mentions · Tue 29 Sep", 14 companies with their new mentions and green / white / red sentiment counts, most first, then "91 new · Open the dashboard"](docs/images/discord-digest.png)
+
+*A real digest from 29 Sep 2026: 91 new mentions for 14 companies. Each line is a company's new mentions, then 🟢 positive, ⚪ neutral, 🔴 negative.*
 
 **One run:**
 1. Waits if a 90-day collection is still running.
@@ -246,10 +296,10 @@ npm run daily
 - Mentions are marked "alerted" only after Discord accepts the message. If Discord is down, they go out next time (at-least-once).
 - Computer off or asleep at 03:00: the missed day runs at start, or within an hour after waking.
 - Google or Ollama down: it waits and retries. A failed run is retried after 30 min (up to 3 times). After 3 hours of trouble, Discord gets one red "⚠️ Daily job problem" message.
-- Only one daily job can be open at a time (lock file `db/daily.lock`). Nothing restarts it by itself outside Docker: after a PC restart, run `npm run daily` again.
+- Only one daily job can be open at a time (lock file `db/daily.lock`). After a crash or a PC restart, Docker starts it again by itself (`restart: unless-stopped`).
 - No webhook set: the job still runs, and the new mentions go out in the first message once the webhook is set.
 
-Step-by-step details and the run-history SQL: [docs/operations.md](docs/operations.md#the-daily-job-in-detail). Log: `db/logs/daily/daily.log`.
+How to check it ran, and what each Discord message means: [GUIDE.md → The daily job](GUIDE.md#the-daily-job). Step-by-step details: [docs/operations.md](docs/operations.md#the-daily-job-in-detail).
 
 [↑ Back to contents](#contents)
 
@@ -269,12 +319,13 @@ Step-by-step details and the run-history SQL: [docs/operations.md](docs/operatio
 
 ## Tracking progress
 
-**TL;DR:** `npm run progress` in a second terminal, or open the database read-only in a viewer; each run also writes logs to `db/logs/run-<id>/`.
+**TL;DR:** the how-to is in the guide: [GUIDE.md → Follow a run](GUIDE.md#follow-a-run) and [Check things in the database](GUIDE.md#check-things-in-the-database).
 
-- `npm run progress`: a read-only summary of the latest run (run status, companies, groups, queue, mentions). `npm run progress -- --all` lists every company.
-- [`queries/progress.sql`](queries/progress.sql): the 5 most useful queries first, then 11 more. Open `db/press-mentions.sqlite` **read-only** in [DB Browser for SQLite](https://sqlitebrowser.org/dl/) → Execute SQL. Reading during a run is safe (WAL mode).
-- Logs: `db/logs/run-<id>/orchestrator.log` tells the whole run in a few lines (start here); `collector.log`, `group-N.log` and `classifier.log` have the detail. Follow one live: `Get-Content db\logs\run-1\orchestrator.log -Wait -Tail 20`.
-- An example of the output and all log rules: [docs/operations.md](docs/operations.md#tracking-progress-and-logs).
+- **Quick summary:** `docker compose exec app npm run progress` (run status, companies, groups, queue, mentions).
+- **Live logs:** `docker compose logs -f app`.
+- **Deeper:** ready-made read-only SQL in [`queries/progress.sql`](queries/progress.sql); log rules and example output in [docs/operations.md](docs/operations.md#tracking-progress-and-logs).
+
+[↑ Back to contents](#contents)
 
 ## News source: Google News
 
@@ -311,7 +362,24 @@ Full reasoning, per problem: [docs/design-challenges.md](docs/design-challenges.
 | gemma3:4b | 80.4% | 99.8% | 84.4% | 3.67 |
 | qwen3.5:9b | 86.2% | 100% | 83.8% | 1.57 |
 
-Bigger models (e.g. `gpt-oss:20b`, `gemma4:26b`) don't fit in 8 GB and run partly on the CPU (about 13 h for the backfill), so they were excluded.
+![Recommended model qwen3:4b with its four key numbers, and one card per model with bars for junk kept out, nothing missed and sentiment right](research/model-test/screenshots/01-verdict-and-models.png)
+*The 4 models side by side. Compare the three bars: only qwen3:4b is high on all three.*
+
+Bigger models (e.g. `gpt-oss:20b`, `gemma4:26b`) don't fit in 8 GB and run partly on the CPU (about 13 h for the backfill), so they were excluded:
+
+![Model size compared with the 8 GB of GPU memory: 4 small models fit, 6 large ones cross the red 8 GB line](research/model-test/screenshots/05-does-not-fit.png)
+*The red line is the 8 GB of GPU memory. Only the 4 green models fit, so only they were tested.*
+
+<details>
+<summary>More charts: speed, and where junk slipped through</summary>
+
+![Estimated hours for the 20,000-article backfill per model, from 60 minutes for llama3.2:3b to 3.5 hours for qwen3.5:9b](research/model-test/screenshots/02-speed.png)
+*Estimated time for a 20,000-article backfill, one request at a time. qwen3:4b (green) needs about 1.8 hours.*
+
+![Heat table of relevance precision per model and company; the Astra column is red for every model](research/model-test/screenshots/03-per-company.png)
+*Relevance precision per company. Astra is red for every model: 93 of its 100 headlines were about OpenAI's "GPT-6 Astra". In the real system the search hint "Astra Space" keeps most of this out.*
+
+</details>
 
 **How it is invoked** ([`src/classifier/prompt.js`](src/classifier/prompt.js), [`src/classifier/ollamaClient.js`](src/classifier/ollamaClient.js)):
 - `POST /api/chat` to Ollama, one user message per headline, `temperature: 0`, `think: false`, answer capped at 64 tokens.
@@ -329,6 +397,9 @@ Full research (benchmarks searched, excluded models, per-company results, the pa
 **TL;DR:** 598 real Google News headlines with reference answers written before any model ran; `qwen3:4b` agreed on 97.7% precision / 97.7% recall for relevance and 82.2% for sentiment.
 
 - **Data:** 598 real headlines (not synthetic) for 6 companies from the 6 largest sections, mixing confusing names (Harvey, Astra, Lemonade) and unique ones (OpenEvidence, Beyond Meat, Klook). Files: [`research/model-test/`](research/model-test/).
+
+  ![Dataset bars: for each company, the share of positive, neutral and negative headlines, and the grey share that is not about the company](research/model-test/screenshots/04-dataset.png)
+  *The test data per company. Grey = not about the company (only 7 of Astra's 100 headlines are).*
 - **Reference answers:** written by an AI (Claude) with fixed [labeling rules](research/model-test/labeling-rules.md), from the headline and publisher only, before any model ran.
 - **Method:** the same prompt, JSON schema, temperature 0 and thinking off for every model; scored on relevance precision and recall, sentiment accuracy, valid JSON and speed. All models returned 100% valid JSON.
 - **The production prompt** (company + section name instead of a hand-written description): precision 96.6%, recall 97.4%, sentiment 80.7%, still above the 95% precision target. Running 4 at once didn't change accuracy.
@@ -400,7 +471,7 @@ The AI is the bottleneck (searching took ~16 min), and the queue cap worked: the
 | Orchestration | Own small supervisor; the database is the queue | No extra server or tool to install |
 | API | Express | Fast to build |
 | Frontend | React + Vite, TanStack Query, Recharts | List → detail view, charts, fast dev server |
-| Scheduling | node-cron (03:00 Asia/Jerusalem) | Runs inside `npm run daily` |
+| Scheduling | node-cron (03:00 Asia/Jerusalem) | Runs inside the Docker `app` container |
 | Alerts | Discord webhook | Visible, free, simple |
 | Tests | `node:test` (460) and Vitest (126), with fakes for Google, Ollama and Discord | Offline and fast |
 | Delivery | Docker Compose | One command, runs anywhere |
@@ -412,7 +483,7 @@ The AI is the bottleneck (searching took ~16 min), and the queue cap worked: the
 - **I don't want to run anything.** Read the [`data/`](data/) JSON files, and [docs/run-results.md](docs/run-results.md).
 - **Where are the settings?** `src/config.js` (all defaults); `.env` to override (see `.env.example`).
 - **Why wasn't a company found?** Check its search hint in `company_hints.json` and its section in `filtered_ourcrowd_companies.txt`; about half the companies simply had no coverage in 90 days.
-- **How do I re-collect a failed group?** `npm start -- --groups 2,5` (see [operations](docs/operations.md#the-90-day-collection-npm-start)).
+- **How do I re-collect a failed group?** `docker compose exec app npm start -- --groups 2,5` (see [operations](docs/operations.md#the-90-day-collection-npm-start)).
 - **Day-to-day steps for the owner:** [GUIDE.md](GUIDE.md).
 - **Why was X decided?** [PLAN.md](PLAN.md) (decision log, D-numbers).
 - **The AI prompts used to build this project:** [`prompts/ai-assistant-prompts.md`](prompts/ai-assistant-prompts.md).

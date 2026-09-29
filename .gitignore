@@ -11,6 +11,9 @@ dist/
 build/
 .vite/
 
+# A copy of the Docker database for reading (GUIDE: Check things in the database)
+db-docker/
+
 # Local SQLite database (results are exported to data/*.json, which IS committed)
 *.sqlite
 # ...except the starting database of the Docker setup (npm run docker:snapshot, D116)

@@ -4446,3 +4446,79 @@ add a section in the readme how to run : ch: 2.1 and let that point to the guide
 ```
 can commit both and push
 ```
+
+---
+
+## Prompt 384 — Validate everything is pushed
+
+```
+ok i need you to validate everytrhing is pushed 
+db, data folder is important 
+anything i might have missed
+```
+
+---
+
+## Prompt 385 — Make sure Docker is up to date
+
+```
+i want you to make sure the docker is uptodate
+is there anything we need to do with that?
+```
+
+---
+
+## Prompt 386 — Is the Docker ready?
+
+```
+ok is the docker ready aswell?
+```
+
+---
+
+## Prompt 387 — Running Docker now
+
+```
+ok going to run it now
+```
+
+---
+
+## Prompt 388 — Is the Docker DB, data folder and dashboard correct?
+
+```
+ok and that everything from the db in the docker and the data folder correct?
+the dashboard in localhost 3000
+```
+
+---
+
+## Prompt 389 — Progress command
+
+```
+docker compose exec app npm run progress
+```
+
+---
+
+## Prompt 390 — Done
+
+```
+thanks the job is doen
+```
+
+---
+
+## Prompt 391 — How to turn off Docker
+
+```
+how do i turn off the docker?
+```
+
+---
+
+## Prompt 392 — Merge develop into main
+
+```
+please merge develop into main
+```

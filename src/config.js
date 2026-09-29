@@ -1,10 +1,12 @@
 // config.js — every setting of the project in one place (D80): the data collection (collector
-// and seed), the classifier (the AI step and the data/ export) and the orchestrator (`npm start`).
+// and seed), the classifier (the AI step and the data/ export), the api + dashboard, the daily
+// job and the orchestrator (`npm start`).
 //
 // Where it sits: read by every other file (database, seed loader, Google News client, queue
-// writer, lock, company loop, classifier, orchestrator). Nothing else holds a "magic number".
-// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL and LLM_CONCURRENCY environment variables
-// (all optional, from .env if present).
+// writer, lock, company loop, classifier, api, orchestrator). Nothing else holds a "magic number".
+// Reads: the DB_PATH, LOGS_DIR, OLLAMA_URL, OLLAMA_MODEL, LLM_CONCURRENCY, API_PORT,
+// API_LISTEN_HOST and DISCORD_WEBHOOK_URL environment variables (all optional, from .env if
+// present; the Docker setup sets some of them in docker-compose.yml).
 // Writes: nothing.
 //
 // To change how the program behaves, change a value here. Each value has a plain-language
@@ -331,6 +333,171 @@ export const config = {
   // many times, EXPORT_RENAME_RETRY_MS apart, before the export counts as failed.
   EXPORT_RENAME_TRIES: 5,
   EXPORT_RENAME_RETRY_MS: 200,
+
+  // =====================================================================================
+  // API + dashboard (Step 5, `src/api/`)
+  // =====================================================================================
+
+  // The port the api (and the dashboard page) listens on: http://localhost:3000.
+  // Can be changed with the API_PORT setting in .env (e.g. when port 3000 is taken).
+  API_PORT: positiveIntegerFromEnv('API_PORT', 3000),
+
+  // The rolling window the dashboard shows, in days (the "last quarter", D1): the same 90 days as
+  // the collection and the data/ export. Worked out again on every request (D13, NFR5).
+  DASHBOARD_WINDOW_DAYS: COLLECTION_DAYS,
+
+  // The built dashboard page (made by the Vite build) that the api serves.
+  WEB_DIST_DIR: path.join(PROJECT_ROOT, 'web', 'dist'),
+
+  // "This week" in the company table's Recent activity column (owner, Prompts 317-322, D110):
+  // mentions published in the last ACTIVITY_DAYS days, compared with the ACTIVITY_DAYS before
+  // them. Rolling from the request time, like the 90-day window.
+  ACTIVITY_DAYS: 7,
+
+  // The Overview page (owner, Prompt 364, D117): GET /api/overview. Everything is counted from
+  // the Mention table when asked, never stored.
+  OVERVIEW: Object.freeze({
+    // The days of the "Mentions over time" chart and the months of "By month" are Israel days.
+    TIME_ZONE: 'Asia/Jerusalem',
+    // "Total mentions" compares the last TREND_DAYS days with the TREND_DAYS before them.
+    TREND_DAYS: 30,
+    // How many of the newest mentions (all companies) the "Recent mentions" list gets.
+    RECENT_LIMIT: 20,
+    // "Needs attention": at most LIMIT items, each with a SPARK_DAYS-day mini chart.
+    ATTENTION_LIMIT: 6,
+    ATTENTION_SPARK_DAYS: 14,
+    // A company counts only with at least MIN_WEEK mentions in the last 7 days (ACTIVITY_DAYS)...
+    ATTENTION_MIN_WEEK: 10,
+    // ... "spike" = at least SPIKE_RATIO times the week before;
+    ATTENTION_SPIKE_RATIO: 2,
+    // ... "negative" = at least this share of its week negative; "positive" = at least this share positive;
+    ATTENTION_NEGATIVE_SHARE: 0.5,
+    ATTENTION_POSITIVE_SHARE: 0.85,
+    // "went quiet" = at least QUIET_MIN_BEFORE mentions in the QUIET_BEFORE_DAYS before this week, none this week.
+    ATTENTION_QUIET_BEFORE_DAYS: 30,
+    ATTENTION_QUIET_MIN_BEFORE: 10,
+  }),
+
+  // The company logos (collected once by an agent, Prompt 318, D112): one image per company plus
+  // logos.json ({ id: { file, domain, source, confidence } | null }). Served at /logos/<file>.
+  LOGOS_DIR: path.join(PROJECT_ROOT, 'web', 'public', 'logos'),
+
+  // How long the browser keeps a logo before asking again (30 days): after the first visit the
+  // logos load from the browser's cache, not from the server (owner, Prompt 318).
+  LOGO_CACHE_MAX_AGE_MS: 30 * 24 * 60 * 60 * 1000,
+
+  // The address the api listens on: 127.0.0.1 = this computer only (D106, code review #2).
+  // Nobody else on the network can open the dashboard or send it the daily job's signal.
+  API_HOST: '127.0.0.1',
+
+  // The address the api listens on. Normally the same 127.0.0.1. Inside Docker it must be
+  // 0.0.0.0, or Docker's port mapping can't reach it; docker-compose.yml sets that and publishes
+  // the port on 127.0.0.1 of the computer only, so the D106 rule still holds (D116).
+  API_LISTEN_HOST: process.env.API_LISTEN_HOST || '127.0.0.1',
+
+  // The only addresses the api answers to (a request's Host, without the port): this computer's
+  // names. Anything else gets 403. This blocks "DNS rebinding", where a web page on another site
+  // tricks the browser into reading the dashboard (owner decision F, Prompt 298).
+  API_ALLOWED_HOSTS: ['localhost', '127.0.0.1', '[::1]'],
+
+  // While a dashboard page is open, the api sends it a small "still here" line this often over
+  // the live-updates connection (GET /api/events), so the connection is not closed as idle.
+  EVENTS_KEEP_ALIVE_MS: 25000,
+
+  // If the live-updates connection drops (e.g. the api was restarted), the page tries to
+  // connect again after this long.
+  EVENTS_RECONNECT_MS: 5000,
+
+  // =====================================================================================
+  // Daily job (Step 6, `npm run daily`, D102, D105, D106)
+  // =====================================================================================
+
+  // When the daily job runs: every day at 03:00 (cron format: minute hour day month weekday),
+  // in the time zone below. The Discord message goes out when the job ends, not at 03:00 exactly.
+  DAILY_CRON: '0 3 * * *',
+
+  // The time zone of DAILY_CRON and of the date in the Discord message's title.
+  DAILY_TIMEZONE: 'Asia/Jerusalem',
+
+  // How many days each daily search covers, counted in whole UTC days: 2 = yesterday + today
+  // (Google takes dates only, I40). If the last run is older (the computer was off), the search
+  // starts from the day the last run ran instead, so no day is skipped; never more than
+  // COLLECTION_DAYS back.
+  DAILY_SEARCH_DAYS: 2,
+
+  // The daily job's pace on Google News: at most one search per this many milliseconds (5 s, plus
+  // the small random REQUEST_JITTER_MS), so a run of ~260 searches takes about 22 minutes. The
+  // 90-day collector keeps REQUEST_INTERVAL_MS (1 s). Why (owner, Prompt 308, D108): the first two
+  // real daily runs (29 Sep 2026) searched at 1 s and Google answered "503 busy / limiting us"
+  // after about 197 fast searches, for about 2 hours each time, so each run took 2 h 16 min
+  // instead of about 4 min. The job runs at 03:00, so a slower pace costs nothing.
+  DAILY_REQUEST_INTERVAL_MS: 5000,
+
+  // "Missed run" check at start-up: when the last successful daily run started more than this
+  // long ago (or there is none), `npm run daily` runs the job right away (Prompt 272).
+  DAILY_MISSED_AFTER_MS: 24 * 60 * 60 * 1000,
+
+  // The same "missed run" check is also done every this long while `npm run daily` stays open
+  // (every hour): a computer that was asleep at 03:00 runs the missed job within an hour after
+  // it wakes up. It only starts a run when no run or retry is already on its way.
+  DAILY_MISSED_CHECK_MS: 60 * 60 * 1000,
+
+  // When the 90-day collection (`npm start`) is still collecting or classifying, the daily job
+  // waits: it tries again after this long (15 minutes).
+  DAILY_BLOCKED_RETRY_MS: 15 * 60 * 1000,
+
+  // When a daily run fails (an unexpected error), it is tried again after this long (30 minutes),
+  // at most DAILY_FAILED_RETRIES times in a row; after that it waits for the next 03:00.
+  DAILY_FAILED_RETRY_MS: 30 * 60 * 1000,
+  DAILY_FAILED_RETRIES: 3,
+
+  // "Daily job problem" message to Discord (Prompt 298, owner decision B): sent ONCE when a daily
+  // run has been waiting (the 90-day collection is open) or going on (e.g. Ollama or Google is
+  // down) for this long without finishing: 3 hours. Also sent when a run gave up after its
+  // failed retries. So a silent Discord never hides a problem.
+  DAILY_PROBLEM_AFTER_MS: 3 * 60 * 60 * 1000,
+
+  // The daily job tells the api "new data" (POST /api/internal/data-updated). How long it waits
+  // for the api to answer before it gives up (the api may simply not be running).
+  DAILY_NOTIFY_TIMEOUT_MS: 5000,
+
+  // ---------- Discord (the alert, D105) ----------
+
+  // The Discord webhook address. It is a SECRET: it is only read from .env
+  // (DISCORD_WEBHOOK_URL=...), never written in the code, the logs or git.
+  DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL || '',
+
+  // The dashboard link at the end of the Discord message.
+  DASHBOARD_URL: `http://localhost:${positiveIntegerFromEnv('API_PORT', 3000)}`,
+
+  // The side color of the Discord message (Discord's blurple).
+  DISCORD_COLOR: 5793266,
+
+  // The side color of the "Daily job problem" message (red).
+  DISCORD_PROBLEM_COLOR: 15548997,
+
+  // Discord allows at most 4,096 characters in one message's text. Every company is listed
+  // (Prompt 294); when the list is longer than this, it goes on in a next message ("2/3").
+  // Kept a little under the limit to be safe.
+  DISCORD_MAX_TEXT_CHARS: 4000,
+
+  // How long to wait for Discord to answer one message.
+  DISCORD_TIMEOUT_MS: 15000,
+
+  // Sending one message: tried this many times in all when Discord or the network has a problem,
+  // with these waits in between (5 s, 30 s). When Discord says "too many requests" (429), the wait
+  // Discord asks for is used instead. A message that still fails is sent with the next run: its
+  // mentions stay "not alerted" (D106).
+  DISCORD_TRIES: 3,
+  DISCORD_RETRY_WAITS_MS: [5000, 30000],
+
+  // When Discord says "too many requests" (429), the longest wait accepted from its answer
+  // (5 minutes): a safety net against a strange value.
+  DISCORD_MAX_RATE_LIMIT_WAIT_MS: 5 * 60 * 1000,
+
+  // A company name longer than this is cut (with "…") in the Discord message, so one strange
+  // name can't fill the message.
+  DISCORD_MAX_NAME_CHARS: 100,
 
   // =====================================================================================
   // Orchestrator (`npm start`, the supervisor). These values are fixed here on purpose; they

@@ -1,0 +1,184 @@
+/* CompanyTable.module.css — the company table and its rows (owner's design, D110).
+   Every row is its own white block with a border and rounded ends, 8 px apart on a light
+   background, so the companies are clearly separated (owner, Prompt 337). */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  padding: 0 10px 4px;
+  background: var(--list-bg);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 14px 7px;
+  vertical-align: middle;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-top: 12px;
+  padding-bottom: 6px;
+  background: var(--list-bg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The row block: top and bottom border on every cell, the sides and the round corners on the
+   first and last cell. */
+.table td {
+  background: var(--card-bg);
+  border-top: 1px solid var(--item-border);
+  border-bottom: 1px solid var(--item-border);
+}
+
+.table td:first-child {
+  border-left: 1px solid var(--item-border);
+  border-radius: 10px 0 0 10px;
+  padding-left: 14px;
+}
+
+.table td:last-child {
+  border-right: 1px solid var(--item-border);
+  border-radius: 0 10px 10px 0;
+  padding-right: 12px;
+}
+
+.table th:first-child {
+  padding-left: 15px;
+}
+
+/* Mentions: left-aligned under its header, with room on both sides (owner's design, Prompt 328). */
+.mentions {
+  padding-left: 14px !important;
+  padding-right: 20px !important;
+}
+
+.count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.headerNote {
+  display: block;
+  font-weight: normal;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.help {
+  margin-left: 4px;
+  color: var(--muted);
+  cursor: help;
+}
+
+.row {
+  cursor: pointer;
+}
+
+/* Hover and the open company colour the whole border, the rounded ends too (Prompt 338: the
+   end cells' own side borders must not keep the grey, or the corners look cut off). */
+.table .row:hover td {
+  border-color: var(--item-hover-border);
+}
+
+.table .selected td,
+.table .selected:hover td {
+  background: var(--selected-bg);
+  border-color: var(--accent);
+}
+
+/* A company opened from the Overview: the row glows twice so the eye lands on it (Prompt 370).
+   The scroll puts it in the middle of the screen (App.jsx). */
+@media (prefers-reduced-motion: no-preference) {
+  .table .flash td {
+    animation: flash 0.9s ease-in-out 2;
+  }
+
+  @keyframes flash {
+    50% {
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--glow);
+    }
+  }
+}
+
+.company {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nameButton {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nameButton:hover {
+  text-decoration: underline;
+}
+
+.activity {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.activityMain {
+  font-weight: 600;
+}
+
+/* "0 this week": quiet, not bold. */
+.activityNone {
+  color: var(--muted);
+}
+
+.up,
+.down {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.up {
+  color: var(--positive-text);
+}
+
+.down {
+  color: var(--negative-text);
+}
+
+/* The ↑ / ↓ bold and bigger, like the design. */
+.arrow {
+  flex: none;
+}
+
+.same {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.chevron {
+  color: var(--muted);
+  font-size: 1.2rem;
+  width: 1%;
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}

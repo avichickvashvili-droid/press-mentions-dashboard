@@ -2791,3 +2791,1734 @@ can commit and merge to develop as well
 ```
 can merge to main
 ```
+
+---
+
+## Prompt 247 — Add my progress queries to the guide as a TL;DR; make GUIDE.md and progress.sql leaner
+
+```
+i want you to add in the guide the queries i used to identify the run progress 
+also we need to make this files leaner same for queries progress.sql
+call that TLDR, most useful put it at the very begining right with npm progress
+
+SELECT id AS run_id, status, started_at, last_heartbeat,
+  ROUND((julianday('now') - julianday(last_heartbeat)) * 24 * 60, 1) AS minutes_since_heartbeat,
+  last_error, classified_count AS classified, relevant_count AS relevant,
+  irrelevant_count AS irrelevant, failed_count AS failed
+FROM JobRun WHERE id = (SELECT MAX(id) FROM JobRun);
+
+SELECT g.group_number, g.status,
+  SUM(j.status = 'finished') AS done, SUM(j.status = 'failed') AS failed,
+  SUM(j.status IN ('not_started','fetching')) AS left, COUNT(j.company_id) AS total,
+  g.crashes_in_a_row, g.exported_at, g.last_error
+FROM JobRunGroup g
+LEFT JOIN JobRunCompany j ON j.run_id = g.run_id AND j.group_number = g.group_number
+WHERE g.run_id = (SELECT MAX(id) FROM JobRun)
+GROUP BY g.group_number ORDER BY g.group_number;
+
+SELECT state, COUNT(*) AS articles FROM (
+  SELECT CASE WHEN claimed_at IS NOT NULL THEN 'being classified now'
+              WHEN status = 'pending' THEN 'waiting for the AI'
+              WHEN status = 'failed' AND attempts < 3 THEN 'failed once, will be retried'
+              WHEN status = 'failed' THEN 'failed for good'
+              WHEN status = 'relevant' THEN 'relevant, waiting to be moved'
+              ELSE status END AS state
+  FROM BufferQueue) GROUP BY state ORDER BY articles DESC;
+
+SELECT j.group_number, c.name AS company, j.status
+FROM JobRunCompany j
+JOIN Company c ON c.id = j.company_id
+WHERE j.run_id = (SELECT MAX(id) FROM JobRun)
+  AND j.status = 'fetching';
+
+SELECT COUNT(*) AS total,
+  SUM(sentiment = 'positive') AS positive,
+  SUM(sentiment = 'negative') AS negative,
+  SUM(sentiment = 'neutral')  AS neutral,
+  COUNT(DISTINCT company_id)  AS companies_with_mentions
+FROM Mention;
+
+make sure to write aswell what every query does
+```
+
+---
+
+## Prompt 248 — Guide is too long: remove what the README already has, keep the guide a TL;DR
+
+```
+guide is way toooo long, cross info in the README and if its there remove from guide i want the guide to be TLDR
+```
+
+---
+
+## Prompt 249 — A query to see the Company table, and one to see all sentiments of a company by name
+
+```
+i want you to give me a query too see companies table
+and than a query where i give company name i see all the sentminets for that company
+```
+
+---
+
+## Prompt 250 — The sentiment totals query for all companies
+
+```
+SELECT c.name AS company, COUNT(m.id) AS mentions,
+  SUM(m.sentiment = 'positive') AS positive,
+  SUM(m.sentiment = 'negative') AS negative,
+  SUM(m.sentiment = 'neutral')  AS neutral
+FROM Company c
+LEFT JOIN Mention m ON m.company_id = c.id
+WHERE c.name LIKE '%Lambda%'
+GROUP BY c.id;
+
+give me this queries for all the companies to show the totals of sentiments
+```
+
+---
+
+## Prompt 251 — Start planning the dashboard (React + Vite), and how it updates after the daily job
+
+```
+ok time to move on to the dashboard
+lets plan it,
+i want it to be a react vite .
+we need to take into account to update the data after daily job.
+daily job will delete articles >90days
+and add new data 
+so need to make sure we have proper hooks for that
+need your recommendation on how to update that
+
+lets start planning together
+```
+
+---
+
+## Prompt 252 — Keep D13 (filter, don't delete); use React hooks for updates, not a version check
+
+```
+You said the daily job will delete articles older than 90 days. That replaces an earlier decision, D13 ("filter old data in queries, never delete"). I'll record it as a new decision when we write the plan.
+
+
+ur right, just filter.
+
+My recommendation: the page checks one small "data version" every minute and whenever you come back to the tab. When the version changes, it reloads its data.
+
+hell no its missing the whole idea of react, why not using hooks?
+```
+
+---
+
+## Prompt 253 — Restart the dashboard plan: display the data correctly, self-updating with React; one command; Express API
+
+```
+ok forget what we disscussd so far
+and forget about the daily job
+your confusing the dashboard FR with other stuff
+
+start planning with me, what else do we need
+
+for now lets start with the plan only to display the data correctly while being able to update itself (hooks,states) anything react can offer us. (that will help us later when we develop the daily job)
+
+i want the react vite to be able to build the dashboard with 1 comman using the data it has in the DB
+also need to implement the API endpoints we disccused in the system design
+using express
+```
+
+---
+
+## Prompt 254 — Standard React + Vite folders and components; how the data updates (new data, >90 days) with hooks
+
+```
+i want you also to build the project with react vite standarts
+folders organized and componets
+
+now the only thing which isnt clear is how to update the data
+1. when new data arrived 
+2. filter >90days
+it shouldnt be that difficult with hooks no?
+```
+
+---
+
+## Prompt 255 — Answers: TanStack Query ok; why section + sentiment totals?; state only ok; what's the alternative to plain CSS?
+
+```
+1. ok 
+2. why what advantage will it give
+3. ok
+4. whats the altranative
+```
+
+---
+
+## Prompt 256 — Plain CSS; section + sentiment totals are ok, but won't the DC and classifier need changes?
+
+```
+stick to css
+
+now about 2 im ok with yuo adding that but that means its gonna need to be changed in the DC and classifier aswell
+since they are the ones populating the tables
+```
+
+---
+
+## Prompt 257 — Explain again why the 2 new columns don't need DC/classifier changes; who adds them to the DB?
+
+```
+explain to me again how adding thos 2 colunms to the table dont require us to change the DC and classifier? so who does this addition to the db?
+```
+
+---
+
+## Prompt 258 — Yes to computed totals (must update after the daily job); note for the daily job to send the refresh signal
+
+```
+oh ok so you create it using the data. sure do it , but remeber it can change after the daily job so it should be able to update
+
+also add a note that for the daily job we should send that query you told me in order to update the dashboard
+```
+
+---
+
+## Prompt 259 — Point me to Step 5
+
+```
+point me to step 5 your talking about
+```
+
+---
+
+## Prompt 260 — Send an agent to build Step 5, with me as its team lead; what else did I miss?
+
+```
+yes, send an agent act as his team lead giving him full well written instructions
+make sure he handles crashes, error handling, sticking to hooks and states stick to the plan we did
+in csae no DB use the data folder instead
+ask and not act on its own
+what else did i miss?
+```
+
+---
+
+## Prompt 261 — Answers to the agent's Phase 0 questions
+
+```
+1. sure
+2. ok
+3. ok
+4. ok
+5. its nice to have
+6. i disagree and i feel like starting the dashboard should have its own command its different flow in the system
+7. what
+8. no data modification. dont do any of that
+9. whats the question here
+10. yes
+
+Small choices it will make unless you object
+The table starts sorted by name. Clicking a column header sorts by that column.
+sort by sentiments amoutn
+no such fr is for search its a qol for later
+The mentions panel sits beside the table. - explain to me what that means
+It uses the latest versions: Express 5, React 19. sure
+```
+
+---
+
+## Prompt 262 — Q6: two terminals; Q7: no; Q9: no such case (no search), don't invent requirements
+
+```
+q6 2 terminals is fine
+q7 no
+9 no one will ask for it since we dont have search and ur making up FR
+```
+
+---
+
+## Prompt 263 — Show me a sample site first; focus on the FRs, no styling for now
+
+```
+i need to see an exmaple to answer that lets start with that ok
+i want to see a sample site when the agent done
+i dont care about styiling for now tell him to focus the FR so we can see the site and start builkding further
+```
+
+---
+
+## Prompt 264 — How long will it take?
+
+```
+how long will it take +-
+```
+
+---
+
+## Prompt 265 — Sort by most mentions first; 20 mentions per page with page navigation; remove the section column
+
+```
+i already i said i want the list to be sorted with most sentiments first
+for a case of alot of mentions: for example antrhropic scrolling down to 3212 articles is insane
+add a 20 cap of mentions per page and a small nav of pages to see the other sentiments, with next, or go to last what do you yhink?
+also you can get rid of that section colunm
+```
+
+---
+
+## Prompt 266 — OK to client-side pages
+
+```
+ok good
+```
+
+---
+
+## Prompt 267 — Commit everything; next: the daily job (dashboard QoL later)
+
+```
+good job
+i want us to move on to the daily job
+and when we got time left we are going to do some QOL and nice to have in the dash board
+but for now i want you to log everything we did into a commit
+```
+
+---
+
+## Prompt 268 — Daily job: how do we avoid adding the same data again?
+
+```
+we need to handle duplicate data in the daily job
+explain to me how we are not adding same data again
+```
+
+---
+
+## Prompt 269 — The same story from different publishers stays separate mentions
+
+```
+The same story from different publishers (a Reuters story copied by Yahoo, MSN…) counts as separate mentions. They have different ids and different publishers. Grouping them was marked optional in the plan. Is that okay, or do you want the daily job to handle it?
+ofc its different one can have different sentiment and thats exactly what the system is built for
+```
+
+---
+
+## Prompt 270 — Daily job answers: Discord webhook, node-cron, last 24 h, first alert = all 11,600, invalidate the dashboard queries
+
+```
+i want to get a notification into a discord webhook
+node-cron daily job
+last 24 hrs
+you can let the first alert me this 11600 mentions yes
+the daily job should send a querynotvalid something no?
+```
+
+---
+
+## Prompt 271 — Daily job: signal via the backend; no alert for the existing mentions; 3am IST; own command; date-only window as a design flaw
+
+```
+ok so let the daily job speak with our back end and that will notify the front whats the issue? 
+1. dont send 11600 mentions omg. so dont send for the first day meaning when the dashboard was built
+2. 3am ist
+3. exactly
+4. ok mention that in design flaws
+5. sure
+```
+
+---
+
+## Prompt 272 — Agent to design a pretty Discord digest; down at 03:00 / PC off → run when possible
+
+```
+send an agent to design us the webhook message i want something trendy and pretty
+and for it to be creative. maybe highlighted headlines just dont over load it too much
+2. run when possible. 
+3. run when possible
+```
+
+---
+
+## Prompt 273 — Agent to add search to the dashboard: filter as you type, no search button
+
+```
+I want you to send another agent to start adding the search feature in the react
+make sure to pay attention and filter as we type, and not press search and than it shows results my meaning is no search button is required
+```
+
+---
+
+## Prompt 274 — Here is the Discord webhook URL; send a dummy digest once the format is ready
+
+```
+https://discord.com/api/webhooks/[REDACTED: the webhook URL is a secret, saved only in .env]
+thats the webhook url when the webhook format is ready send a dummy one
+```
+
+---
+
+## Prompt 275 — Why is the Discord agent slow? Commit: stable dashboard, search, daily job design so far
+
+```
+why does it take the discord agent so long its just formatting a message
+prapre a commit for a stable version of dashboard, add search, start desginging of daily job
+and everything else we did
+```
+
+---
+
+## Prompt 276 — Why is it slow? The alert doesn't have to be at 3am exactly: it's sent as part of the daily job
+
+```
+why its taking so long, and also it dosent have to be 3am exactly it will be sent as part of the daily job
+```
+
+---
+
+## Prompt 277 — Resend designs B and C to the webhook
+
+```
+i only see option A sent to me , resend B and C
+```
+
+---
+
+## Prompt 278 — (interrupted)
+
+```
+what other
+```
+
+---
+
+## Prompt 279 — Brainstorm nice-to-have and QoL ideas for the dashboard
+
+```
+help me think on a cool nice to have and QOL for the dashboard.
+```
+
+---
+
+## Prompt 280 — Didn't like any Discord design: too busy, missing the point
+
+```
+for the discord i didnt like any they are too busy and i fell like they are missing the point
+```
+
+---
+
+## Prompt 281 — Send the Discord design agent again with the lean notes; stay in scope
+
+```
+ok send the discord agent again with the new notes tell him not to get out of scope
+```
+
+---
+
+## Prompt 282 — Agent: click a column header to sort (company, status, mentions; not the sentiment columns)
+
+```
+send an agent to add a feature to the site where when clicking on a coulnm it sorts by it
+company -> a to z or z to a
+status -> mentioned today or furthest, 
+mentions -> high to low low tohigh
+poisitive now thats a tricky one so we dont sort by Positive neegative or neutral for now
+```
+
+---
+
+## Prompt 283 — Default view stays as is: most mentions first
+
+```
+exactly i want the default view as is, meaning most sentiment at begining sorted by it
+```
+
+---
+
+## Prompt 284 — The lean Discord design is chosen
+
+```
+i liked that design we gonna use that
+```
+
+---
+
+## Prompt 285 — Bug: after a page refresh the sort arrow still shows on Mentions
+
+```
+[image: the Mentions header with a ▼ arrow] bug when refreshing the sort triangle icon is still present
+but the sort is gone
+expected: sort is gone is good
+but there shouldnt be a sort icon after refresh
+```
+
+---
+
+## Prompt 286 — Run all the tests after the fix
+
+```
+ok after its done perform all the tests
+```
+
+---
+
+## Prompt 287 — Senior engineer code review of the full-stack site; another agent fixes the findings; then run all tests
+
+```
+send to a senior software engineer to do a act as a code review
+for our fullstack site and let another agent fix the issues the code review is raising
+after that perform all tests
+```
+
+---
+
+## Prompt 288 — Prepare a commit
+
+```
+prapre a commit
+```
+
+---
+
+## Prompt 289 — Push to develop
+
+```
+push to dev
+```
+
+---
+
+## Prompt 290 — Daily job: full steps and how it talks to the backend and the dashboard
+
+```
+ok time to work on the daily job give me a full steps on how to write it based on what we agreed 
+im reminding you the daily job has to do this things:
+run with its own command stays up aka cron job, fetch 24hr (or 48h since its google limitation), no duplications, after this is done if there new data trigger:
+1. data filter -> filtr out everything >90days from the dashboard
+2. add the new sentiments to the dashboard
+3. send the web hook
+
+send me a full detailed overview on how we are going to achive that for example after the cron job is done.
+how is it communicating with our back end? which enpoint is it going to use?
+how the backend will trigger a change on the dashboard to see the updated changes
+```
+
+---
+
+## Prompt 291 — Daily job: the "new mentions" query, invalidate, DailyRun, localhost, merging into data/
+
+```
+SELECT … FROM Mention WHERE alerted_at IS NULL
+explain to me this part why the db will have the answer? when does this run? give me an example of expected output
+also i didnt see you mention invalidate query
+1. give me the structre of dailyrun table, i dont want to save another table just like that. whats the benefit for that?
+2. explain what do you mean
+3. you need to be able to merge the daily job run into the data folder meaning:
+adding to the sentiments the new sentiments
+i dont understand why you would not want to save the data.
+```
+
+---
+
+## Prompt 292 — The new-mentions query returns 136 rows; DailyRun, localhost-only and the data/ merge approved
+
+```
+now i ran the query and i have 136 rows returned, so somthing in your logic is wrong or it shouldve been already marked.
+ok you can make the dailyrun table
+4. yes only accept a call from localhost ok
+agreed on data merge
+```
+
+---
+
+## Prompt 293 — Digest: always send on a quiet day (something cute); questions 2 and 3 unclear
+
+```
+1. even on no new mentions send: something so we can know that the daily job has ran 
+and yeah send something cute
+2. i dont understand whats the question
+3. i dont understand whats the question
+
+try to be more clear when asking me stuff
+```
+
+---
+
+## Prompt 294 — Digest: list every company; the title date is the day it is sent
+
+```
+2. list all
+3. of that same day. yeah ofc its from monday
+since i cant do a daily run every few hours to keep checking its not a news site
+its a dashboard
+```
+
+---
+
+## Prompt 295 — Which column the first run changes, and was it tested on dummy data
+
+```
+First run ever: before searching, it marks the 11,600 existing mentions as alerted, so they never reach Discord.
+explain what colunm inthe table it changes to and to what value 
+
+did you test it on dummy data?to ee its working
+```
+
+---
+
+## Prompt 296 — Code review agent, fix agent, then a commit
+
+```
+ok so im going to instruct you now what to do:
+1. code review agent
+2. code fix from the review agent
+3. after those are done prapre a commit for me.
+```
+
+---
+
+## Prompt 297 — Open decisions as multiple choice
+
+```
+give it to me as multi option and ill choose its too much to track
+```
+
+---
+
+## Prompt 298 — Answers to the multiple-choice questions (open decisions of the Step 6 review)
+
+```
+#4 npm start during a daily run: "npm start refuses"
+#9 catch-up run just before 03:00: "Always run at 03:00"
+A  a new 90-day collection's mentions: "Mark as alerted (Recommended)"
+B  failures: "Send a problem message (Recommended)"
+C  no restart after a crash: "Document it (Recommended)"
+F  DNS rebinding: "Add the check (Recommended)"
+D, E, G, H small side effects: "Accept, add to README (Recommended)"
+Build choices: search from the last run "Fri to Mon (Recommended)"; owner_pid "Keep it (Recommended)";
+  data/ order "After Discord (Recommended)"; collectedAt "Use the finish time"
+```
+
+---
+
+## Prompt 299 — No more questions
+
+```
+yo enough with the questions
+```
+
+---
+
+## Prompt 300 — Is the daily job ready for production?
+
+```
+is the daily job ready for production? yes or no answer
+```
+
+---
+
+## Prompt 301 — Commit
+
+```
+commit now
+```
+
+---
+
+## Prompt 302 — Push
+
+```
+push
+```
+
+---
+
+## Prompt 303 — Overnight: an agent runs the real daily job and reports; update the guide
+
+```
+now im going to leave you a task:
+its 00:00 am here
+i want you to send an agent to run the daily job while im asleep
+you can start it now and let it run 
+i want a detailed run of how it went when i wake up with all the data it fetched and to see its updated in the db as expected while filtering out data 
+i want him to test it worked as expected and if not give me a detailed overview
+and ofc discord message
+
+mean while what i need you to do is to update the guide with how to run and check the progress of the daily job
+```
+
+---
+
+## Prompt 304 — Will it run at 3am?
+
+```
+will it run at 3am?
+```
+
+---
+
+## Prompt 305 — Why run the daily job now and not at 3am?
+
+```
+why are we running the daily job now and not in 3am?
+```
+
+---
+
+## Prompt 306 — Got it
+
+```
+got it
+```
+
+---
+
+## Prompt 307 — Slower pace for the daily job; stop the processes; today: the dashboard
+
+```
+Google limits us. Both runs were blocked (HTTP 503) after about 197 fast searches, for about 2 hours. The job waited and finished, as designed, but each run took about 2 h 16 min instead of about 4 minutes. A slower pace for the daily job (2–3 s per search, about 10 min in total) would likely avoid this.
+yeah lets think on a new slower time to do that
+the rest is fine
+you can stop the process running 
+today we are going to focus on the dashboard
+```
+
+---
+
+## Prompt 308 — Daily job pace: 5 s per search, documented with the reason
+
+```
+do a 5sec, mention it in the docs that it was decided due to 2 runs that was blocked by google because of going too fast
+```
+
+---
+
+## Prompt 309 — Commit
+
+```
+prapre a commit and commit
+```
+
+---
+
+## Prompt 310 — Push
+
+```
+push
+```
+
+---
+
+## Prompt 311 — Start the dashboard
+
+```
+ok lets start by you starting the site so i can view the dashboard
+```
+
+---
+
+## Prompt 312 — Which endpoint does a company click use
+
+```
+when im clicking on a company which endpoint does it go? because i dont see a change in the url
+is it expected?
+```
+
+---
+
+## Prompt 313 — Yes: company in the address
+
+```
+ok
+```
+
+---
+
+## Prompt 314 — No changes for now
+
+```
+great. that now expected
+dont do any changes now
+```
+
+---
+
+## Prompt 315 — QoL / nice-to-have: discuss with ChatGPT (theoretical)
+
+```
+heres what i want you to do
+prapre a promt with everything that can be QOL or nice to have in the site
+I want you than to explain the site and the dashboard to chat gpt
+than i want you both to discuss it and give me the best feature nice to have and QOL
+dont do any changes its a theoretic step
+```
+
+---
+
+## Prompt 316 — ChatGPT's answer (pasted)
+
+````
+Claude’s list is strong, but it slightly overvalues **visual polish** and undervalues **triage**. For an investment team, the dashboard’s main job is not “show me press data”; it’s **“tell me what changed, what deserves attention, and let me investigate quickly.”**
+
+### 1. Ideas I’d deprioritize
+
+**#10 Dark mode — low priority.** Nice polish, almost no product value for this use case. Do it only if implementation is nearly free via CSS variables and `prefers-color-scheme`.
+
+**#11 Persist sort/search in URL — mostly unnecessary.** Keeping `?company=...` is valuable because it creates a shareable state. Encoding every transient filter/search into the URL adds complexity without much payoff for a single-user local dashboard.
+
+**#8 Group mentions by day — moderate, not essential.** Helpful when browsing many articles, but the pagination already breaks the feed into manageable chunks. I'd implement this after better filtering/triage.
+
+**#17 Top publishers per company — weak as a standalone feature.** Interesting analytically, but unlikely to affect day-to-day decisions unless publisher/source quality becomes an explicit requirement.
+
+**#18 CSV export — only if someone actually asks for it.** Classic feature that sounds useful but often goes unused. Very cheap later, so don't build preemptively.
+
+**#16 Story clustering — valuable but expensive.** It solves a real problem—“12 articles” may actually be one story syndicated everywhere—but reliable clustering introduces normalization/fuzzy matching/possibly embeddings and creates new edge cases. Good V2 feature, not take-home scope.
+
+**#19 “Not about this company” — valuable, but I would not put it in the first QoL pass.** It directly addresses a known system weakness, so it's more valuable than several visual features. But it changes the dashboard from read-only analytics into a moderation workflow. Once you add it, you need to define whether the mention is deleted, hidden, excluded from counts, auditable, reversible, etc.
+
+---
+
+## 2. What I think is missing
+
+The biggest missing concept is **change over time**.
+
+Right now `1,240 mentions` tells me SpaceX is heavily covered. It doesn't tell me whether something unusual is happening **today**.
+
+I'd add a simple **Recent activity / change signal**:
+
+> SpaceX — 47 mentions last 7d ↑ 68% vs previous 7d  
+> Anthropic — 32 ↑ 12%  
+> Company X — 8 ↑ from 1
+
+This is much more actionable than raw lifetime/90-day volume.
+
+I'd also add **date-range filtering** to the mentions panel: `24h | 7d | 30d | 90d`. An investment user will frequently ask “what happened recently?” rather than wanting to page through 3,000 articles.
+
+Another useful improvement is **combined filtering** on the company list. Rather than only:
+
+`All | Mentioned this week | Mentioned | No coverage`
+
+consider allowing:
+
+`Search + coverage/status + sentiment signal`
+
+For example, “show companies with negative coverage in the last 7 days.” That turns the dashboard into an investigation tool rather than just a directory.
+
+Finally, I would expose **data freshness / pipeline health** more clearly. You already have `DailyRun`, so something like:
+
+> ✓ Last scan completed today 03:14 · 91 new mentions · 258 companies scanned
+
+and an obvious warning if today's run failed is high-value and cheap.
+
+---
+
+# 3. My ranked top 5
+
+| Rank | Feature | Why it matters | Effort | Backend |
+|---|---|---|---|---|
+| **1** | **What's New / Recent Activity** | Immediately answers “what changed since the last scan?” | M | Small API |
+| **2** | **Recent negative coverage / attention section** | Gives the investment team an immediate triage queue | M | API/query |
+| **3** | **7d trend + sentiment visualization** | Makes 258 companies scannable instead of forcing users to interpret numbers | M | API aggregation |
+| **4** | **Mention investigation filters** | Sentiment + 24h/7d/30d/90d + headline search makes the detail panel dramatically more useful | S–M | Minimal/none at current scale |
+| **5** | **False-positive feedback** | Directly attacks a known weakness in the actual system | M | DB + write API |
+
+### #1 — What's New / Recent Activity
+
+I would slightly change Claude's idea.
+
+Don't merely put tiny `NEW` badges everywhere. Give the user an explicit **“Since last run” state**:
+
+**Since today's scan**
+- 91 new mentions
+- 24 companies affected
+- 6 negative
+- 3 companies with unusually high activity
+
+Then mark relevant companies/mentions.
+
+This matches the user's actual workflow: open dashboard → understand what happened overnight → investigate.
+
+You already have `first_seen_at` and `DailyRun`, so you have most of the underlying information.
+
+---
+
+### #2 — Recent negative coverage
+
+Claude is right that this is valuable, but I'd avoid making it a dramatic “NEGATIVE NEWS 🚨” section.
+
+I'd call it something like **Needs Attention** or **Recent Negative Coverage**.
+
+For example:
+
+> **Recent Negative Coverage · Last 7 days**  
+> Company A — 4 negative mentions  
+> Company B — 2  
+> Company C — 1
+
+Clicking a company opens the panel already filtered to Negative + 7 days.
+
+That makes the component actionable.
+
+---
+
+### #3 — Trend + sentiment visualization
+
+I agree with Claude's idea, but I'd emphasize **recent trend**, not a dense 90-day sparkline for every row.
+
+Something like:
+
+`SpaceX      1,243     +42 this week ↑     █████░  78% positive`
+
+The absolute 90-day count tells you scale; recent change tells you activity; the sentiment bar tells you composition.
+
+That's enough information to scan 258 companies quickly.
+
+I would **not** display:
+
+`Positive 941 | Neutral 227 | Negative 75`
+
+as three equally prominent numeric columns forever. It forces the user to mentally calculate the distribution.
+
+Keep exact numbers accessible via hover/detail if needed.
+
+---
+
+### #4 — Better mention investigation
+
+Combine several of Claude's ideas into one feature rather than treating them independently.
+
+When I open SpaceX:
+
+**90 days ▾**  `All 3,214` `Positive 2,100` `Neutral 900` `Negative 214`  
+`🔍 Search headlines...`
+
+Date options:
+
+`24h | 7d | 30d | 90d`
+
+Now I can answer things like:
+
+> “Show me negative Anthropic press this week.”
+
+in seconds.
+
+Given only ~12k total mentions, client-side filtering is completely reasonable initially. No need to build sophisticated server-side search infrastructure.
+
+---
+
+### #5 — False-positive feedback
+
+This is the one I'd move **up** compared with Claude.
+
+You already know false positives are a real weakness:
+
+> “to scale AI” → Scale AI
+
+A dashboard that beautifully visualizes incorrect data isn't as useful as one that lets the owner correct obvious mistakes.
+
+I'd keep V1 extremely simple:
+
+`Not relevant`
+
+Click → hide from dashboard and aggregates.
+
+You could add a field such as:
+
+`manually_excluded_at`
+
+or even just:
+
+`is_excluded INTEGER DEFAULT 0`
+
+No separate table is necessary initially.
+
+Later, these manual corrections become a useful evaluation dataset for improving your filtering/model.
+
+---
+
+## 4. What I'd change in the current design
+
+The biggest thing I'd change is the **information hierarchy**.
+
+Currently the main screen begins immediately with a searchable list of 258 companies. That's closer to a database browser than an investment-monitoring dashboard.
+
+I'd structure the page roughly like this:
+
+```text
+PRESS MENTIONS                         Updated today 03:14 ✓
+
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 91 NEW       │ │ 24 COMPANIES │ │ 6 NEGATIVE   │
+│ since scan   │ │ with updates │ │ new mentions │
+└──────────────┘ └──────────────┘ └──────────────┘
+
+RECENT NEGATIVE COVERAGE
+Company A  4 negative     Company B  2     Company C  1
+
+──────────────────────────────────────────────────────
+
+PORTFOLIO
+
+[ Search companies... ] [ All ▾ ] [ Last 7 days ▾ ]
+
+Company        Recent activity      Mentions     Sentiment
+SpaceX         +47 ↑68%             1,243        █████░
+Anthropic      +32 ↑12%               934        ████░░
+Company C       +8 ↑700%               24        ██░░░░
+...
+```
+
+Then clicking the company opens your existing right-hand investigation panel.
+
+That gives you a much clearer product story:
+
+**Overview → detect something interesting → identify company → investigate articles.**
+
+One other small change: **don't let SpaceX and Anthropic permanently dominate the default ranking just because they have huge historical coverage.** “Most mentions in 90 days” is useful as one sort, but I'd seriously consider **recent activity** as the default view. Otherwise the same giant companies will sit at the top every day and obscure the exact thing a monitoring product is supposed to surface: **what changed.**
+
+For a take-home, I'd implement **#1 + #2 + #4 + the small QoL bundle**, and design/mock #3 and #5 as logical next steps. That demonstrates product thinking without turning a deliberately simple local application into an overengineered analytics platform.
+````
+
+---
+
+## Prompt 317 — The table vision (with a picture)
+
+```
+[image: a mock-up of the company table: search box, filter chips All (258) / Mentioned this week (42) / Mentioned (186) / No coverage (72), a "Sort by: Recent activity" dropdown; columns Company (with logo), Recent activity (+32 this week, +68% vs prev 7d, ⓘ), Mentions (90 days), Sentiment (a green/grey/red bar with %), 7d trend (small bars), Last mentioned, a › at the row end]
+im going to tell you my vision
+i liked the view as shared here 
+sum up the changes in the ui to do for this to happen before doing anything, this is me making sure your not missing anything
+```
+
+---
+
+## Prompt 318 — Logos agent; answers on the table vision
+
+```
+send an agent to collect logos for all the companies now
+it should be saved in cache after first load to speed latency.
+2. mentions panel stays on the right side unchanged for now
+3. come up witha  rule and let me give the verdict
+4. ok
+5. can skip that 7d trend coulnm
+6. agree use unified colors
+7. agree
+8. its just the company panel your right
+```
+
+---
+
+## Prompt 319 — The mentions panel vision (with a picture)
+
+```
+[image: a mock-up of the mentions panel: logo + "Anthropic", "934 mentions in last 90 days", a × close; tabs Mentions / Overview / Publishers; range buttons 24h (12) / 7d (32) / 30d (128) / 90d (934); sentiment buttons All (32) / Positive (22) / Neutral (7) / Negative (3); "Search headlines..."; a day heading "Today Sep 30, 2025 (4)"; rows: a sentiment pill with an icon, the headline on one line, "TechCrunch · 10:42", an open-link icon]
+ok lets start discussing the sentiments panel
+i really like that design other than the TODAY
+```
+
+---
+
+## Prompt 320 — Answers on the mentions panel
+
+```
+1. ok
+2. it should be sorted in a way of  date: and under this date a list of the setniments
+3. all
+4. keep 20
+5. what you think in regard of UX, i think default
+6. yes mention 10:35 IST
+```
+
+---
+
+## Prompt 321 — Pros and cons of the Recent activity rule
+
+```
+1. give me pros and cons
+2. not yet
+```
+
+---
+
+## Prompt 322 — Keep "most mentions", show this week's change
+
+```
+keep as most mentions, but just add the increase/decrease of this week, what do you think?
+```
+
+---
+
+## Prompt 323 — The logo agent is not visible
+
+```
+i dont see the agent runnign
+```
+
+---
+
+## Prompt 324 — Go: build the table and panel
+
+```
+ok you can go with the development
+```
+
+---
+
+## Prompt 325 — Discord digest: 3 numbers but only 2 circles
+
+```
+send an agent to fix that i see it multilpe times in the discord message
+where you see 3 numbes but only 2 dots
+for example : Cerebras 2,1,1 only showing 2 circles
+[image: "CarDekho · 2 🟢1 ⚪1"]
+```
+
+---
+
+## Prompt 326 — Resend today's Discord message to check the fix
+
+```
+ok send me the discord message i got today again to validate fix
+```
+
+---
+
+## Prompt 327 — Panel: what looks wrong; the buttons jump when counts change
+
+```
+[image: the SpaceX panel with 24h (18) and Negative (18) chosen; the magnifier icon sits far below the "Search headlines..." box with a big empty gap; "Tue 29 Sep (4)"; "Fiery end for SpaceX Starship mission - Al Jazeera" / "Al Jazeera · 02:56 IST"]
+fixed
+
+
+what looks wrong here?
+also while playing with the filters because for example i switch filter some change the numbers in the sort
+24h can go from 120 to 18
+that losing digit makes the ui everytime move a bit and its annoying
+```
+
+---
+
+## Prompt 328 — Design polish: the Mentions column is not spaced properly
+
+```
+[image 1: the owner's design: "Mentions (90 days)" left-aligned, "934" under it, space before Sentiment; "72% 20% 8%" under their parts of the bar]
+[image 2: the built table: "Mentions (90 days)" and "3,470" right-aligned, pressed against the Sentiment column; "52% 18% 30%" spread across the bar]
+something in the design dont look good look mentions coulnm not spaced properly
+make sure this stuff dont happen those are obvious designs
+```
+
+---
+
+## Prompt 329 — Always check in headless, on the dev server
+
+```
+2 things:
+from now on always check on headless
+can run on dev server to save time
+```
+
+---
+
+## Prompt 330 — Modern font, a nicer "Last mentioned", no Refresh button
+
+```
+[images: the panel's time / sentiment buttons; the "Sort by" list open (Most mentions / Last mentioned / Company A–Z); the Stripe panel top; the page nav and a day of mentions — all examples of the font]
+i want yout to work on this font of last mentioned coulnm,
+today looks old and not pretty, think of something else
+
+i want you to remove that refresh button on the top right
+also the font of 2nd image and 3rd image
+work the whole site and fix the font to not look outdated all the images are example of the font
+```
+
+---
+
+## Prompt 331 — Icons instead of text: sort / filter icons, icon page nav; a new word for "Today"
+
+```
+[image 1: a filter icon (three lines, shorter each time)]
+[image 2: the page nav "« First  ‹ Previous  Page 1 of 173  Next ›  Last »"]
+ok fixes: i want you to stay available so send that to an agent
+1. i want a different word in last mentioned, not TODAY
+something like <24h, recent,  give me options here
+2. i want to replace the sort by with sort icons its both in company panel
+and in mentions panel
+instead of having all the 24h,7d,30d,90d have a filter icon
+same for all, pos, netureal, negative
+defaults stay the same
+3. 2nd image thats too much text in the row repalce this with only icons
+```
+
+---
+
+## Prompt 332 — Answers: "< 24h" wording; the panel's two "sorts"
+
+```
+Last mentioned wording: <24h, than days, than weeks, than months
+Panel sort: the mentions panel has a sort it has: 24h, 7d,30d, 90d this is 1st sort
+2nd sort: all, positive, neutral, naegative
+```
+
+---
+
+## Prompt 333 — The top of the page: last update, new mentions, companies with updates
+
+```
+[image: a mock-up of the top of the page: the OurCrowd logo, "Press Mentions / News coverage of 258 portfolio companies"; "Last data update ✓ Today 03:14 (Israel time) · 91 new mentions · 24 companies with updates · Discord sent"; "Last 90 days Jul 2 – Sep 30"; a Refresh button; cards "91 new mentions since last scan (+28%)", "24 companies with updates out of 258", "6 negative mentions across 5 companies", "3 unusually high activity vs previous 7 days", and a "Recent Negative Coverage · Last 7 days" list]
+i want you to work on the upper side of the side above the company panel and mentions table 
+make sure before you start to not conflict with the agent
+im going to tell you what i want there:
+last date updated, matching the daily job finish time
+new mentions from the daily job, matching the discord message
+companies with updates aswell
+negative mentions you can leave out
+and unusalley high activity you can leave out aswell
+```
+
+---
+
+## Prompt 334 — A card: how many companies are covered, out of how many
+
+```
+[image: a card "Companies Mentioned — 254 / 257 — ↑ 12 — companies mentioned this quarter" with a purple building icon]
+i want you to add to the main panel. how many companies total and out of how many are covered
+something like that without that
+uparrow 12 which i dont know what it represents
+```
+
+---
+
+## Prompt 335 — Sort bugs: no pill for Most mentions; choosing the same sort again should reverse it
+
+```
+[image: the Sort menu open with "Last mentioned" ✓ and the pill "Sort: Last mentioned ×"]
+ok bugs:
+1. company panel when selecting sort, last mentioned bubble is added works good for company a-z
+but when going back to most mentions there is no bubble
+2. by logic, when selecting last mentioned, and then selecting it again it should do reverse sort
+now it just stays the same , its like sorting a-z but than selecting again should be z-a
+i dont know how but handle it that way so this 3 sorts
+would have their reverse option when reselected
+```
+
+---
+
+## Prompt 336 — Commit everything
+
+```
+looks good first of all commit and make sure to commit everything
+```
+
+---
+
+## Prompt 337 — More space and clear separation between list items
+
+```
+ok ur next task
+i want to have more space between companies and also between posts
+i want our design to be more clear since all the site is just lists we need clear seperations between list items
+```
+
+---
+
+## Prompt 338 — The selected row's corners are cut off
+
+```
+[image: the selected Anthropic row: the blue border runs to the edges and its rounded far corners are not visible]
+almost good but when selected see what happend
+the far corners are not seen
+```
+
+---
+
+## Prompt 339 — Who updates the "Last 90 days" dates?
+
+```
+[image: the top section's window: "Last 90 days / 1 Jul 2026 – 29 Sep 2026"]
+question who updates the last 90 days? after the daily job?
+```
+
+---
+
+## Prompt 340 — Think together on a cool feature for the main panel
+
+```
+ok think with me on a cool feature we can add to the main panel
+```
+
+---
+
+## Prompt 341 — None of the first ideas
+
+```
+didnt like any of those
+```
+
+---
+
+## Prompt 342 — Sketch: where the mentions come from (sites)
+
+```
+[image: a "Mentions by Source" donut chart: 48,292 mentions in the middle; legend Online News 52% 25,111, Blogs 18% 8,640, TV / Broadcast 12% 5,794, Print 8% 3,862, Social Media 7% 3,379, Other 3% 1,506]
+maybe something like this where top data is coming from like which sites
+dont do anything yet we are sketching
+```
+
+---
+
+## Prompt 343 — Drop the sources idea
+
+```
+ok never mind
+```
+
+---
+
+## Prompt 344 — Deliver the project with Docker (design first)
+
+```
+I want as part of the delivarable to be able to deliver docker
+(im not completley familiar with the syntax)
+so im gonna need your help withe the design
+so when a comman like :
+docker compose up -d
+docker compose ymal 
+
+does that say anything to you?
+```
+
+---
+
+## Prompt 345 — Docker answers: explain Q1, ship the DB, include everything
+
+```
+1. explain to me i didnt understand whats the Q
+2. ship with the data and DB ofcourse
+3. everything that can run, also have option for backfill yes
+the daily job, dashboard classification every thing we built
+```
+
+---
+
+## Prompt 346 — Ollama inside Docker: the reviewer runs only docker compose up -d
+
+```
+1. b i want the reviewr to not run anything other than docker compose up -d
+```
+
+---
+
+## Prompt 347 — Pre-download the model; CPU by default; install Docker; explain how it all works
+
+```
+cant we predownload it to the docker?, 1.c i want it to run anywhere
+2. install
+
+i need you to give me a full detailed explanation on how this works how will docker by one command have the dashboard up? the daily job running? how will we run DC if needed im missing this part
+```
+
+---
+
+## Prompt 348 — Start by installing Docker
+
+```
+yes lets start by installing
+```
+
+---
+
+## Prompt 349 — Docker is installed and running
+
+```
+should be done
+```
+
+---
+
+## Prompt 350 — Does the daily job skip a day that already ran?
+
+```
+i have a question, the daily job process should start right away
+but that day daily job may have ran alraady
+i dont want it to start fetching for hours for no need
+we should have in the DB if the daily job ran already right?
+```
+
+---
+
+## Prompt 351 — Status update
+
+```
+give update
+```
+
+---
+
+## Prompt 352 — Continue
+
+```
+continue where you last stopped
+continue where you last stopped
+```
+
+---
+
+## Prompt 353 — How do I test Docker myself?
+
+```
+ok so if i want to test the docker myself how do i do that
+i want to check my self that everything is working
+```
+
+---
+
+## Prompt 354 — Send an agent to clear port 3000
+
+```
+send an agent to clear port 3000 for me
+```
+
+---
+
+## Prompt 355 — Where do I type docker compose up -d?
+
+```
+im missing cruical part how do i even start it where do i type the command? docker compose up -d
+```
+
+---
+
+## Prompt 356 — Ran the command, now what?
+
+```
+ok i ran the command now what
+```
+
+---
+
+## Prompt 357 — Put the Docker start and test steps in the GUIDE and README
+
+```
+ok make sure to add all of this down into the guide
+and readme
+```
+
+---
+
+## Prompt 358 — Prepare a commit
+
+```
+nice prapre a commit
+```
+
+---
+
+## Prompt 359 — Do .env and the DB need to be in the commit?
+
+```
+wait we dont need the .env and the db in the commit since they are inside the docker correct?
+```
+
+---
+
+## Prompt 360 — Does every code change need a new Docker image?
+
+```
+and now for every new code change we need to create new docker image?
+```
+
+---
+
+## Prompt 361 — How is Docker delivered? Do we push it?
+
+```
+so how am i delivering the docker? do we push it?
+```
+
+---
+
+## Prompt 362 — The reviewer should get the current DB: any action needed?
+
+```
+i want that the reviewr will have the current db
+is there any action i need to make?
+```
+
+---
+
+## Prompt 363 — Got it
+
+```
+got it
+```
+
+---
+
+## Prompt 364 — Redesign: a "WOW" overview with aggregations, modern, dark mode
+
+```
+[attached file: press-monitor-mockup.html — a "Portfolio Press Monitor" mockup with sample data: KPI strip (companies, with coverage, mentions in window, sentiment split bar, new today), status chips (Recent / Active / Quiet / No coverage), a table with a 13-week sparkline per company, sentiment bar, latest headline; a company drawer with a weekly stacked sentiment chart; tabs "Daily alert" (digest preview, console, history) and "How it works" (pipeline stages); light/dark theme tokens]
+[image: a dark-sidebar "Press Mentions" dashboard: Overview / Companies / Mentions / Insights / Settings nav; filters Q3 2026, all companies, all sentiment, all sources, Refresh; KPI cards Total Mentions 48,292 (↑18%), Companies Mentioned 254/257 (↑12), Sentiment Breakdown bar 58/24/18%, Avg. Mentions per Company 190 (↑14%); "Mentions Over Time" daily area chart by sentiment (Daily/Weekly/Monthly); "Mentions by Sentiment (Q3 2026)" stacked monthly bars; "Top Companies" table with tabs Most mentioned / Trending / Most positive / Most negative (mentions, trend vs Q2, sentiment bar, last mentioned); "Needs Attention" list with sparklines (negative spike, mention spike, high negative share, no mentions in 5 days, high positive); "Recent Mentions" table (time, company, title, source, sentiment) with All/Positive/Negative/Neutral]
+so i want to change our dashboard a little bit
+look at this samples
+i want the main panel to be with cool aggragtions of data
+i want the site to be modenr and in dark mode 
+take examples from this hereand make it as "WOW" as possbile so that pepole will have the wow effect
+make sure to test everything on headless
+```
+
+---
+
+## Prompt 365 — Sentiment breakdown alignment; ?company= link opens the old site
+
+```
+[image: the Sentiment breakdown card: "54% / Positive / 6,458" and "29% / Negative / 3,398" on two lines each, but "17% Neutral" on one line, so the three are not level]
+1. sentiment breakdown, they soppuse to be on same height and length why neutrel isnt same height with them
+2. http://localhost:3000/?company=anthropic usng that url sent me to the old site why?
+```
+
+---
+
+## Prompt 366 — Going to the Overview should close the open company
+
+```
+another bug
+clicking on a company from the top comapnies , sends us to the companies tab,
+when going back to overview
+and navigating back to companies that same company is open i want to reset companies when moving to overview so no company is selected
+```
+
+---
+
+## Prompt 367 — The top section looks basic: ideas to make it trendy
+
+```
+[image: the Overview's top section: "Overview" and "News coverage of 258 portfolio companies" on the left; a green check with "Last data update / Today 05:16 (Israel time) / 91 new mentions · 14 companies with updates · Discord sent"; "Last 90 days / 1 Jul 2026 – 29 Sep 2026" on the right]
+think on how to improve this upper section it looks very basic not trendy or cool
+```
+
+---
+
+## Prompt 368 — Show an example of all 3 ideas
+
+```
+i need to see an example of all 3 to decide can you do that
+```
+
+---
+
+## Prompt 369 — Build option 4 (hero + pills + briefing) with the ticker
+
+```
+hmmmm the ticker is a banger and option 4
+```
+
+---
+
+## Prompt 370 — LATEST colour; reset the search; jump to the company in the table
+
+```
+i didnt like the color of latest its a red colorish dot 
+and it resembels like negative in that site context, think on other color for that
+another fix in companies tab i had search when i move to overview and came back the search is still active
+another fix when clicking for example on a company  OpenEvidence  from the new overview panel
+i  see it open its sentiments but the company table dont show it 
+we need to think on a way on jumping to the company and showing its sentiments
+```
+
+---
+
+## Prompt 371 — A code review agent over the changes
+
+```
+great job 
+prapre a code review agent to go over our code changes
+```
+
+---
+
+## Prompt 372 — Fix the review findings
+
+```
+fix
+```
+
+---
+
+## Prompt 373 — Prepare a commit
+
+```
+ok prapre a commit
+```
+
+---
+
+## Prompt 374 — Agents to make the README and the GUIDE shorter and readable
+
+```
+what i want from you now
+the README is too fucking long same for the guide
+first i want you to send an agent to fix the readme and an agent to fix the guide
+each one before they start have to go over it and read it
+they can drop any unrelevant data
+and add relevent data
+the goal is to make the README and guide more readable as of now its just a huge chunk of information maybe add chapters links to other parts of the readme or in the guide aswell will be nice
+```
+
+---
+
+## Prompt 375 — Commit
+
+```
+commit
+```
+
+---
+
+## Prompt 376 — Push
+
+```
+push]
+```
+
+---
+
+## Prompt 377 — README visuals, DB structure, drop run-without-Docker
+
+```
+in general we need to add visualization to the readme
+we had that in previous versions for example ch11
+missing db structre in highlevel, what tables we use and each has its own use
+can remove chapter 5 from readme and guide, i dont it to be run without docker
+6. add screenshots from the dashboard
+7. add screenshots of discord mesage example: 
+9. should point to the guide
+11. we had graphs and screen shots visualizing why qwne4b
+[Image: a Discord message from the DailyJobRun app, 9:47 AM — "New press mentions · Tue 29 Sep", a list of companies with new-mention counts and green/white/red sentiment dots (Anthropic · 53, 22 positive, 14 neutral, 17 negative; SpaceX · 16; Databricks · 4; xAI · 4; Stripe · 3; CarDekho, Cerebras, Arbe Robotics, DreaMed Diabetes, Kodiak Robotics, Quantum Machines, Scale AI, The Trendlines Group, TubiTV), footer "91 new · Open the dashboard ↗"]
+```
+
+---
+
+## Prompt 378 — Show the README
+
+```
+show me the readme
+```
+
+---
+
+## Prompt 379 — Dashboard screenshots in chapter 1, ideas for GUIDE visuals
+
+```
+great job 1 small fix is : i want at the begining of the README the scrennshots of the dashboard aswell let them show twice its fine
+add them to the ch1 what it does
+in addition try to to tell me if u can think of a way to add visualization to the guide dont do it yet, just tell me what you have in mind
+```
+
+---
+
+## Prompt 380 — Screenshots as a showcase chapter at the start
+
+```
+it feels out of place let the README start with it with a fitting headline ch0 showcase or something
+```
+
+---
+
+## Prompt 381 — Fix the cut BufferQueue label, show the guide
+
+```
+10'000 got cut off ehre
+fix that and show me the new guide
+[Image: the README flow chart, the BufferQueue box reads "waiting headlines · max 10,(" — the end of 10,000 is cut off]
+```
+
+---
+
+## Prompt 382 — How to run section (2.1) pointing to the guide
+
+```
+add a section in the readme how to run : ch: 2.1 and let that point to the guide
+```
+
+---
+
+## Prompt 383 — Commit and push
+
+```
+can commit both and push
+```
+
+---
+
+## Prompt 384 — Validate everything is pushed
+
+```
+ok i need you to validate everytrhing is pushed 
+db, data folder is important 
+anything i might have missed
+```
+
+---
+
+## Prompt 385 — Make sure Docker is up to date
+
+```
+i want you to make sure the docker is uptodate
+is there anything we need to do with that?
+```
+
+---
+
+## Prompt 386 — Is the Docker ready?
+
+```
+ok is the docker ready aswell?
+```
+
+---
+
+## Prompt 387 — Running Docker now
+
+```
+ok going to run it now
+```
+
+---
+
+## Prompt 388 — Is the Docker DB, data folder and dashboard correct?
+
+```
+ok and that everything from the db in the docker and the data folder correct?
+the dashboard in localhost 3000
+```
+
+---
+
+## Prompt 389 — Progress command
+
+```
+docker compose exec app npm run progress
+```
+
+---
+
+## Prompt 390 — Done
+
+```
+thanks the job is doen
+```
+
+---
+
+## Prompt 391 — How to turn off Docker
+
+```
+how do i turn off the docker?
+```
+
+---
+
+## Prompt 392 — Merge develop into main
+
+```
+please merge develop into main
+```

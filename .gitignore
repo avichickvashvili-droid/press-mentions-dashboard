@@ -11,8 +11,13 @@ dist/
 build/
 .vite/
 
+# A copy of the Docker database for reading (GUIDE: Check things in the database)
+db-docker/
+
 # Local SQLite database (results are exported to data/*.json, which IS committed)
 *.sqlite
+# ...except the starting database of the Docker setup (npm run docker:snapshot, D116)
+!docker/seed/press-mentions.sqlite
 *.sqlite3
 *.db
 *.db-journal
@@ -25,6 +30,9 @@ build/
 *.sqlite3-wal
 *.sqlite3-shm
 *.sqlite3-journal
+
+# The lock file of an open `npm run daily` (src/daily/processLock.js)
+daily.lock
 
 # Unfinished data/ export files (written first, then renamed over the real file)
 data/*.tmp

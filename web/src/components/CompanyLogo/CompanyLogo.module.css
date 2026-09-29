@@ -1,0 +1,35 @@
+/* CompanyLogo.module.css — the logo square (or the letter badge in its place). */
+.logo {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--logo-bg);
+}
+
+/* A picture logo gets a little room inside its light tile (most logos are dark on transparent,
+   so on the dark theme they need a light tile to be seen, D117). */
+img.logo {
+  padding: 2px;
+}
+
+.small {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+}
+
+.large {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+.badge {
+  color: var(--on-color);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

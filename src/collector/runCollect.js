@@ -8,8 +8,9 @@
 // the group processes write BufferQueue and talk to Google News.
 //
 // Order at start-up (a normal start):
-//   (a) read-only lock check: refuse if a live collection is running, or if no run is
-//       'running' but an earlier run is still 'collected' (being classified);
+//   (a) read-only lock check: refuse if a daily run is going on (Prompt 298, review #4), if a
+//       live collection is running, or if no run is 'running' but an earlier run is still
+//       'collected' (being classified);
 //   (b) seed the Company table from the data files;
 //   (c) take the lock in one transaction (re-checked): resume the crashed/stopped run, or start
 //       a new one: its companies are split into groups of about 25 (D83) and fixed (D88).
@@ -63,6 +64,7 @@ import { seedCompanies } from '../seed/seedLoader.js';
 import { EXIT_CODES } from '../shared/exitCodes.js';
 import { readGroupsOption } from '../shared/groupsOption.js';
 import { findCollectedRun, findLiveRun, isRunLive } from '../shared/runLock.js';
+import { describeDailyRunGoingOn, findLiveDailyRun } from '../shared/dailyRunCheck.js';
 import { describeError } from '../shared/text.js';
 import {
   acquireRun, CollectedRunPendingError, GroupsRequestError, installEmergencyHandlers, LockHeldError, LostOwnershipError,
@@ -156,7 +158,12 @@ async function main() {
     return EXIT_CODES.CRASHED;
   }
 
-  // (a) Read-only checks.
+  // (a) Read-only checks. First: no 90-day work while a daily run is going on (review #4).
+  const dailyRun = findLiveDailyRun(db);
+  if (dailyRun) {
+    progress.error(describeDailyRunGoingOn(dailyRun));
+    return EXIT_CODES.REFUSED;
+  }
   if (chosenGroups) {
     const refusal = checkGroupsAllowed(db);
     if (refusal) {

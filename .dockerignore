@@ -1,0 +1,21 @@
+# .dockerignore — what never goes into the Docker image (D116).
+# Secrets: .env stays on the computer; docker-compose.yml passes its values in when it starts.
+.env
+.env.*
+!.env.example
+
+# Rebuilt inside the image
+node_modules
+web/dist
+
+# The live database and its logs: the image gets docker/seed/press-mentions.sqlite instead
+db
+
+# Not needed to run
+.git
+.vscode
+prompts
+research
+test
+*.md
+!README.md

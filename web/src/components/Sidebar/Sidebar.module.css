@@ -1,0 +1,199 @@
+/* Sidebar.module.css — the side menu (D117): full height on the left; a bar across the top on a
+   narrow screen (below 900 px). */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 20px 14px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 2px 8px;
+}
+
+.brandMark {
+  flex: none;
+  filter: drop-shadow(0 4px 14px var(--glow));
+}
+
+.brandBg {
+  fill: var(--accent);
+}
+
+.brandBar {
+  fill: var(--on-color);
+}
+
+.brandName {
+  font-weight: 700;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+}
+
+.brandSub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.navItem:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.active,
+.active:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.active::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+.bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+}
+
+.statusDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+}
+
+.ok { background: var(--positive); box-shadow: 0 0 8px var(--positive); }
+.running { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.failed { background: var(--negative); box-shadow: 0 0 8px var(--negative); }
+.stale { background: var(--stale); }
+.none { background: var(--neutral); }
+
+.statusTitle {
+  font-weight: 600;
+}
+
+.statusTime {
+  color: var(--muted);
+}
+
+.themeButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.themeButton:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* Narrow screens: one bar across the top. */
+@media (max-width: 899px) {
+  .sidebar {
+    position: sticky;
+    z-index: 5;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brandSub,
+  .status {
+    display: none;
+  }
+
+  .brand {
+    padding: 0;
+  }
+
+  .nav {
+    flex-direction: row;
+    margin-left: auto;
+  }
+
+  .navItem {
+    padding: 7px 10px;
+  }
+
+  .active::before {
+    display: none;
+  }
+
+  .bottom {
+    margin-top: 0;
+  }
+
+  .themeButton span {
+    display: none;
+  }
+}
+
+@media (max-width: 479px) {
+  .brandName {
+    display: none;
+  }
+
+  .navItem span {
+    font-size: 0.85rem;
+  }
+}

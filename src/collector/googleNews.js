@@ -151,6 +151,8 @@ export function describeGoogleRetry({ reason, waitMs, companyName, tryNumber, tr
 //     after a problem (for progress + logs). `status` = the HTTP code, or null when Google gave
 //     no answer (network error, timeout); `companyName` = what the caller passed to search();
 //     `tryNumber` / `tries` are set only for a 400-type answer (e.g. try 1 of 3).
+//   requestIntervalMs = the pace: at least this long between two requests (default
+//     REQUEST_INTERVAL_MS, 1 s; the daily job passes DAILY_REQUEST_INTERVAL_MS, 5 s, D108).
 //   onAlive('fetching') is called before each request and every `aliveEveryMs` during a retry
 //     wait (D90).
 export function createGoogleNewsClient({
@@ -161,14 +163,16 @@ export function createGoogleNewsClient({
   onRetry = () => {},
   onAlive = () => {},
   aliveEveryMs = config.GROUP_ALIVE_EVERY_MS,
+  requestIntervalMs = config.REQUEST_INTERVAL_MS,
 } = {}) {
   let lastRequestAt = null;
   let forbiddenInARow = 0; // 403 answers since Google last answered normally (counted across searches)
 
-  // Keeps the fixed pace: waits until at least 1 s (+ random 0-300 ms) has passed since the last request.
+  // Keeps the fixed pace: waits until at least `requestIntervalMs` (1 s for the collector, 5 s for the
+  // daily job, D108) + random 0-300 ms has passed since the last request.
   async function waitForTurn() {
     if (lastRequestAt !== null) {
-      const earliest = lastRequestAt + config.REQUEST_INTERVAL_MS + Math.floor(random() * (config.REQUEST_JITTER_MS + 1));
+      const earliest = lastRequestAt + requestIntervalMs + Math.floor(random() * (config.REQUEST_JITTER_MS + 1));
       const waitMs = earliest - now();
       if (waitMs > 0) await sleep(waitMs);
     }

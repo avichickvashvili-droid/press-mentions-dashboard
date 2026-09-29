@@ -1,7 +1,8 @@
-// database.js — opens the SQLite database and creates its 6 tables.
+// database.js — opens the SQLite database and creates its 7 tables.
 //
 // Where it sits: the first thing every command does (seed, collect, tests) is open the
-// database through this file. All services share this one SQLite file.
+// database through this file. All services share this one SQLite file. The api reads it
+// through a read-only connection (openDatabaseReadOnly).
 // Reads/writes: the SQLite file at config.DB_PATH (or any path given, e.g. a temp file in tests).
 //
 // Tables (see PLAN.md 1.3 "Core Entities"):
@@ -11,6 +12,7 @@
 //   JobRun         one row per collection run; also the lock ("only one run at a time")
 //   JobRunCompany  the per-run checklist of companies (each with its group number)
 //   JobRunGroup    the groups of a run (D83-D89): status, crashes in a row, failed rounds (D97), export time
+//   DailyRun       one row per daily job run (D106): status, new mentions, when the alert was sent
 //
 // All dates are stored as ISO-8601 text in UTC, e.g. "2026-09-27T10:15:00.000Z".
 //
@@ -109,6 +111,20 @@ CREATE TABLE IF NOT EXISTS JobRunGroup (
   PRIMARY KEY (run_id, group_number)
 );
 
+-- One row per daily job run (D106, npm run daily). Also its lock: a 'running' row whose process
+-- is alive means a daily run is going on. Separate from JobRun on purpose: JobRun is the 90-day
+-- collection, and many places read "the latest JobRun" as that collection.
+CREATE TABLE IF NOT EXISTS DailyRun (
+  id            INTEGER PRIMARY KEY,
+  started_at    TEXT NOT NULL,
+  finished_at   TEXT,
+  status        TEXT NOT NULL CHECK (status IN ('running', 'done', 'failed')),
+  owner_pid     INTEGER,                        -- the process running it (to spot a run cut off by a crash)
+  new_mentions  INTEGER NOT NULL DEFAULT 0,     -- new mentions found by this run (before the Discord message was sent)
+  alert_sent_at TEXT,                           -- when Discord accepted the message; NULL = not sent / failed
+  last_error    TEXT
+);
+
 -- Classifier: oldest pending/failed rows; move step: relevant rows.
 CREATE INDEX IF NOT EXISTS idx_bufferqueue_status ON BufferQueue(status);
 -- Backup duplicate check (D33): same company + same publisher + same title.
@@ -155,6 +171,17 @@ export function openDatabase(dbPath = config.DB_PATH) {
   db.exec(SCHEMA_SQL);
   addMissingColumns(db);
   db.exec(INDEXES_AFTER_COLUMNS_SQL);
+  return db;
+}
+
+// Opens an EXISTING database file for reading only (the api, D19: it never writes).
+// SQLite itself refuses any write on this connection, so a bug can never change the data.
+// It does not create tables: call openDatabase once first (the api does at start-up).
+// The busy timeout lets a read wait while the collector or classifier is writing; in WAL mode
+// readers and a writer don't block each other anyway.
+export function openDatabaseReadOnly(dbPath = config.DB_PATH) {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  db.exec(`PRAGMA busy_timeout = ${Number(config.DB_BUSY_TIMEOUT_MS)};`);
   return db;
 }
 

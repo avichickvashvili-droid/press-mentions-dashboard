@@ -1,0 +1,60 @@
+/* SentimentBar.module.css — the green / grey / red bar and the % under it. */
+/* Wide enough that the three % fit under their parts even when one part is small. */
+.wrap {
+  width: 140px;
+}
+
+.bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--neutral-bg);
+}
+
+.bar span {
+  flex-basis: 0;
+}
+
+.positive {
+  background: var(--positive);
+}
+
+.neutral {
+  background: var(--neutral);
+}
+
+.negative {
+  background: var(--negative);
+}
+
+/* Each % starts under its own part of the bar: it grows like the part (flex-grow = the count), but
+   is never narrower than its text. */
+.percents {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.percents span {
+  flex-basis: 0;
+  min-width: max-content;
+}
+
+.positiveText {
+  color: var(--positive-text);
+}
+
+.neutralText {
+  color: var(--neutral-text);
+}
+
+.negativeText {
+  color: var(--negative-text);
+}
+
+.none {
+  color: var(--muted);
+}

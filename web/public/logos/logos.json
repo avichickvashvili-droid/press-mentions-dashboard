@@ -1,0 +1,1485 @@
+{
+  "3d-signals": {
+    "file": "3d-signals.png",
+    "domain": "quantiix.ai",
+    "source": "https://quantiix.ai/img/apple-touch-icon.png",
+    "confidence": "medium"
+  },
+  "abes-market": {
+    "file": "abes-market.png",
+    "domain": "abesmarket.com",
+    "source": "https://web.archive.org/web/20140522150337im_/http://skin.abesmarket.com/skin/frontend/abe/default/favicon.ico",
+    "confidence": "medium"
+  },
+  "aeye-health": {
+    "file": "aeye-health.png",
+    "domain": "aeyehealth.com",
+    "source": "https://static.wixstatic.com/media/d81cd6_c523c56b12ec443bb1e7f33d394e54ad%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/d81cd6_c523c56b12ec443bb1e7f33d394e54ad%7Emv2.png",
+    "confidence": "high"
+  },
+  "air-ev": {
+    "file": "air-ev.png",
+    "domain": "airev.aero",
+    "source": "https://cdn.prod.website-files.com/69dcd80814f0b7a73a987c4e/6a327c0d65be9ee51abb466a_FAVICON%20-%20Black%20256x256.png",
+    "confidence": "high"
+  },
+  "airobotics": {
+    "file": "airobotics.png",
+    "domain": "airoboticsdrones.com",
+    "source": "https://www.airoboticsdrones.com/wp-content/uploads/2026/01/oie_transparent-19-1.png",
+    "confidence": "medium"
+  },
+  "alloy-therapeutics": {
+    "file": "alloy-therapeutics.png",
+    "domain": "alloytx.com",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://alloytx.com&size=128",
+    "confidence": "high"
+  },
+  "alpha-tau": {
+    "file": "alpha-tau.png",
+    "domain": "alphatau.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://alphatau.com&size=128",
+    "confidence": "high"
+  },
+  "amitree": {
+    "file": "amitree.png",
+    "domain": "amitree.com",
+    "source": "https://www.amitree.com/wp-content/uploads/2019/12/cropped-Amitree_Symbol_Color-180x180.png",
+    "confidence": "high"
+  },
+  "anodot": {
+    "file": "anodot.png",
+    "domain": "anodot.com",
+    "source": "https://www.anodot.com/wp-content/uploads/cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "anthropic": {
+    "file": "anthropic.png",
+    "domain": "anthropic.com",
+    "source": "https://cdn.prod.website-files.com/67ce28cfec624e2b733f8a52/67d31dd7aa394792257596c5_webclip.png",
+    "confidence": "high"
+  },
+  "appdome": {
+    "file": "appdome.png",
+    "domain": "appdome.com",
+    "source": "https://www.appdome.com/wp-content/uploads/2025/10/cropped-AppdomeShield-180x180.png",
+    "confidence": "high"
+  },
+  "appforma": {
+    "file": "appforma.png",
+    "domain": "appforma.com",
+    "source": "https://web.archive.org/web/20150215082812im_/https://s3.amazonaws.com/appforma_static/branding/favicon.ico",
+    "confidence": "medium"
+  },
+  "apploi": {
+    "file": "apploi.png",
+    "domain": "apploi.com",
+    "source": "https://apploi.com/wp-content/uploads/2026/01/cropped-Apploi_favicon-180x180.png",
+    "confidence": "high"
+  },
+  "arbe-robotics": {
+    "file": "arbe-robotics.png",
+    "domain": "arberobotics.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://arberobotics.com&size=128",
+    "confidence": "high"
+  },
+  "argus-cyber-security": {
+    "file": "argus-cyber-security.png",
+    "domain": "plaxidityx.com",
+    "source": "https://plaxidityx.com/wp-content/uploads/2026/04/cropped-Favicon-180x180.png",
+    "confidence": "medium"
+  },
+  "arrow-global": {
+    "file": "arrow-global.png",
+    "domain": "arrowglobal.net",
+    "source": "https://www.arrowglobal.net/wp-content/uploads/2023/06/favicon-800x800.png",
+    "confidence": "high"
+  },
+  "astra": {
+    "file": "astra.png",
+    "domain": "astra.com",
+    "source": "https://cdn.prod.website-files.com/6939ba79cc2078e5f2e84582/697bb879c77af3b9df0aba5c_webclip.png",
+    "confidence": "high"
+  },
+  "atlas-obscura": {
+    "file": "atlas-obscura.png",
+    "domain": "atlasobscura.com",
+    "source": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://atlasobscura.com&size=128",
+    "confidence": "high"
+  },
+  "autobrains": {
+    "file": "autobrains.png",
+    "domain": "autobrains.ai",
+    "source": "https://autobrains.ai/wp-content/themes/autobrains/dist/images/favicon.png",
+    "confidence": "high"
+  },
+  "ayar-labs": {
+    "file": "ayar-labs.png",
+    "domain": "ayarlabs.com",
+    "source": "https://ayarlabs.com/wp-content/uploads/2019/07/cropped-Ayar_Labs_Icon-180x180.png",
+    "confidence": "high"
+  },
+  "barcode-nanotech": {
+    "file": "barcode-nanotech.png",
+    "domain": "barcode-nano.com",
+    "source": "https://static.wixstatic.com/media/5cb084_c552c01ec86f419b91b4284fc984616a%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/5cb084_c552c01ec86f419b91b4284fc984616a%7Emv2.png",
+    "confidence": "high"
+  },
+  "beetlesat": {
+    "file": "beetlesat.png",
+    "domain": "nslcomm.com",
+    "source": "https://static.wixstatic.com/media/13d896_7c72d832c5a64687b11a197269040880%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/13d896_7c72d832c5a64687b11a197269040880%7Emv2.png",
+    "confidence": "medium"
+  },
+  "betterseeds": {
+    "file": "betterseeds.png",
+    "domain": "betterseeds.com",
+    "source": "https://betterseeds.com/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "beyond-meat": {
+    "file": "beyond-meat.png",
+    "domain": "beyondmeat.com",
+    "source": "https://www.beyondmeat.com/he-IL/icons/icon-192x192.png?v=35d839b70ffe8c6a3a6e8d98c03fc3e8",
+    "confidence": "high"
+  },
+  "billguard": {
+    "file": "billguard.png",
+    "domain": "billguard.com",
+    "source": "https://web.archive.org/web/20150528174412im_/https://www.billguard.com/website_static/favicon.ico",
+    "confidence": "medium"
+  },
+  "binah-ai": {
+    "file": "binah-ai.png",
+    "domain": "binah.ai",
+    "source": "https://www.binah.ai/wp-content/uploads/2020/10/cropped-RoundedIcon-180x180.png",
+    "confidence": "high"
+  },
+  "biocatch": {
+    "file": "biocatch.png",
+    "domain": "biocatch.com",
+    "source": "https://www.biocatch.com/hubfs/2020%20Rebrand/branding/favicon-color.png",
+    "confidence": "high"
+  },
+  "biolojic-design": {
+    "file": "biolojic-design.png",
+    "domain": "biolojic.com",
+    "source": "https://biolojic.com/wp-content/uploads/2023/01/biolojic-favicon.png",
+    "confidence": "high"
+  },
+  "biolumic": {
+    "file": "biolumic.png",
+    "domain": "biolumic.com",
+    "source": "https://images.squarespace-cdn.com/content/v1/5b7b502dfcf7fd913d0cc338/1539047338438-UYFTE6H974WJ60CV1JW0/favicon.ico?format=100w",
+    "confidence": "high"
+  },
+  "biscience": {
+    "file": "biscience.png",
+    "domain": "biscience.com",
+    "source": "https://biscience.com/wp-content/uploads/2025/07/favicon.png",
+    "confidence": "high"
+  },
+  "bites": {
+    "file": "bites.png",
+    "domain": "mybites.io",
+    "source": "https://mybites.io/wp-content/uploads/2024/11/cropped-cropped-logo_512x512-180x180.png",
+    "confidence": "high"
+  },
+  "bizzabo": {
+    "file": "bizzabo.png",
+    "domain": "bizzabo.com",
+    "source": "https://www.bizzabo.com/wp-content/uploads/2023/03/cropped-Bizzabo-B_Mark_Yellow_Circle-_small_RGB-180x180.png",
+    "confidence": "high"
+  },
+  "bluecircle": {
+    "file": "bluecircle.png",
+    "domain": "bluecircle.ai",
+    "source": "https://static.wixstatic.com/media/c5b66a_9e1af1c1315745a1bab7122eced9107e%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/c5b66a_9e1af1c1315745a1bab7122eced9107e%7Emv2.png",
+    "confidence": "high"
+  },
+  "bluegreen-water-technologies": {
+    "file": "bluegreen-water-technologies.png",
+    "domain": "bluegreenwatertech.com",
+    "source": "https://cdn.prod.website-files.com/641d78f830062041ce446cfb/64807dce451645aedccd34e4_642d312b1ce6a2ff4914d5e4_Untitled%20design%20(5).png",
+    "confidence": "high"
+  },
+  "bluenalu": {
+    "file": "bluenalu.png",
+    "domain": "bluenalu.com",
+    "source": "https://cdn.prod.website-files.com/69586681dfbbcb0713825a01/696460806a7c8b251d5ae895_Blue%20Nalu%20Webclip.png",
+    "confidence": "high"
+  },
+  "bluetree-technologies": {
+    "file": "bluetree-technologies.png",
+    "domain": "bluetree-tech.com",
+    "source": "https://bluetree-tech.com/wp-content/uploads/2021/07/cropped-blue_tree-180x180.png",
+    "confidence": "medium"
+  },
+  "boatsetter": {
+    "file": "boatsetter.png",
+    "domain": "boatsetter.com",
+    "source": "https://d1elspe5sgezyc.cloudfront.net/touch-icon-ipad-retina.png",
+    "confidence": "high"
+  },
+  "brainq-technologies": {
+    "file": "brainq-technologies.png",
+    "domain": "brainqtech.com",
+    "source": "https://cdn.prod.website-files.com/667a9d95d17fba0592f3a15a/667ab4d3b0cb223fc7f7cd9f_webclip.png",
+    "confidence": "high"
+  },
+  "briefcam": {
+    "file": "briefcam.png",
+    "domain": "briefcam.com",
+    "source": "https://web.archive.org/web/20220608190102im_/https://www.briefcam.com/wp-content/uploads/2018/01/cropped-favicon-1-180x180.png",
+    "confidence": "medium"
+  },
+  "brightinsight": {
+    "file": "brightinsight.png",
+    "domain": "brightinsight.com",
+    "source": "https://brightinsight.com/images/favicon.ico",
+    "confidence": "high"
+  },
+  "c2a-security": {
+    "file": "c2a-security.png",
+    "domain": "c2a-sec.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://c2a-sec.com&size=128",
+    "confidence": "high"
+  },
+  "cardekho": {
+    "file": "cardekho.png",
+    "domain": "cardekho.com",
+    "source": "https://stimg.cardekho.com/pwa/img/cd_logo_48.png",
+    "confidence": "high"
+  },
+  "carrar": {
+    "file": "carrar.png",
+    "domain": "carrar.net",
+    "source": "https://www.carrar.net/wp-content/uploads/2025/09/FabCarrar-300x300.png",
+    "confidence": "high"
+  },
+  "casper": {
+    "file": "casper.png",
+    "domain": "casper.com",
+    "source": "https://casper.com/cdn/shop/files/2019-favicon-Casper-logomark.png?v=1786994314&width=180",
+    "confidence": "high"
+  },
+  "cb4": {
+    "file": "cb4.png",
+    "domain": "cb4.com",
+    "source": "https://cb4.com/wp-content/uploads/2019/06/fav2.png",
+    "confidence": "medium"
+  },
+  "celeno": {
+    "file": "celeno.png",
+    "domain": "celeno.com",
+    "source": "https://web.archive.org/web/20190607131707im_/https://www.celeno.com/hubfs/favicon.ico",
+    "confidence": "medium"
+  },
+  "cerebras": {
+    "file": "cerebras.png",
+    "domain": "cerebras.ai",
+    "source": "https://cdn.sanity.io/images/e4qjo92p/production/e7a55ae5ab7e2c4fdfd4e66a51f628d1f2f44207-967x967.png?w=512&h=512&fit=max&auto=format",
+    "confidence": "high"
+  },
+  "cimagine": {
+    "file": "cimagine.png",
+    "domain": "cimagine.com",
+    "source": "https://web.archive.org/web/20150403034005im_/http://www.cimagine.com/wp-content/uploads/cimagine-icon-114x114.png",
+    "confidence": "medium"
+  },
+  "classiq": {
+    "file": "classiq.png",
+    "domain": "classiq.io",
+    "source": "https://cdn.prod.website-files.com/60000db7a5f449af5e4590ac/600ff72e11f8545317bc66d3_Favicon%20256.png",
+    "confidence": "high"
+  },
+  "clinch": {
+    "file": "clinch.png",
+    "domain": "clinch.co",
+    "source": "https://cdn.prod.website-files.com/6602f44d0ecacadb068116ea/680a4685a34b1551e32844b1_Clinch_Favicon_256x256.png",
+    "confidence": "high"
+  },
+  "cognigo": {
+    "file": "cognigo.png",
+    "domain": "cognigo.com",
+    "source": "https://web.archive.org/web/20180614102929im_/https://www.cognigo.com/wp-content/uploads/2018/03/favicon.ico",
+    "confidence": "medium"
+  },
+  "connected-energy": {
+    "file": "connected-energy.png",
+    "domain": "c-e-int.com",
+    "source": "https://connected-energy.co.uk/wp-content/uploads/2022/12/ce-favi.png",
+    "confidence": "medium"
+  },
+  "consumer-physics": {
+    "file": "consumer-physics.png",
+    "domain": "scionir.com",
+    "source": "https://scionir.com/wp-content/uploads/2024/11/Group-1261165528.png",
+    "confidence": "medium"
+  },
+  "cordio-medical": {
+    "file": "cordio-medical.png",
+    "domain": "cordio-med.com",
+    "source": "https://www.cordio-med.com/wp-content/uploads/2020/10/cropped-favicon-180x180.jpg",
+    "confidence": "high"
+  },
+  "corephotonics": null,
+  "corractions": {
+    "file": "corractions.png",
+    "domain": "corractions.com",
+    "source": "https://corractions.com/wp-content/uploads/2024/05/cropped-site-icon-180x180.png",
+    "confidence": "high"
+  },
+  "cropx": {
+    "file": "cropx.png",
+    "domain": "cropx.com",
+    "source": "https://cropx.com/wp-content/uploads/2022/09/Favicon.png",
+    "confidence": "high"
+  },
+  "crosswise": {
+    "file": "crosswise.png",
+    "domain": "crosswise.com",
+    "source": "https://web.archive.org/web/20150802143124im_/http://crosswise.com/static/images/apple-touch-icon-144x144.png",
+    "confidence": "medium"
+  },
+  "cyabra": {
+    "file": "cyabra.png",
+    "domain": "cyabra.com",
+    "source": "https://cyabra.com/wp-content/uploads/2026/02/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "cybermdx": {
+    "file": "cybermdx.png",
+    "domain": "cybermdx.com",
+    "source": "https://web.archive.org/web/20210529020350im_/https://www.cybermdx.com/favicon.ico",
+    "confidence": "medium"
+  },
+  "cyberx": {
+    "file": "cyberx.png",
+    "domain": "cyberx-labs.com",
+    "source": "https://web.archive.org/web/20190608010610im_/https://cyberx-labs.com/wp-content/uploads/2018/11/cropped-CYBX_Logo-NoTag_4C-180x180.png",
+    "confidence": "medium"
+  },
+  "cycuity": {
+    "file": "cycuity.png",
+    "domain": "cycuity.com",
+    "source": "https://cycuity.com/wp-content/themes/Ignyte/favicon.ico",
+    "confidence": "high"
+  },
+  "cyfirma": {
+    "file": "cyfirma.png",
+    "domain": "cyfirma.com",
+    "source": "https://www.cyfirma.com/media/2020/03/fevicon-black.png",
+    "confidence": "high"
+  },
+  "cytoreason": {
+    "file": "cytoreason.png",
+    "domain": "cytoreason.com",
+    "source": "https://www.cytoreason.com/assets/apple-touch-icon.png?v=3",
+    "confidence": "high"
+  },
+  "dailypay": {
+    "file": "dailypay.png",
+    "domain": "dailypay.com",
+    "source": "https://assets.dailypay.com/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "dandelion-energy": {
+    "file": "dandelion-energy.png",
+    "domain": "dandelionenergy.com",
+    "source": "https://dandelionenergy.com/wp-content/uploads/2024/09/cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "databricks": {
+    "file": "databricks.png",
+    "domain": "databricks.com",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://databricks.com&size=128",
+    "confidence": "high"
+  },
+  "dataloop": {
+    "file": "dataloop.png",
+    "domain": "dataloop.ai",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://dataloop.ai&size=128",
+    "confidence": "high"
+  },
+  "deepkeep": {
+    "file": "deepkeep.png",
+    "domain": "deepkeep.ai",
+    "source": "https://cdn.prod.website-files.com/653f8e185245e8a3bb651914/69898e3fd4293ab6b29fb02e_d-256x256.png",
+    "confidence": "high"
+  },
+  "diagnostic-robotics": {
+    "file": "diagnostic-robotics.png",
+    "domain": "diagnosticrobotics.com",
+    "source": "https://diagnosticrobotics.com/__l5e/assets-v1/d2c54da1-af5e-4b8a-a8a9-8082728fdfb9/favicon.png",
+    "confidence": "high"
+  },
+  "dreamed-diabetes": {
+    "file": "dreamed-diabetes.png",
+    "domain": "dreamed-diabetes.com",
+    "source": "https://dreamed-diabetes.com/wp-content/uploads/2020/08/cropped-dm-logo_300dpi-180x180.png",
+    "confidence": "high"
+  },
+  "edgybees": {
+    "file": "edgybees.png",
+    "domain": "edgybees.com",
+    "source": "https://edgybees.com/wp-content/uploads/2021/02/cropped-fav-180x180.png",
+    "confidence": "high"
+  },
+  "edity-therapeutics": {
+    "file": "edity-therapeutics.png",
+    "domain": "edity-tx.com",
+    "source": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://edity-tx.com&size=128",
+    "confidence": "high"
+  },
+  "edunav": {
+    "file": "edunav.png",
+    "domain": "edunav.com",
+    "source": "https://web.archive.org/web/20211215191814im_/https://edunav.com/wp-content/uploads/2020/01/edunav-ico.png",
+    "confidence": "medium"
+  },
+  "eko-health": {
+    "file": "eko-health.png",
+    "domain": "ekohealth.com",
+    "source": "https://www.ekohealth.com/cdn/shop/files/eko-favicon.png?crop=center&height=32&v=1746804026&width=32",
+    "confidence": "high"
+  },
+  "entangled-networks": null,
+  "enverid": {
+    "file": "enverid.png",
+    "domain": "enverid.com",
+    "source": "https://images.squarespace-cdn.com/content/v1/6921108dbb4a32129cc33246/e3f6f763-382c-430d-9924-156e1d94b0c7/favicon.ico?format=100w",
+    "confidence": "high"
+  },
+  "equipmentshare": {
+    "file": "equipmentshare.png",
+    "domain": "equipmentshare.com",
+    "source": "https://cdn.prod.website-files.com/60cb2013a506c737cfeddf74/615b729ea7b2474f602751b9_EquipmentShare-Touch-Icon.png",
+    "confidence": "high"
+  },
+  "evigilo": null,
+  "fireblade": null,
+  "firefly-neuroscience": {
+    "file": "firefly-neuroscience.png",
+    "domain": "fireflyneuro.com",
+    "source": "https://s3.amazonaws.com/media.fireflyneuro.com/wp-content/uploads/2024/05/26132908/cropped-firefly-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "flash-forest": {
+    "file": "flash-forest.png",
+    "domain": "flashforest.ca",
+    "source": "https://cdn.prod.website-files.com/67d006c22ab4ba62f9fcd5ad/67d88f03c0a4283522ca49bd_FF256.png",
+    "confidence": "high"
+  },
+  "flytrex": {
+    "file": "flytrex.png",
+    "domain": "flytrex.com",
+    "source": "https://www.flytrex.com/lovable-uploads/93b9940b-a204-4724-b14b-dc9ecc6f07ef.png",
+    "confidence": "high"
+  },
+  "foretellix": {
+    "file": "foretellix.png",
+    "domain": "foretellix.com",
+    "source": "https://www.foretellix.com/wp-content/uploads/2019/05/cropped-Foretellix_favicon_192x192_blue-180x180.png",
+    "confidence": "high"
+  },
+  "freightos": {
+    "file": "freightos.png",
+    "domain": "freightos.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://freightos.com&size=128",
+    "confidence": "high"
+  },
+  "frontier-car-group": {
+    "file": "frontier-car-group.png",
+    "domain": "frontiercargroup.com",
+    "source": "https://web.archive.org/web/20190207075052im_/https://www.frontiercargroup.com/assets/favicon/apple-icon-180x180.png",
+    "confidence": "medium"
+  },
+  "future-family": {
+    "file": "future-family.png",
+    "domain": "futurefamily.com",
+    "source": "https://storage.googleapis.com/futurefamily-images/app/favicon-180.png",
+    "confidence": "medium"
+  },
+  "genopore": null,
+  "glean": {
+    "file": "glean.png",
+    "domain": "glean.com",
+    "source": "https://cdn.prod.website-files.com/6127a84dfe068e153ef20572/67189bfac8da27b3a70ddd93_256%20x%20256%20Glean%20Favicon.png",
+    "confidence": "high"
+  },
+  "global-kinetics": {
+    "file": "global-kinetics.png",
+    "domain": "globalkineticscorporation.com",
+    "source": "https://web.archive.org/web/20210604130539im_/https://pkgcare.com/wp-content/uploads/2020/11/favicon-32x32-1.png",
+    "confidence": "medium"
+  },
+  "greenlight": {
+    "file": "greenlight.png",
+    "domain": "greenlight.com",
+    "source": "https://web.cdn.greenlight.com/2.1765.0/_next/static/media/gl-icon.cb48128c.png",
+    "confidence": "high"
+  },
+  "groq": {
+    "file": "groq.png",
+    "domain": "groq.com",
+    "source": "https://groq.com/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "guild": {
+    "file": "guild.png",
+    "domain": "guild.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://guild.com&size=128",
+    "confidence": "high"
+  },
+  "h2pro": {
+    "file": "h2pro.png",
+    "domain": "h2pro.co",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://h2pro.co&size=128",
+    "confidence": "high"
+  },
+  "hailo": {
+    "file": "hailo.png",
+    "domain": "hailo.ai",
+    "source": "https://hailo.ai/wp-content/uploads/2023/10/cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "harbinger-motors": {
+    "file": "harbinger-motors.png",
+    "domain": "harbingermotors.com",
+    "source": "https://harbingermotors.com/wp-content/uploads/2025/02/cropped-Harbinger-Bird-02-180x180.png",
+    "confidence": "high"
+  },
+  "harvey": {
+    "file": "harvey.png",
+    "domain": "harvey.ai",
+    "source": "https://www.harvey.ai/icons/brand-favicon.png",
+    "confidence": "high"
+  },
+  "heqa-security": {
+    "file": "heqa-security.png",
+    "domain": "heqa-sec.com",
+    "source": "https://heqa-sec.com/wp-content/uploads/2023/08/heqa-favicon-2-300x300.png",
+    "confidence": "high"
+  },
+  "honeybook": {
+    "file": "honeybook.png",
+    "domain": "honeybook.com",
+    "source": "https://cdn.prod.website-files.com/6802890d11be431be270f24b/683ed340e91ae2703348d249_9ea41927662556070305fa55f3f5ceab_HB_webclip_256x256.png",
+    "confidence": "high"
+  },
+  "hub-security": {
+    "file": "hub-security.png",
+    "domain": "hub-technologies.com",
+    "source": "https://hub-technologies.com/hubfs/HUB%20Logo%20HIgh-24.png",
+    "confidence": "medium"
+  },
+  "incredo": {
+    "file": "incredo.png",
+    "domain": "incredo.com",
+    "source": "https://cdn.prod.website-files.com/5fe3ba6011d5957fbf4db778/66d567f2b573dc437b04306a_wc.png",
+    "confidence": "high"
+  },
+  "innovalve": null,
+  "innoviz": {
+    "file": "innoviz.png",
+    "domain": "innoviz.tech",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://innoviz.tech&size=128",
+    "confidence": "high"
+  },
+  "insidetracker": {
+    "file": "insidetracker.png",
+    "domain": "insidetracker.com",
+    "source": "https://www.insidetracker.com/skin/img/favicon/apple-icon-180x180.png",
+    "confidence": "high"
+  },
+  "insightec": {
+    "file": "insightec.png",
+    "domain": "insightec.com",
+    "source": "https://insightec.com/wp-content/uploads/2021/07/Insightec-favicon-32x32-1.png",
+    "confidence": "high"
+  },
+  "intuition-robotics": {
+    "file": "intuition-robotics.png",
+    "domain": "intuitionrobotics.com",
+    "source": "https://cdn.prod.website-files.com/6624a84c242b2715e03c637f/66255fda461e933828a2bdfc_webclip.jpg",
+    "confidence": "high"
+  },
+  "inziv": {
+    "file": "inziv.png",
+    "domain": "inziv.com",
+    "source": "https://inziv.com/wp-content/uploads/2025/12/cropped-New-Logo-Square-180x180.png",
+    "confidence": "medium"
+  },
+  "iqm": {
+    "file": "iqm.png",
+    "domain": "iqm.tech",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://iqm.tech&size=128",
+    "confidence": "high"
+  },
+  "ironvest": {
+    "file": "ironvest.png",
+    "domain": "ironvest.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ironvest.com&size=128",
+    "confidence": "high"
+  },
+  "island": {
+    "file": "island.png",
+    "domain": "island.io",
+    "source": "https://cdn.prod.website-files.com/61a5e47b1afd0c116d16aa40/6a68fde8c2412f426d6c6dff_favicon-96x96.png",
+    "confidence": "high"
+  },
+  "itsmine": {
+    "file": "itsmine.png",
+    "domain": "itsmine.io",
+    "source": "https://itsmine.io/wp-content/uploads/2019/12/cropped-logo_itsmine_favicon-180x180.png",
+    "confidence": "medium"
+  },
+  "juganu": {
+    "file": "juganu.png",
+    "domain": "juganu.com",
+    "source": "https://www.juganu.com/wp-content/themes/juganu/gfx/favicon/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "jump-bikes": {
+    "file": "jump-bikes.png",
+    "domain": "jumpbikes.com",
+    "source": "https://web.archive.org/web/20180521074957im_/https://jumpbikes.com/favicons/apple-touch-icon-180x180.png",
+    "confidence": "medium"
+  },
+  "jumpcloud": {
+    "file": "jumpcloud.png",
+    "domain": "jumpcloud.com",
+    "source": "https://jumpcloud.com/wp-content/themes/jumpcloud/assets/images/favicons/apple-icon-180x180-light.png",
+    "confidence": "high"
+  },
+  "kando": {
+    "file": "kando.png",
+    "domain": "kando.eco",
+    "source": "https://www.kando.eco/wp-content/themes/Avada-Child-Theme/favicon.ico",
+    "confidence": "high"
+  },
+  "kardome": {
+    "file": "kardome.png",
+    "domain": "kardome.com",
+    "source": "https://www.kardome.com/wp-content/uploads/2025/12/fav-300x300.webp",
+    "confidence": "high"
+  },
+  "kemtai": {
+    "file": "kemtai.png",
+    "domain": "kemtai.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://kemtai.com&size=128",
+    "confidence": "high"
+  },
+  "kenna-security": {
+    "file": "kenna-security.png",
+    "domain": "kennasecurity.com",
+    "source": "https://web.archive.org/web/20200609083748im_/https://www.kennasecurity.com/favicon.ico",
+    "confidence": "medium"
+  },
+  "kini": {
+    "file": "kini.png",
+    "domain": "kini.id",
+    "source": "https://www.kini.id/wp-content/themes/kini_v3/assets/imgs/fav/kini_blue.png",
+    "confidence": "medium"
+  },
+  "klook": {
+    "file": "klook.png",
+    "domain": "klook.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://klook.com&size=128",
+    "confidence": "high"
+  },
+  "kodiak-robotics": {
+    "file": "kodiak-robotics.png",
+    "domain": "kodiak.ai",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://kodiak.ai&size=128",
+    "confidence": "high"
+  },
+  "kryon-systems": {
+    "file": "kryon-systems.png",
+    "domain": "kryonsystems.com",
+    "source": "https://web.archive.org/web/20200621113743im_/https://www.kryonsystems.com/wp-content/uploads/2019/04/32x32px.png",
+    "confidence": "medium"
+  },
+  "lambda": {
+    "file": "lambda.png",
+    "domain": "lambda.ai",
+    "source": "https://lambda.ai/hubfs/raw_assets/33/public/@projects/Lambda%20Marketing%20Website/lambda-theme/assets/static/img/apple-touch-icon-180x180.png",
+    "confidence": "high"
+  },
+  "lano": {
+    "file": "lano.png",
+    "domain": "lano.io",
+    "source": "https://www.lano.io/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "launchpad": {
+    "file": "launchpad.png",
+    "domain": "launchpad.build",
+    "source": "https://www.launchpad.build/wp-content/uploads/2022/12/Launchpad-AI-black-red-logo-favicon.png",
+    "confidence": "high"
+  },
+  "lemonade": {
+    "file": "lemonade.png",
+    "domain": "lemonade.com",
+    "source": "https://www.lemonade.com/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "lifeward": {
+    "file": "lifeward.png",
+    "domain": "golifeward.com",
+    "source": "https://golifeward.com/wp-content/uploads/2024/01/fav-icon-2.png",
+    "confidence": "high"
+  },
+  "lightico": {
+    "file": "lightico.png",
+    "domain": "lightico.com",
+    "source": "https://www.lightico.com/wp-content/uploads/2021/05/cropped-android-chrome-512x512-1-180x180.png",
+    "confidence": "high"
+  },
+  "liquid-instruments": {
+    "file": "liquid-instruments.png",
+    "domain": "liquidinstruments.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://liquidinstruments.com&size=128",
+    "confidence": "high"
+  },
+  "locusview": {
+    "file": "locusview.png",
+    "domain": "locusview.com",
+    "source": "https://cdn.prod.website-files.com/6440a75a307ba37488eede36/64419059a3be691018e9a0fc_642dc0499846d82a1d77833c_641498e1068bd41d4ed6b255_WebClip.jpg",
+    "confidence": "high"
+  },
+  "ludeo": {
+    "file": "ludeo.png",
+    "domain": "ludeo.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ludeo.com&size=128",
+    "confidence": "high"
+  },
+  "magisto": {
+    "file": "magisto.png",
+    "domain": "magisto.com",
+    "source": "https://web.archive.org/web/20190602225453im_/https://d1ekrxlws13em5.cloudfront.net/media/images/magisto_ios_icon_large.jpg",
+    "confidence": "medium"
+  },
+  "maolac": {
+    "file": "maolac.png",
+    "domain": "maolac.com",
+    "source": "https://698a8e12.delivery.rocketcdn.me/wp-content/uploads/2026/04/cropped-favicon-180x180.webp",
+    "confidence": "high"
+  },
+  "masterclass": {
+    "file": "masterclass.png",
+    "domain": "masterclass.com",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://masterclass.com&size=128",
+    "confidence": "high"
+  },
+  "materialszone": {
+    "file": "materialszone.png",
+    "domain": "materials.zone",
+    "source": "https://cdn.prod.website-files.com/66a76467298c454de539f7aa/66cef238e96d8f1502659d8f_WebClip%20%20256x256.png",
+    "confidence": "high"
+  },
+  "medisafe": {
+    "file": "medisafe.png",
+    "domain": "medisafe.com",
+    "source": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://medisafe.com&size=128",
+    "confidence": "high"
+  },
+  "memed": {
+    "file": "memed.png",
+    "domain": "me-med.com",
+    "source": "https://www.me-med.com/wp-content/uploads/cropped-favicon-300x300.png",
+    "confidence": "high"
+  },
+  "mentad": {
+    "file": "mentad.png",
+    "domain": "mentad.com",
+    "source": "https://web.archive.org/web/20160416093022im_/http://mentad.com/favicon.ico",
+    "confidence": "medium"
+  },
+  "mermade-seafoods": {
+    "file": "mermade-seafoods.png",
+    "domain": "mermade.bio",
+    "source": "https://mermade.bio/wp-content/uploads/2022/02/cropped-Bubbles-Favicon2-180x180.png",
+    "confidence": "medium"
+  },
+  "migvax": {
+    "file": "migvax.png",
+    "domain": "migvax.com",
+    "source": "https://static.wixstatic.com/media/7a518d_b8fc06c2e85445978d221c82e1015b0a%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/7a518d_b8fc06c2e85445978d221c82e1015b0a%7Emv2.png",
+    "confidence": "high"
+  },
+  "momentis-surgical": {
+    "file": "momentis-surgical.png",
+    "domain": "momentissurgical.com",
+    "source": "https://www.momentissurgical.com/wp-content/uploads/2022/11/favicon.png",
+    "confidence": "high"
+  },
+  "moodify": {
+    "file": "moodify.png",
+    "domain": "moodify.ai",
+    "source": "https://www.moodify.ai/wp-content/uploads/2023/06/moodify-icon.png",
+    "confidence": "high"
+  },
+  "morphisec": {
+    "file": "morphisec.png",
+    "domain": "morphisec.com",
+    "source": "https://www.morphisec.com/wp-content/uploads/2025/01/cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "mprest": {
+    "file": "mprest.png",
+    "domain": "mprest.com",
+    "source": "https://mprest-landing.pages.dev/icon.png?icon.0mqf_ozf_l1y1.png",
+    "confidence": "high"
+  },
+  "mst": {
+    "file": "mst.png",
+    "domain": "mst-sys.com",
+    "source": "https://web.archive.org/web/20160312152452im_/http://mst-sys.com/wp-content/themes/responsive-child/icon.ico",
+    "confidence": "medium"
+  },
+  "nanomedic": {
+    "file": "nanomedic.png",
+    "domain": "nanomedic.com",
+    "source": "https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=180,h=180,fit=crop,f=png/mjEGM54ozotpx6lb/untitled-design-0mqcm6KRi3deE762.png",
+    "confidence": "medium"
+  },
+  "nanorep": {
+    "file": "nanorep.png",
+    "domain": "nanorep.com",
+    "source": "https://web.archive.org/web/20160602063556im_/http://www.nanorep.com/favicon.ico",
+    "confidence": "medium"
+  },
+  "near": {
+    "file": "near.png",
+    "domain": "near.co",
+    "source": "https://web.archive.org/web/20220425150519im_/https://cdn.near.com/images/apple-touch-icon-180x180.png",
+    "confidence": "medium"
+  },
+  "neolithics": {
+    "file": "neolithics.png",
+    "domain": "neolithics.com",
+    "source": "https://cdn11.bigcommerce.com/s-wfqp0b/product_images/Untitled-1.png",
+    "confidence": "medium"
+  },
+  "netop": {
+    "file": "netop.png",
+    "domain": "netop.com",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://netop.com&size=128",
+    "confidence": "low"
+  },
+  "neura": {
+    "file": "neura.png",
+    "domain": "theneura.com",
+    "source": "https://web.archive.org/web/20180304041947im_/https://www.theneura.com/wp-content/uploads/2017/08/favicon.png",
+    "confidence": "medium"
+  },
+  "neureality": {
+    "file": "neureality.png",
+    "domain": "neureality.ai",
+    "source": "https://www.neureality.ai/wp-content/uploads/2025/09/cropped-512x512-1-180x180.png",
+    "confidence": "high"
+  },
+  "neverware": {
+    "file": "neverware.png",
+    "domain": "neverware.com",
+    "source": "https://web.archive.org/web/20190602073624im_/https://static1.squarespace.com/static/541b8bbee4b09b50ed999338/t/541b8ccee4b0a0d620166598/favicon.ico",
+    "confidence": "medium"
+  },
+  "nextpeer": {
+    "file": "nextpeer.png",
+    "domain": "nextpeer.com",
+    "source": "https://web.archive.org/web/20130215212951im_/http://nextpeer.com/favicon.ico",
+    "confidence": "medium"
+  },
+  "noobaa": {
+    "file": "noobaa.png",
+    "domain": "noobaa.io",
+    "source": "https://web.archive.org/web/20190716101430im_/https://www.noobaa.io/hubfs/noobaa_icon.png",
+    "confidence": "medium"
+  },
+  "nt-tao": {
+    "file": "nt-tao.png",
+    "domain": "nt-tao.com",
+    "source": "https://static.wixstatic.com/media/43578b_f3036b05045045bebb2d57d276461e2c%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/43578b_f3036b05045045bebb2d57d276461e2c%7Emv2.png",
+    "confidence": "medium"
+  },
+  "omnix-medical": {
+    "file": "omnix-medical.png",
+    "domain": "omnixmedical.com",
+    "source": "https://omnixmedical.com/wp-content/uploads/2021/06/cropped-Omnix-Mood-Board-icon-52-180x180.png",
+    "confidence": "high"
+  },
+  "oncohost": {
+    "file": "oncohost.png",
+    "domain": "oncohost.com",
+    "source": "https://cdn.prod.website-files.com/64f46e516ef461a95ea513b4/65886ae011194170456e86c8_webclip.png",
+    "confidence": "high"
+  },
+  "one-zero-digital-bank-ltd": {
+    "file": "one-zero-digital-bank-ltd.png",
+    "domain": "onezerobank.com",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://onezerobank.com&size=128",
+    "confidence": "high"
+  },
+  "oneai": {
+    "file": "oneai.png",
+    "domain": "oneai.com",
+    "source": "https://web.archive.org/web/20240530233145im_/https://cdn.prod.website-files.com/631afd7eb206e44f6315a8b2/633978d6ad6a6d71c704b2a6_oneai.png",
+    "confidence": "medium"
+  },
+  "openevidence": {
+    "file": "openevidence.png",
+    "domain": "openevidence.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://openevidence.com&size=128",
+    "confidence": "high"
+  },
+  "orchard": {
+    "file": "orchard.png",
+    "domain": "orchard.com",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://orchard.com&size=128",
+    "confidence": "medium"
+  },
+  "ordergroove": {
+    "file": "ordergroove.png",
+    "domain": "ordergroove.com",
+    "source": "https://www.ordergroove.com/wp-content/uploads/2022/10/ordergroove-logomark-circle-300x300.png",
+    "confidence": "high"
+  },
+  "oriient": {
+    "file": "oriient.svg",
+    "domain": "oriient.me",
+    "source": "https://www.oriient.me/wp-content/uploads/2022/11/favicon.svg",
+    "confidence": "high"
+  },
+  "oshi": {
+    "file": "oshi.png",
+    "domain": "oshi.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://oshi.com&size=128",
+    "confidence": "high"
+  },
+  "ossio": {
+    "file": "ossio.png",
+    "domain": "ossio.io",
+    "source": "https://ossio.io/wp-content/uploads/2024/05/cropped-favicon-1-180x180.jpg",
+    "confidence": "high"
+  },
+  "overtime": {
+    "file": "overtime.png",
+    "domain": "overtime.tv",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://overtime.tv&size=128",
+    "confidence": "high"
+  },
+  "parko": null,
+  "peak": {
+    "file": "peak.png",
+    "domain": "peak.ai",
+    "source": "https://assets.peak.ai/app/uploads/2022/05/25155608/cropped-Peak-Favicon-Black%401x-180x180.png",
+    "confidence": "high"
+  },
+  "people-ai": {
+    "file": "people-ai.png",
+    "domain": "backstory.ai",
+    "source": "https://cdn.prod.website-files.com/69aab19e3344fee750b8721c/69bc20e3a7e4a52599917da5_Backstory_256px.png",
+    "confidence": "medium"
+  },
+  "perception-point": {
+    "file": "perception-point.png",
+    "domain": "perception-point.io",
+    "source": "https://web.archive.org/web/20230601031127im_/https://perception-point.io/wp-content/uploads/2020/03/cropped-favicon-1-180x180.png",
+    "confidence": "medium"
+  },
+  "playsight": {
+    "file": "playsight.png",
+    "domain": "playsight.com",
+    "source": "https://playsight.com/wp-content/uploads/2020/09/cropped-PS-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "polaris-quantum-biotech": {
+    "file": "polaris-quantum-biotech.png",
+    "domain": "polarisqb.com",
+    "source": "https://polarisqb.com/wp-content/uploads/2024/08/cropped-PolarisQB_Logo_IconOnly_FullColor-180x180.png",
+    "confidence": "high"
+  },
+  "powwow": {
+    "file": "powwow.png",
+    "domain": "powwowmobile.com",
+    "source": "https://powwowmobile.wpenginepowered.com/wp-content/uploads/favicon-ipad-retina.png",
+    "confidence": "high"
+  },
+  "privateer": {
+    "file": "privateer.png",
+    "domain": "privateer.com",
+    "source": "https://cdn.prod.website-files.com/61de02c2c3ef6cef3f04ccc8/69ef8f04ccaea74ef1013ede_Logo-Green.png",
+    "confidence": "medium"
+  },
+  "profuse": {
+    "file": "profuse.png",
+    "domain": "profuse-tech.com",
+    "source": "https://profuse-tech.com/wp-content/uploads/2021/09/12.png",
+    "confidence": "high"
+  },
+  "pulmone": {
+    "file": "pulmone.png",
+    "domain": "pulm-one.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://pulm-one.com&size=128",
+    "confidence": "high"
+  },
+  "quai-md": {
+    "file": "quai-md.png",
+    "domain": "quai.md",
+    "source": "https://quai.md/wp-content/uploads/2025/12/quai-logo4-300x300.png",
+    "confidence": "high"
+  },
+  "quantum-machines": {
+    "file": "quantum-machines.png",
+    "domain": "quantum-machines.co",
+    "source": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://quantum-machines.co&size=128",
+    "confidence": "high"
+  },
+  "quidnet-energy": {
+    "file": "quidnet-energy.png",
+    "domain": "quidnetenergy.com",
+    "source": "https://quidnetenergy.com/wp-content/uploads/2024/08/cropped-Quidnet-icon-512x512-01-180x180.png",
+    "confidence": "high"
+  },
+  "ravin-ai": {
+    "file": "ravin-ai.png",
+    "domain": "ravin.ai",
+    "source": "https://cdn.prod.website-files.com/602e266b79d4be7eebca445f/603f774a7e27fba1faea7d82_256.jpg",
+    "confidence": "high"
+  },
+  "realview-imaging": {
+    "file": "realview-imaging.png",
+    "domain": "realviewimaging.com",
+    "source": "https://realviewimaging.com/wp-content/themes/realview/images/general/fav.png",
+    "confidence": "high"
+  },
+  "remilk": {
+    "file": "remilk.png",
+    "domain": "remilk.com",
+    "source": "https://cdn.prod.website-files.com/60c1c0d17870b40c7b531a2d/60e321afa2e65b60e7f5ffc5_Fav-256.png",
+    "confidence": "high"
+  },
+  "repair-carbon": {
+    "file": "repair-carbon.png",
+    "domain": "repair-carbon.com",
+    "source": "https://cdn.prod.website-files.com/66bb61cf061bdceaf8c09c11/66e2c3d9a0bda7b3f2dc2d12_656c4e5ce729cf88b83b6ca8_Emblem.png",
+    "confidence": "high"
+  },
+  "replay-technologies": null,
+  "rewire": {
+    "file": "rewire.png",
+    "domain": "rewire.to",
+    "source": "https://web.archive.org/web/20210422090031im_/https://www.rewire.com/wp-content/uploads/2019/10/cropped-512-1-180x180.jpg",
+    "confidence": "medium"
+  },
+  "ride-vision": {
+    "file": "ride-vision.png",
+    "domain": "ride.vision",
+    "source": "https://ride.vision/wp-content/uploads/2020/07/cropped-RideVision-icon-180x180.png",
+    "confidence": "high"
+  },
+  "ro": {
+    "file": "ro.png",
+    "domain": "ro.co",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ro.co&size=128",
+    "confidence": "high"
+  },
+  "sanotize": {
+    "file": "sanotize.png",
+    "domain": "sanotize.com",
+    "source": "https://web.archive.org/web/20220606130533im_/https://sanotize.com/wp-content/uploads/2020/04/sanotize-favicon.png",
+    "confidence": "medium"
+  },
+  "sayata": {
+    "file": "sayata.png",
+    "domain": "sayatalabs.com",
+    "source": "https://www.sayata.com/favicon.ico",
+    "confidence": "medium"
+  },
+  "scale-ai": {
+    "file": "scale-ai.png",
+    "domain": "scale.com",
+    "source": "https://scale.com/static/global/favicon/v3/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "scopio-labs": {
+    "file": "scopio-labs.png",
+    "domain": "scopiolabs.com",
+    "source": "https://scopiolabs.com/wp-content/uploads/2022/12/Scopio_Logo_Symbol_RGB_Positive.png",
+    "confidence": "high"
+  },
+  "seetree": {
+    "file": "seetree.png",
+    "domain": "seetree.ai",
+    "source": "https://cdn.prod.website-files.com/5c07a5364b5cfc57d3ebaf49/5c3b5498e76e0883aaf25c21_share%20icon.png",
+    "confidence": "high"
+  },
+  "seetrue": {
+    "file": "seetrue.png",
+    "domain": "seetrue.ai",
+    "source": "https://seetrue.ai/wp-content/uploads/2025/06/favicon.png",
+    "confidence": "medium"
+  },
+  "sense-education": {
+    "file": "sense-education.png",
+    "domain": "sense.education",
+    "source": "https://cdn.prod.website-files.com/5bc8864912d7f797ce8b9b76/5bcf289a5d7fe2f6aee72311_256.png",
+    "confidence": "medium"
+  },
+  "sequentify": {
+    "file": "sequentify.png",
+    "domain": "sequentify.com",
+    "source": "https://static.wixstatic.com/media/902037_9ba7b4c605664dccbfc87efd168e6631%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/902037_9ba7b4c605664dccbfc87efd168e6631%7Emv2.png",
+    "confidence": "medium"
+  },
+  "sfara": {
+    "file": "sfara.png",
+    "domain": "sfara.com",
+    "source": "https://web.archive.org/web/20200608060210im_/https://www.sfara.com/wp-content/uploads/2020/05/cropped-cropped-sfara-r-site-icon-1-180x180.jpg",
+    "confidence": "medium"
+  },
+  "shield": {
+    "file": "shield.png",
+    "domain": "shieldfc.com",
+    "source": "https://www.shieldfc.com/wp-content/uploads/2024/06/cropped-Favicon-Orange-180x180.jpg",
+    "confidence": "high"
+  },
+  "shopial": {
+    "file": "shopial.png",
+    "domain": "shopial.com",
+    "source": "https://web.archive.org/web/20160821172406im_/http://www.shopial.com/wp-content/uploads/2015/02/16x16.png",
+    "confidence": "medium"
+  },
+  "sight-diagnostics": {
+    "file": "sight-diagnostics.png",
+    "domain": "sightdx.com",
+    "source": "https://static.wixstatic.com/ficons/e4718d_f313802374744d3bb67c454603d40fe6%7Emv2.ico",
+    "confidence": "high"
+  },
+  "signals-analytics": {
+    "file": "signals-analytics.png",
+    "domain": "signals-analytics.com",
+    "source": "https://web.archive.org/web/20200628135512im_/https://www.signals-analytics.com/hubfs/favicon.png",
+    "confidence": "medium"
+  },
+  "silo": null,
+  "siteaware": {
+    "file": "siteaware.png",
+    "domain": "siteaware.com",
+    "source": "https://siteaware.com/wp-content/uploads/2022/12/cropped-favicon-2-180x180.png",
+    "confidence": "high"
+  },
+  "skillz": {
+    "file": "skillz.png",
+    "domain": "skillz.com",
+    "source": "https://www.skillz.com/wp-content/uploads/cropped-Blog_Header_1270_628-180x180.jpg",
+    "confidence": "high"
+  },
+  "sotero": {
+    "file": "sotero.png",
+    "domain": "soterosoft.com",
+    "source": "https://www.soterosoft.com/wp-content/uploads/2024/03/cropped-favicon-32x32-1-180x180.png",
+    "confidence": "medium"
+  },
+  "spacex": {
+    "file": "spacex.png",
+    "domain": "spacex.com",
+    "source": "https://www.spacex.com/assets/favicon-spacex.ico",
+    "confidence": "high"
+  },
+  "spectrum-labs": {
+    "file": "spectrum-labs.svg",
+    "domain": "spectrumlabsai.com",
+    "source": "https://web.archive.org/web/20210802004909im_/https://cdn2.hubspot.net/hubfs/7837085/Spectrum-icon-green.svg",
+    "confidence": "medium"
+  },
+  "spot-ai": {
+    "file": "spot-ai.png",
+    "domain": "spot.ai",
+    "source": "https://cdn.prod.website-files.com/5fe2250e2f83cc02cbfefbcf/64dfa418ac935adf50653eef_spot_ai-webclip.png",
+    "confidence": "medium"
+  },
+  "ssi": null,
+  "stackiq": {
+    "file": "stackiq.png",
+    "domain": "stackiq.com",
+    "source": "https://web.archive.org/web/20140518114852im_/http://www.stackiq.com/wordpress/wp-content/uploads/2012/01/xApple-Touch-Icon.png.pagespeed.ic.u8V_bem98V.png",
+    "confidence": "medium"
+  },
+  "stellar-cyber": {
+    "file": "stellar-cyber.png",
+    "domain": "stellarcyber.ai",
+    "source": "https://cdn.stellarcyber.ai/wp-content/uploads/2020/11/cropped-stellar_star-180x180.png",
+    "confidence": "high"
+  },
+  "stoke-space": {
+    "file": "stoke-space.png",
+    "domain": "stokespace.com",
+    "source": "https://www.stokespace.com/apple-icon.png?9b58a5378d8f3ec9",
+    "confidence": "high"
+  },
+  "stringify": null,
+  "stripe": {
+    "file": "stripe.png",
+    "domain": "stripe.com",
+    "source": "https://images.stripeassets.com/fzn2n1nzq965/4vVgZi0ZMoEzOhkcv7EVwK/8cce6fdcf2733b2ec8e99548908847ed/favicon.png?w=180&h=180",
+    "confidence": "high"
+  },
+  "sufresca": {
+    "file": "sufresca.png",
+    "domain": "sufresca.com",
+    "source": "https://sufresca.com/wp-content/themes/sufresca/assets/img/favicon.png",
+    "confidence": "medium"
+  },
+  "surgical-theater": {
+    "file": "surgical-theater.png",
+    "domain": "surgicaltheater.com",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://surgicaltheater.com&size=128",
+    "confidence": "high"
+  },
+  "sweetch": {
+    "file": "sweetch.png",
+    "domain": "sweetch.com",
+    "source": "https://cdn.prod.website-files.com/6253e971e57571540a7e6d8f/62a6dc6f2b9d426aea864f8b_Sweetch%20favicon_large.webp",
+    "confidence": "high"
+  },
+  "syqe": {
+    "file": "syqe.png",
+    "domain": "syqemedical.com",
+    "source": "https://static.wixstatic.com/media/ce1f87_08dc7e0b66c54ce3bbae98c71b29f4e5%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/ce1f87_08dc7e0b66c54ce3bbae98c71b29f4e5%7Emv2.png",
+    "confidence": "high"
+  },
+  "tabnine": {
+    "file": "tabnine.png",
+    "domain": "tabnine.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://tabnine.com&size=128",
+    "confidence": "high"
+  },
+  "tailor-brands": {
+    "file": "tailor-brands.png",
+    "domain": "tailorbrands.com",
+    "source": "https://www.tailorbrands.com/wp-content/uploads/2024/10/Tailor-Brands-logo-192-x-192.png",
+    "confidence": "high"
+  },
+  "tala": {
+    "file": "tala.png",
+    "domain": "tala.co",
+    "source": "https://tala.co/wp-content/uploads/2021/10/cropped-tala-favicon.png?w=180",
+    "confidence": "high"
+  },
+  "tamar-robotics": {
+    "file": "tamar-robotics.png",
+    "domain": "tamarrobotics.com",
+    "source": "https://web.archive.org/web/20240705034644im_/https://tamarrobotics.com/wp-content/uploads/2023/08/cropped-tamar-favicon-32x32.png",
+    "confidence": "medium"
+  },
+  "taranis": {
+    "file": "taranis.png",
+    "domain": "taranis.com",
+    "source": "https://www.taranis.com/wp-content/uploads/2023/12/cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "techsee": {
+    "file": "techsee.png",
+    "domain": "techsee.me",
+    "source": "https://techsee.com/wp-content/uploads/2022/03/logos-11-300x300.png",
+    "confidence": "high"
+  },
+  "tensorwave": {
+    "file": "tensorwave.png",
+    "domain": "tensorwave.com",
+    "source": "https://tensorwave.com/favicon/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "tevel": {
+    "file": "tevel.png",
+    "domain": "tevel-tech.com",
+    "source": "https://www.tevel-tech.com/wp-content/uploads/2020/03/fav.png",
+    "confidence": "high"
+  },
+  "the-bouqs": {
+    "file": "the-bouqs.png",
+    "domain": "bouqs.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://bouqs.com&size=128",
+    "confidence": "high"
+  },
+  "the-every-company": {
+    "file": "the-every-company.svg",
+    "domain": "every.com",
+    "source": "https://every.com/wp-content/themes/theme-every/static/img/favicon.svg",
+    "confidence": "high"
+  },
+  "the-trendlines-group": {
+    "file": "the-trendlines-group.png",
+    "domain": "trendlines.com",
+    "source": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://trendlines.com&size=128",
+    "confidence": "high"
+  },
+  "thetaray": {
+    "file": "thetaray.png",
+    "domain": "thetaray.com",
+    "source": "https://thetaray.com/wp-content/uploads/2024/11/cropped-tr-logo@25x-180x180.png",
+    "confidence": "high"
+  },
+  "together-ai": {
+    "file": "together-ai.png",
+    "domain": "together.ai",
+    "source": "https://cdn.prod.website-files.com/69654e88dce9154b5f1206dd/69a59cff65ed0f267dd2fbe8_touchicon.png",
+    "confidence": "high"
+  },
+  "tovala": {
+    "file": "tovala.png",
+    "domain": "tovala.com",
+    "source": "https://www.tovala.com/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "treedom": {
+    "file": "treedom.png",
+    "domain": "treedom.net",
+    "source": "https://www.treedom.net/next-public/common/Meta/icons/apple-touch-icon-180x180.png",
+    "confidence": "high"
+  },
+  "trusona": {
+    "file": "trusona.png",
+    "domain": "trusona.com",
+    "source": "https://www.trusona.com/wp-content/uploads/2021/01/cropped-Trusona-PurpleFav-500-180x180.png",
+    "confidence": "high"
+  },
+  "tubitv": {
+    "file": "tubitv.png",
+    "domain": "tubitv.com",
+    "source": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://tubitv.com&size=128",
+    "confidence": "high"
+  },
+  "ubimo": {
+    "file": "ubimo.png",
+    "domain": "ubimo.com",
+    "source": "https://web.archive.org/web/20190604164144im_/https://www.ubimo.com/app/uploads/apple-touch-icon-57x57.png",
+    "confidence": "medium"
+  },
+  "ukko": {
+    "file": "ukko.png",
+    "domain": "ukko.us",
+    "source": "https://static.wixstatic.com/media/feedb0_c115041f7f5e4958be01625611324b21%7Emv2.jpg/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/feedb0_c115041f7f5e4958be01625611324b21%7Emv2.jpg",
+    "confidence": "high"
+  },
+  "unispectral": {
+    "file": "unispectral.png",
+    "domain": "unispectral.com",
+    "source": "https://www.unispectral.com/wp-content/uploads/2024/04/cropped-Component-8-%E2%80%93-1-180x180.jpg",
+    "confidence": "medium"
+  },
+  "upnride": {
+    "file": "upnride.png",
+    "domain": "upnride.com",
+    "source": "https://upnride.com/wp-content/uploads/2025/06/cropped-Vector-180x180.webp",
+    "confidence": "medium"
+  },
+  "ursa-major": {
+    "file": "ursa-major.png",
+    "domain": "ursamajor.com",
+    "source": "https://ursamajor.com/wp-content/uploads/2025/08/cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "vayavision": {
+    "file": "vayavision.png",
+    "domain": "vayavision.com",
+    "source": "https://web.archive.org/web/20200602122345im_/https://vayavision.com/wp-content/uploads/2019/01/cropped-favicon-180x180.png",
+    "confidence": "medium"
+  },
+  "velotix": {
+    "file": "velotix.png",
+    "domain": "velotix.ai",
+    "source": "https://www.velotix.ai/wp-content/uploads/2022/12/cropped-cropped-favicon-180x180.png",
+    "confidence": "high"
+  },
+  "verse-ai": {
+    "file": "verse-ai.png",
+    "domain": "verse.ai",
+    "source": "https://verse.ai/wp-content/uploads/2026/09/cropped-verse-icon-new-180x180.png",
+    "confidence": "medium"
+  },
+  "viewbix": null,
+  "virgin-hyperloop-one": null,
+  "wave": {
+    "file": "wave.png",
+    "domain": "waveapps.com",
+    "source": "https://cdn.prod.website-files.com/62446230dcb514b828a6e237/627e0a14ff7686635f162d06_favicon-large.png",
+    "confidence": "high"
+  },
+  "wayup": {
+    "file": "wayup.png",
+    "domain": "wayup.com",
+    "source": "https://www.wayup.com/cdn/assets/wayup_logos/favicon/2018/apple-icon-180x180.png",
+    "confidence": "high"
+  },
+  "wefox": {
+    "file": "wefox.png",
+    "domain": "wefox.com",
+    "source": "https://static.wixstatic.com/media/d1fb89_77afd86088f84287873e8dbd83641fc0%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/d1fb89_77afd86088f84287873e8dbd83641fc0%7Emv2.png",
+    "confidence": "high"
+  },
+  "workspot": {
+    "file": "workspot.png",
+    "domain": "workspot.com",
+    "source": "https://www.workspot.com/app/uploads/2024/10/cropped-workspot-secondary-logo-blue-180x180.png",
+    "confidence": "high"
+  },
+  "xage-security": {
+    "file": "xage-security.png",
+    "domain": "xage.com",
+    "source": "https://xage.com/wp-content/uploads/2023/07/cropped-Xage-Favicon.png",
+    "confidence": "high"
+  },
+  "xai": {
+    "file": "xai.png",
+    "domain": "x.ai",
+    "source": "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://x.ai&size=128",
+    "confidence": "high"
+  },
+  "xsense": {
+    "file": "xsense.png",
+    "domain": "xsense.co",
+    "source": "https://www.xsense.co/wp-content/uploads/2019/05/cropped-pictograma_xsense_favicon-180x180.png",
+    "confidence": "high"
+  },
+  "ynsect": {
+    "file": "ynsect.png",
+    "domain": "ynsect.com",
+    "source": "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ynsect.com&size=128",
+    "confidence": "high"
+  },
+  "yulife": {
+    "file": "yulife.png",
+    "domain": "yulife.com",
+    "source": "https://yulife.com/static/favicon/apple-touch-icon.png",
+    "confidence": "high"
+  },
+  "zebra-medical-vision": {
+    "file": "zebra-medical-vision.png",
+    "domain": "nanox.vision",
+    "source": "https://www.nanox.vision/wp-content/themes/nanox/assets/images/favicon256.png",
+    "confidence": "medium"
+  },
+  "zippin": {
+    "file": "zippin.png",
+    "domain": "getzippin.com",
+    "source": "https://www.getzippin.com/hubfs/zippin-favicon.png",
+    "confidence": "high"
+  },
+  "zoomcar": {
+    "file": "zoomcar.png",
+    "domain": "zoomcar.com",
+    "source": "https://www.zoomcar.com/fav/apple-touch-icon-152x152.png",
+    "confidence": "high"
+  },
+  "zutacore": {
+    "file": "zutacore.png",
+    "domain": "zutacore.com",
+    "source": "https://zutacore.com/hubfs/ZutaCoreIconDec22.png",
+    "confidence": "high"
+  }
+}

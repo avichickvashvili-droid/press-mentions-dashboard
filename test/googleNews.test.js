@@ -205,3 +205,20 @@ test('pace: at least 1 s (+ jitter) between two requests', async () => {
   await client.search('b');
   assert.deepEqual(waits, [config.REQUEST_INTERVAL_MS + config.REQUEST_JITTER_MS - 200]);
 });
+
+test('the daily job\'s slower pace: 5 s between two searches (D108)', async () => {
+  const fetchImpl = async () => new Response(readFixture('feed-basic.xml'), { status: 200 });
+  const waits = [];
+  let clock = 0;
+  const client = createGoogleNewsClient({
+    fetchImpl,
+    sleep: async (ms) => { waits.push(ms); clock += ms; },
+    now: () => clock,
+    random: () => 0, // no jitter
+    requestIntervalMs: config.DAILY_REQUEST_INTERVAL_MS,
+  });
+  await client.search('a');
+  await client.search('b');
+  assert.equal(config.DAILY_REQUEST_INTERVAL_MS, 5000);
+  assert.deepEqual(waits, [5000]);
+});

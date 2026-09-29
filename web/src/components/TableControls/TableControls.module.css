@@ -1,0 +1,53 @@
+/* TableControls.module.css — one line: the search box on the left, the sort and filter icons on
+   the right, and the pills of any non-default choice just before the icons (on a phone the pills
+   go on a second line). The menus themselves are drawn outside the card (IconMenu). */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The search gives up some width so the pills stay on one line; the rest of the space goes
+   between the search and the pills. */
+.searchSlot {
+  grid-area: search;
+  flex: 0 1 360px;
+  min-width: 180px;
+  margin-right: auto;
+}
+
+.pills {
+  grid-area: pills;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.icons {
+  grid-area: icons;
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "search icons"
+      "pills pills";
+    gap: 10px;
+  }
+
+  .searchSlot {
+    margin-right: 0;
+  }
+
+  .pills {
+    justify-content: flex-start;
+  }
+}

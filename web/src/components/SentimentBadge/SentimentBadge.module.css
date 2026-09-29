@@ -1,0 +1,50 @@
+/* SentimentBadge.module.css — the positive / neutral / negative labels (the page's one set of
+   sentiment colours, global.css). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px 2px 4px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  min-width: 92px; /* the same width for all three, so the headlines next to them line up */
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--neutral);
+}
+
+.positive {
+  background: var(--positive-bg);
+  color: var(--positive-text);
+}
+
+.positive .icon {
+  background: var(--positive);
+}
+
+.negative {
+  background: var(--negative-bg);
+  color: var(--negative-text);
+}
+
+.negative .icon {
+  background: var(--negative);
+}
+
+.neutral {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}

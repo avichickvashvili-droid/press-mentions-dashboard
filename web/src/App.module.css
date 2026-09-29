@@ -1,0 +1,78 @@
+/* App.module.css — the page frame (D117): the side menu on the left and the page beside it (the
+   menu becomes a bar across the top below 900 px).
+   The Companies page: the table and the mentions panel side by side. The table needs about 780 px
+   for its columns and the gaps around its rows (owner's design, D110; Prompt 337), the panel
+   340-480 px, so they stack when the page area (not the window: the menu takes room too) is
+   narrower than 1140 px; then the table scrolls sideways inside its card instead of being cut
+   off (Prompt 328), and the open company's mentions go above the table. */
+.shell {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.page {
+  container-type: inline-size;
+  min-width: 0;
+  width: 100%;
+  max-width: 1560px;
+  padding: 22px 28px 40px;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(780px, 1fr) minmax(340px, 480px);
+  gap: 16px;
+  align-items: start;
+}
+
+/* The table sits on a card. */
+.tableArea {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  overflow: clip;
+}
+
+.panelArea {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+@container (max-width: 1139px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tableArea {
+    overflow-x: auto;
+  }
+
+  .panelArea {
+    position: static;
+    max-height: none;
+  }
+
+  /* Stacked: the open company's mentions go above the table (not under 258 rows), and the
+     "Click a company" hint is not needed there (Prompt 328). */
+  .panelOpen {
+    order: -1;
+  }
+
+  .panelEmpty {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .shell {
+    display: block;
+  }
+
+  .page {
+    padding: 16px;
+  }
+}

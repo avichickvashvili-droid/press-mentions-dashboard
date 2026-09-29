@@ -1,0 +1,9 @@
+# .gitattributes — the Docker files always keep Linux line endings (LF), also when the project is
+# checked out on Windows (D116): the Dockerfile's shell steps would break on Windows endings.
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+docker-compose*.yml text eol=lf
+.dockerignore text eol=lf
+*.sh text eol=lf
+# The shipped database is a binary file: never changed by git.
+*.sqlite binary

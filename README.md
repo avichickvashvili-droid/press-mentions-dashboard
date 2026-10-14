@@ -1,6 +1,6 @@
 # Press Mentions Monitoring & Dashboard
 
-**TL;DR:** every day the project searches Google News for 258 OurCrowd portfolio companies, and a **local Ollama model** (`qwen3:4b`) decides whether each headline is really about the company and whether the news is positive, neutral or negative. The results go to a dark-theme dashboard (90-day view per company) and a daily Discord digest. One command runs it all: `docker compose up -d`.
+**TL;DR:** every day the project searches Google News for a list of 258 companies, and a **local Ollama model** (`qwen3:4b`) decides whether each headline is really about the company and whether the news is positive, neutral or negative. The results go to a dark-theme dashboard (90-day view per company) and a daily Discord digest. One command runs it all: `docker compose up -d`.
 
 The owner's day-to-day steps are in [GUIDE.md](GUIDE.md). The design notes and the decision log (D-numbers) are in [PLAN.md](PLAN.md).
 
@@ -43,7 +43,7 @@ The owner's day-to-day steps are in [GUIDE.md](GUIDE.md). The design notes and t
 
 **TL;DR:** collect → classify with a local AI → store → show → alert daily.
 
-For every company in `ourcrowd_companies.txt` (258 companies), the system:
+For every company in the company list (258 companies), the system:
 
 1. **Collects** its news of the last 90 days from Google News.
 2. **Classifies** each headline with a local Ollama model: is it about this company, and if so, is it positive, neutral or negative?
@@ -118,7 +118,7 @@ More detail on the Docker setup: [Quick start with Docker](#quick-start-with-doc
 | `research/` | The model test and the parallel-speed test (data, scripts, results) |
 | `queries/progress.sql` | Ready-made read-only SQL queries |
 | `docs/` | Long reference: [LLM research](docs/llm-research.md), [design challenges](docs/design-challenges.md), [run results](docs/run-results.md), [operations](docs/operations.md) |
-| `ourcrowd_companies.txt`, `filtered_ourcrowd_companies.txt`, `company_hints.json`, `section_keywords.json` | The company list, its 12 sections, search hints for 108 hard names, and the section words |
+| The two company list files (`*_companies.txt`), `company_hints.json`, `section_keywords.json` | The company list, its 12 sections, search hints for 108 hard names, and the section words |
 
 ## Database structure
 
@@ -179,7 +179,7 @@ erDiagram
 
 | Table | Kind | What it is for |
 |---|---|---|
-| `Company` | Data | The 258 portfolio companies: name, section and the ready-made Google search. Loaded from the company list files |
+| `Company` | Data | The 258 tracked companies: name, section and the ready-made Google search. Loaded from the company list files |
 | `BufferQueue` | Data | **The queue** between the collector and the AI: every new headline waits here until it is classified. Capped at 10,000 rows, so the collector pauses while the AI catches up |
 | `Mention` | Data | **What the dashboard shows:** every headline the AI said is really about the company, with its sentiment. `alerted_at` marks what already went to Discord |
 | `JobRun` | Tracking | One row per 90-day backfill: its status, a heartbeat (to spot a crash) and the counters (classified / relevant / deleted / failed) |
@@ -340,7 +340,7 @@ How to check it ran, and what each Discord message means: [GUIDE.md → The dail
 - Duplicates are blocked per company by Google's article ID, with publisher + title as a backup.
 
 **Limitations:**
-- The feed is undocumented and could change. Its terms are for personal, non-commercial readers and `robots.txt` disallows it; we accept this knowingly for a non-commercial take-home.
+- The feed is undocumented and could change. Its terms are for personal, non-commercial readers and `robots.txt` disallows it; we accept this knowingly for a non-commercial personal project.
 - Completeness is limited to what Google returns; a very big company can still hit 100 articles in one day.
 - **No article text:** only the headline and publisher. Links are `news.google.com` redirects (they open the real article); decoding them would cost 2 extra requests per article.
 - Former company names are not searched.
@@ -464,10 +464,10 @@ The AI is the bottleneck (searching took ~16 min), and the queue cap worked: the
 
 | Part | Choice | Why |
 |---|---|---|
-| Runtime | Node.js 24 | Required by the brief |
+| Runtime | Node.js 24 | Built-in SQLite (`node:sqlite`) and `fetch`, so fewer packages |
 | Database | SQLite via built-in `node:sqlite` | Relations, unique rules against duplicates, transactions; one file, no server |
 | News source | Google News RSS search | The only free, structured access to Google's news results |
-| LLM | Ollama, `qwen3:4b` | Local model required; chosen by our own test |
+| LLM | Ollama, `qwen3:4b` | Runs locally: free, private, no rate limits; chosen by our own test |
 | Orchestration | Own small supervisor; the database is the queue | No extra server or tool to install |
 | API | Express | Fast to build |
 | Frontend | React + Vite, TanStack Query, Recharts | List → detail view, charts, fast dev server |
@@ -482,7 +482,7 @@ The AI is the bottleneck (searching took ~16 min), and the queue cap worked: the
 
 - **I don't want to run anything.** Read the [`data/`](data/) JSON files, and [docs/run-results.md](docs/run-results.md).
 - **Where are the settings?** `src/config.js` (all defaults); `.env` to override (see `.env.example`).
-- **Why wasn't a company found?** Check its search hint in `company_hints.json` and its section in `filtered_ourcrowd_companies.txt`; about half the companies simply had no coverage in 90 days.
+- **Why wasn't a company found?** Check its search hint in `company_hints.json` and its section in the sorted company list file; about half the companies simply had no coverage in 90 days.
 - **How do I re-collect a failed group?** `docker compose exec app npm start -- --groups 2,5` (see [operations](docs/operations.md#the-90-day-collection-npm-start)).
 - **Day-to-day steps for the owner:** [GUIDE.md](GUIDE.md).
 - **Why was X decided?** [PLAN.md](PLAN.md) (decision log, D-numbers).
